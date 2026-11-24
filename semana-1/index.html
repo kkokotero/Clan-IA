@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ritchie AI · Clan IA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..600,0,0" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+
+
+<div class="app" id="app">
+
+  <!-- ========== BARRA LATERAL ========== -->
+  <aside class="sidebar" id="sidebar" aria-label="Barra lateral">
+    <div class="brand-row">
+      <button class="logo-tile brand tip-r" id="menuToggle" type="button"
+              aria-label="Desplegar menú lateral" aria-expanded="false" aria-controls="sidebar" data-tip="Menú lateral">
+        <span class="logo" aria-hidden="true">cruelty_free</span>
+      </button>
+      <div class="brand-text">
+        <span class="brand-name">Clan IA</span>
+        <span class="brand-sub">Asistente educativo</span>
+      </div>
+    </div>
+
+    <button class="new-chat" id="newChat"><span class="ic">add</span><span class="label">Nueva conversación</span></button>
+
+    <div class="section-label">Historial</div>
+    <nav class="history" id="history" aria-label="Historial de conversaciones"></nav>
+
+    <div class="sidebar-footer">
+      <button class="nav-item" id="helpBtn"><span class="ic">help</span><span class="label">Ayuda</span></button>
+      <button class="btn btn-tonal block" id="coachBtnSide"><span class="ic">groups</span><span class="label">Hablar con un coach</span></button>
+      <div class="profile">
+        <div class="avatar-user" aria-hidden="true">ED</div>
+        <div class="profile-text">
+          <span class="profile-name">Estudiante Demo</span>
+          <span class="profile-sub">Cohorte de ejemplo</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ========== ÁREA PRINCIPAL ========== -->
+  <main class="main">
+
+    <section class="chat" id="chat" aria-live="polite">
+      <!-- Estado vacío -->
+      <div class="welcome" id="welcome">
+        <div class="logo-tile hero" aria-hidden="true"><span class="logo">cruelty_free</span></div>
+        <span class="badge badge-neutral kicker">Clan IA · Asistente educativo</span>
+        <h1>¡Hola! Soy Ritchie AI, tu asistente virtual. ¿En qué puedo ayudarte hoy?</h1>
+        <p class="welcome-sub">Pregúntame sobre tus clases, sesiones, actividades, fechas de entrega y proyectos.</p>
+        <div class="suggestions" id="suggestions">
+          <button class="chip" data-q="¿Cuándo es la próxima sesión de IA?"><span class="ico"><span class="ic lg">calendar_month</span></span>¿Cuándo es la próxima sesión de IA?</button>
+          <button class="chip" data-q="¿Cuándo se entrega el proyecto?"><span class="ico"><span class="ic lg">flag</span></span>¿Cuándo se entrega el proyecto?</button>
+          <button class="chip" data-q="¿Qué actividades tenemos pendientes?"><span class="ico"><span class="ic lg">check_circle</span></span>¿Qué actividades tenemos pendientes?</button>
+          <button class="chip" data-q="¿Dónde encuentro los materiales de estudio?"><span class="ico"><span class="ic lg">menu_book</span></span>¿Dónde encuentro los materiales de estudio?</button>
+        </div>
+      </div>
+      <div class="messages" id="messages"></div>
+    </section>
+
+    <footer class="composer-wrap">
+      <form class="composer" id="form" autocomplete="off">
+        <textarea id="input" rows="1" placeholder="Escribe tu pregunta aquí..." aria-label="Escribe tu pregunta"></textarea>
+        <button type="submit" class="send tip-tr" id="send" aria-label="Enviar pregunta" data-tip="Enviar" disabled><span class="ic lg">send</span></button>
+      </form>
+      <p class="disclaimer" role="note">
+        <span class="ic sm">info</span>
+        <span>Clan IA es un asistente de inteligencia artificial. Puede cometer errores o proporcionar información incorrecta. Verifica siempre las fuentes.</span>
+      </p>
+    </footer>
+  </main>
+</div>
+
+<!-- ========== MODAL: COACH ========== -->
+<div class="modal" id="coachModal" role="dialog" aria-modal="true" aria-labelledby="coachTitle" hidden>
+  <div class="modal-card">
+    <button class="icon-btn modal-close" data-close aria-label="Cerrar"><span class="ic">close</span></button>
+    <div class="modal-head">
+      <div class="modal-ico"><span class="ic lg">groups</span></div>
+      <h2 id="coachTitle">Habla con un coach</h2>
+    </div>
+    <p>Una persona real puede ayudarte con lo que Ritchie AI no puede resolver.</p>
+    <ul class="contact-list">
+      <li><span class="ic">mail</span><div>coach@ejemplo.com<small>Correo</small></div></li>
+      <li><span class="ic">phone</span><div>+57 300 000 0000<small>WhatsApp</small></div></li>
+      <li><span class="ic">schedule</span><div>Lunes a viernes, 8:00 a. m. – 6:00 p. m.<small>Horario de atención</small></div></li>
+      <li><span class="ic">chat</span><div>#ayuda-coaches<small>Canal de la cohorte</small></div></li>
+    </ul>
+    <div class="note"><span class="ic sm">info</span><span>Datos de contacto de demostración (ficticios). No son información oficial.</span></div>
+    <div class="modal-actions"><button class="btn btn-filled" data-close>Entendido</button></div>
+  </div>
+</div>
+
+<!-- ========== MODAL: DOCUMENTO DE DEMOSTRACIÓN ========== -->
+<div class="modal" id="docModal" role="dialog" aria-modal="true" aria-labelledby="docTitle" hidden>
+  <div class="modal-card">
+    <button class="icon-btn modal-close" data-close aria-label="Cerrar"><span class="ic">close</span></button>
+    <div class="modal-head">
+      <div class="modal-ico"><span class="ic lg">description</span></div>
+      <h2 id="docTitle">Documento de demostración</h2>
+    </div>
+    <p>Aquí se abriría el archivo <b id="docName">calendario-cohorte-demo.pdf</b>.</p>
+    <div class="note"><span class="ic sm">info</span><span>Este enlace es solo un ejemplo: no existe un documento real conectado. Los datos mostrados por la demo son ficticios y no oficiales.</span></div>
+    <div class="modal-actions"><button class="btn btn-filled" data-close>Cerrar</button></div>
+  </div>
+</div>
+
+<!-- ========== MODAL: AYUDA ========== -->
+<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+  <div class="modal-card">
+    <button class="icon-btn modal-close" data-close aria-label="Cerrar"><span class="ic">close</span></button>
+    <div class="modal-head">
+      <div class="modal-ico"><span class="ic lg">help</span></div>
+      <h2 id="helpTitle">Ayuda</h2>
+    </div>
+    <p>Así puedes sacarle el mejor provecho a Ritchie AI.</p>
+    <ul class="help-list">
+      <li><span class="ic">chat</span><span><b>Pregunta con claridad.</b> Sesiones, actividades, fechas de entrega, proyectos y materiales.</span></li>
+      <li><span class="ic">description</span><span><b>Revisa la fuente.</b> Cada respuesta indica el documento del que proviene.</span></li>
+      <li><span class="ic">shield</span><span><b>Temas sensibles.</b> Salud, calificaciones, situaciones personales o decisiones sobre otras personas se atienden con un coach.</span></li>
+    </ul>
+    <div class="note"><span class="ic sm">info</span><span>Esta es una demostración: las respuestas usan datos ficticios.</span></div>
+    <div class="modal-actions">
+      <button class="btn btn-outlined" id="helpToCoach"><span class="ic">groups</span>Hablar con un coach</button>
+      <button class="btn btn-filled" data-close>Cerrar</button>
+    </div>
+  </div>
+</div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
