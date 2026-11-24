@@ -3,11 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ritchie AI · Clan IA</title>
+  <title>Ritchie AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..600,0,0" />
+  <!-- OpenUI: renderer oficial vía CDN (sin npm, sin build, sin servidor) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@openuidev/browser-bundle@0.2/dist/openui-styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@openuidev/browser-bundle@0.2/dist/openui-bundle.min.js" defer></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -15,6 +18,22 @@
 
 
 <div class="app" id="app">
+
+  <!-- ========== BARRA SUPERIOR (móvil) ========== -->
+  <header class="mobile-topbar" id="mobileTopbar">
+    <button class="logo-tile brand" id="mobileMenuBtn" type="button"
+            aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
+      <span class="ic">menu</span>
+    </button>
+    <div class="brand-text">
+      <span class="brand-name">Ritchie AI</span>
+      <span class="brand-sub">Asistente educativo</span>
+    </div>
+    <button class="mobile-top-icon" id="mobileNewChat" type="button" aria-label="Nueva conversación"><span class="ic">add</span></button>
+    <button class="mobile-top-icon" id="mobileProfileBtn" type="button" aria-label="Abrir configuración de IA">
+      <span class="mobile-avatar" id="mobileAvatar">ED</span>
+    </button>
+  </header>
 
   <!-- ========== BARRA LATERAL ========== -->
   <aside class="sidebar" id="sidebar" aria-label="Barra lateral">
@@ -24,7 +43,7 @@
         <span class="logo" aria-hidden="true">cruelty_free</span>
       </button>
       <div class="brand-text">
-        <span class="brand-name">Clan IA</span>
+        <span class="brand-name">Ritchie AI</span>
         <span class="brand-sub">Asistente educativo</span>
       </div>
     </div>
@@ -35,15 +54,23 @@
     <nav class="history" id="history" aria-label="Historial de conversaciones"></nav>
 
     <div class="sidebar-footer">
+      <div class="ai-status" id="aiStatus" data-state="checking" role="status"
+           title="Comprobando la conexión con la IA">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="status-text" id="aiStatusText">Comprobando IA…</span>
+      </div>
       <button class="nav-item" id="helpBtn"><span class="ic">help</span><span class="label">Ayuda</span></button>
       <button class="btn btn-tonal block" id="coachBtnSide"><span class="ic">groups</span><span class="label">Hablar con un coach</span></button>
-      <div class="profile">
+      <button class="profile" id="profileBtn" type="button"
+              title="Abrir configuración de IA (se guarda en este navegador)"
+              aria-label="Abrir configuración de IA del perfil">
         <div class="avatar-user" aria-hidden="true">ED</div>
         <div class="profile-text">
           <span class="profile-name">Estudiante Demo</span>
-          <span class="profile-sub">Cohorte de ejemplo</span>
+          <span class="profile-sub" id="profileStatus">Configurar IA</span>
         </div>
-      </div>
+        <span class="ic sm profile-cog" aria-hidden="true">settings</span>
+      </button>
     </div>
   </aside>
   <div class="scrim" id="scrim"></div>
@@ -55,7 +82,7 @@
       <!-- Estado vacío -->
       <div class="welcome" id="welcome">
         <div class="logo-tile hero" aria-hidden="true"><span class="logo">cruelty_free</span></div>
-        <span class="badge badge-neutral kicker">Clan IA · Asistente educativo</span>
+        <span class="badge badge-neutral kicker">Ritchie AI · Asistente educativo</span>
         <h1>¡Hola! Soy Ritchie AI, tu asistente virtual. ¿En qué puedo ayudarte hoy?</h1>
         <p class="welcome-sub">Pregúntame sobre tus clases, sesiones, actividades, fechas de entrega y proyectos.</p>
         <div class="suggestions" id="suggestions">
@@ -75,7 +102,7 @@
       </form>
       <p class="disclaimer" role="note">
         <span class="ic sm">info</span>
-        <span>Clan IA es un asistente de inteligencia artificial. Puede cometer errores o proporcionar información incorrecta. Verifica siempre las fuentes.</span>
+        <span>Ritchie AI es un asistente de inteligencia artificial. Puede cometer errores o proporcionar información incorrecta. Verifica siempre las fuentes.</span>
       </p>
     </footer>
   </main>
@@ -115,6 +142,47 @@
   </div>
 </div>
 
+<!-- ========== MODAL: CONFIGURAR IA ========== -->
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+  <div class="modal-card">
+    <button class="icon-btn modal-close" data-close aria-label="Cerrar"><span class="ic">close</span></button>
+    <div class="modal-head">
+      <div class="modal-ico"><span class="ic lg">key</span></div>
+      <h2 id="settingsTitle">Configurar IA</h2>
+    </div>
+    <p>Conecta el asistente con un modelo <b>gratuito</b>. La clave se guarda <b>solo en este navegador</b>: no hay servidor ni se envía a ningún sitio propio.</p>
+    <form class="settings-form" id="settingsForm" autocomplete="off">
+      <label class="field">
+        <span>Proveedor</span>
+        <select id="aiProvider">
+          <option value="gemini">Google Gemini (plan gratis)</option>
+          <option value="openrouter">OpenRouter (modelos :free)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>API key gratuita</span>
+        <input id="aiKey" type="password" placeholder="Pega aquí tu API key" spellcheck="false" />
+      </label>
+      <label class="field">
+        <span>Modelo</span>
+        <select id="aiModel"></select>
+      </label>
+      <label class="field" id="customModelField" hidden>
+        <span>Modelo personalizado (ID exacto)</span>
+        <input id="aiModelCustom" type="text" spellcheck="false" placeholder="p. ej. gemini-3.5-flash" />
+      </label>
+      <p class="field-help" id="aiHelp"></p>
+      <div class="note"><span class="ic sm">info</span><span>Conseguir una key: <b>aistudio.google.com/apikey</b> (Gemini) u <b>openrouter.ai/keys</b>. Usa una key de prueba restringida: al estar en el navegador, cualquier persona con acceso a él podría verla.</span></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-tonal" id="aiClear">Quitar key</button>
+        <button type="button" class="btn btn-outlined" id="aiTest">Probar conexión</button>
+        <button type="button" class="btn btn-outlined" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-filled">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ========== MODAL: AYUDA ========== -->
 <div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
   <div class="modal-card">
@@ -125,11 +193,12 @@
     </div>
     <p>Así puedes sacarle el mejor provecho a Ritchie AI.</p>
     <ul class="help-list">
+      <li><span class="ic">key</span><span><b>Conecta tu IA.</b> Haz clic en tu <b>perfil</b> (abajo en la barra lateral) y pega una API key gratuita de Gemini u OpenRouter. Sin key, la app responde en modo demostración.</span></li>
       <li><span class="ic">chat</span><span><b>Pregunta con claridad.</b> Sesiones, actividades, fechas de entrega, proyectos y materiales.</span></li>
       <li><span class="ic">description</span><span><b>Revisa la fuente.</b> Cada respuesta indica el documento del que proviene.</span></li>
       <li><span class="ic">shield</span><span><b>Temas sensibles.</b> Salud, calificaciones, situaciones personales o decisiones sobre otras personas se atienden con un coach.</span></li>
     </ul>
-    <div class="note"><span class="ic sm">info</span><span>Esta es una demostración: las respuestas usan datos ficticios.</span></div>
+    <div class="note"><span class="ic sm">info</span><span>Los documentos de la cohorte son ficticios, incluso cuando responde una IA real.</span></div>
     <div class="modal-actions">
       <button class="btn btn-outlined" id="helpToCoach"><span class="ic">groups</span>Hablar con un coach</button>
       <button class="btn btn-filled" data-close>Cerrar</button>
