@@ -77,10 +77,12 @@ con el siguiente modelo gratuito de la lista antes de mostrar el error.
   botón, ese botón ocupa todo el ancho disponible.
 - Los **acordeones** (`SectionBlock`/`Accordion`) muestran una flecha Material a la derecha del
   `summary`, que cambia al abrir, y las listas tienen una acción circular con borde para avanzar.
-- La IA puede incluir **enlaces** como `Link("Etiqueta", "https://...")` o como
-  `[Etiqueta](https://...)` dentro de un texto; se pintan con el color de la app y **se abren en una
-  pestaña nueva** (`target="_blank"` y `rel="noopener noreferrer"`). Solo se aceptan URLs `http`/`https`
-  y el prompt pide no inventarlas.
+- La IA puede incluir **enlaces** como `Link("Etiqueta", "https://...")`, como
+  `[Etiqueta](https://...)` en cualquier campo de texto (títulos, tablas, listas, pistas…) o como
+  un `Button` con URL. Se pintan con el color de la app y **se abren en una pestaña nueva**
+  (`target="_blank"` y `rel="noopener noreferrer"`). Se aceptan `http`, `https` y `www.` (se
+  convierte a `https`); el prompt pide no inventar URLs. Si el modelo devuelve un componente suelto
+  como raíz, por ejemplo solo un `Link`, se envuelve en una tarjeta en vez de perder la respuesta.
 - La tipografía sigue la escala **Material 3 Expressive** y la del resto de la página: títulos
   22/28, cuerpo 16/24, texto secundario 14/20 y etiquetas 15/20; los textos grandes de las
   respuestas ya no se reducen.

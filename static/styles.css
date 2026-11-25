@@ -1319,6 +1319,13 @@ body.ai-off {
     border-color 0.18s,
     color 0.18s;
 }
+a.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
 .ui-btn-primary {
   background: var(--primary);
   color: var(--on-primary);

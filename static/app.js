@@ -1085,25 +1085,35 @@ const asArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
 
 /* Enlaces en el texto de la IA: markdown [etiqueta](https://...) o URLs sueltas.
    El texto ya está escapado, así que solo se aceptan esquemas http/https. */
-const MD_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/gi;
-const BARE_URL = /(^|[\s(])(https?:\/\/[^\s<>()]+)/gi;
+const MD_LINK = /\[([^\]\n]+)\]\(((?:https?:\/\/|www\.)[^\s)]+)\)/gi;
+const BARE_URL = /(^|[\s(])((?:https?:\/\/|www\.)[^\s<>()]+)/gi;
 const formatInline = (s) =>
   s
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
     .replace(/\*([^*]+)\*/g, "<i>$1</i>");
+const normalizeHref = (raw) => {
+  const s = String(raw).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^www\./i.test(s)) return `https://${s}`;
+  return null;
+};
 const anchorHTML = (label, href) =>
   `<a class="ui-link" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 function richText(v) {
   const links = [];
-  let out = escapeHTML(valText(v)).replace(MD_LINK, (_, label, href) => {
+  let out = escapeHTML(valText(v)).replace(MD_LINK, (match, label, href) => {
+    const safe = normalizeHref(href);
+    if (!safe) return match;
     const token = `\u0000${links.length}\u0000`;
-    links.push(anchorHTML(formatInline(label), href));
+    links.push(anchorHTML(formatInline(label), safe));
     return token;
   });
   out = formatInline(out).replace(/\r?\n/g, "<br>");
-  out = out.replace(BARE_URL, (_, before, url) => {
+  out = out.replace(BARE_URL, (match, before, url) => {
     const clean = url.replace(/[.,;:!?]+$/, "");
-    return `${before}${anchorHTML(clean, clean)}${url.slice(clean.length)}`;
+    const safe = normalizeHref(clean);
+    if (!safe) return match;
+    return `${before}${anchorHTML(safe, safe)}${url.slice(clean.length)}`;
   });
   return out.replace(/\u0000(\d+)\u0000/g, (_, i) => links[Number(i)] || "");
 }
@@ -1127,6 +1137,12 @@ function renderButtons(node, inForm = false) {
       const variant = ["primary", "secondary", "tertiary"].includes(b.args?.[2])
         ? b.args?.[2]
         : "secondary";
+      /* Un botón con URL en lugar de @ToAssistant se dibuja como enlace externo */
+      const href = action ? null : normalizeHref(valText(b.args?.[1]));
+      if (href)
+        return `<a class="ui-btn ui-btn-${variant}" href="${escapeHTML(
+          href,
+        )}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)}</a>`;
       const submit = inForm && i === 0 && action;
       return `<button type="${submit ? "submit" : "button"}" class="ui-btn ui-btn-${variant}"${action ? ` data-toassistant="${escapeHTML(action)}"` : ""}>${escapeHTML(label)}</button>`;
     })
@@ -1143,16 +1159,16 @@ function renderNode(node) {
     case "Card":
       return `<div class="ui-card">${kids()}</div>`;
     case "CardHeader":
-      return `<div class="ui-header"><b>${escapeHTML(valText(a[0]))}</b>${a[1] ? `<span>${escapeHTML(valText(a[1]))}</span>` : ""}</div>`;
+      return `<div class="ui-header"><b>${richText(a[0])}</b>${a[1] ? `<span>${richText(a[1])}</span>` : ""}</div>`;
     case "InlineHeader":
-      return `<div class="ui-inline-header"><b>${escapeHTML(valText(a[0]))}</b>${a[1] ? `<span>${escapeHTML(valText(a[1]))}</span>` : ""}</div>`;
+      return `<div class="ui-inline-header"><b>${richText(a[0])}</b>${a[1] ? `<span>${richText(a[1])}</span>` : ""}</div>`;
     case "TextContent":
     case "MarkDownRenderer":
       return `<p class="ui-text ui-text-${["small", "large", "small-heavy", "large-heavy"].includes(a[1]) ? a[1] : "default"}">${richText(a[0])}</p>`;
     case "Callout":
     case "TextCallout": {
       const variant = a[0] === "danger" ? "error" : a[0] || "neutral";
-      return `<div class="ui-callout ui-callout-${escapeHTML(variant)}"><b>${escapeHTML(valText(a[1]))}</b>${a[2] ? `<p>${richText(a[2])}</p>` : ""}</div>`;
+      return `<div class="ui-callout ui-callout-${escapeHTML(variant)}"><b>${richText(a[1])}</b>${a[2] ? `<p>${richText(a[2])}</p>` : ""}</div>`;
     }
     case "Separator":
       return `<hr class="ui-sep">`;
@@ -1160,16 +1176,16 @@ function renderNode(node) {
       return `<ol class="ui-steps">${asArray(a[0])
         .map(
           (s, i) =>
-            `<li><span class="ui-step-num">${i + 1}</span><div><b>${escapeHTML(valText(s?.args?.[0]))}</b><p>${richText(s?.args?.[1])}</p></div></li>`,
+            `<li><span class="ui-step-num">${i + 1}</span><div><b>${richText(s?.args?.[0])}</b><p>${richText(s?.args?.[1])}</p></div></li>`,
         )
         .join("")}</ol>`;
     case "Table": {
       const cols = asArray(a[0]).filter((c) => c?.type === "Col");
       const rows = Math.max(0, ...cols.map((c) => asArray(c.args?.[1]).length));
-      return `<div class="ui-table-wrap"><table class="ui-table"><thead><tr>${cols.map((c) => `<th>${escapeHTML(valText(c.args?.[0]))}</th>`).join("")}</tr></thead><tbody>${Array.from(
+      return `<div class="ui-table-wrap"><table class="ui-table"><thead><tr>${cols.map((c) => `<th>${richText(c.args?.[0])}</th>`).join("")}</tr></thead><tbody>${Array.from(
         { length: rows },
         (_, r) =>
-          `<tr>${cols.map((c) => `<td>${escapeHTML(valText(asArray(c.args?.[1])[r]))}</td>`).join("")}</tr>`,
+          `<tr>${cols.map((c) => `<td>${richText(asArray(c.args?.[1])[r])}</td>`).join("")}</tr>`,
       ).join("")}</tbody></table></div>`;
     }
     case "EntityList": {
@@ -1179,7 +1195,7 @@ function renderNode(node) {
       return `<div class="ui-entity">${rows
         .map(
           (row) =>
-            `<div><span>${escapeHTML(valText(row.left))}</span><b class="${row.rightVariant === "number" ? "ui-num" : ""}">${escapeHTML(valText(row.right))}</b></div>`,
+            `<div><span>${richText(row.left)}</span><b class="${row.rightVariant === "number" ? "ui-num" : ""}">${richText(row.right)}</b></div>`,
         )
         .join("")}</div>`;
     }
@@ -1188,7 +1204,7 @@ function renderNode(node) {
         .map((it, i) => {
           const action = actionText(it?.args?.[4]);
           const label = valText(it?.args?.[3]);
-          return `<div class="ui-list-item"><span class="ui-list-num">${a[1] === "image" ? icon("image", "sm") : i + 1}</span><div><b>${escapeHTML(valText(it?.args?.[0]))}</b>${it?.args?.[1] ? `<p>${escapeHTML(valText(it.args[1]))}</p>` : ""}</div>${
+          return `<div class="ui-list-item"><span class="ui-list-num">${a[1] === "image" ? icon("image", "sm") : i + 1}</span><div><b>${richText(it?.args?.[0])}</b>${it?.args?.[1] ? `<p>${richText(it.args[1])}</p>` : ""}</div>${
             action
               ? `<button type="button" class="ui-list-action" data-toassistant="${escapeHTML(action)}" aria-label="${escapeHTML(label || action)}">${icon("chevron_right", "sm")}</button>`
               : ""
@@ -1199,12 +1215,12 @@ function renderNode(node) {
       return `<div class="ui-tags">${asArray(a[0])
         .map((t) =>
           t?.type === "Tag"
-            ? `<span class="ui-tag">${escapeHTML(valText(t.args?.[0]))}</span>`
-            : `<span class="ui-tag">${escapeHTML(valText(t))}</span>`,
+            ? `<span class="ui-tag">${richText(t.args?.[0])}</span>`
+            : `<span class="ui-tag">${richText(t)}</span>`,
         )
         .join("")}</div>`;
     case "Tag":
-      return `<span class="ui-tag">${escapeHTML(valText(a[0]))}</span>`;
+      return `<span class="ui-tag">${richText(a[0])}</span>`;
     case "Form":
       return `<form class="ui-form" data-ui-form="${escapeHTML(valText(a[0]))}">${asArray(a[2]).map(renderNode).join("")}${renderButtons(a[1], true)}</form>`;
     case "FormControl": {
@@ -1213,7 +1229,7 @@ function renderNode(node) {
         .replace("<input ", `<input id="${id}" `)
         .replace("<textarea ", `<textarea id="${id}" `)
         .replace("<select ", `<select id="${id}" `);
-      return `<div class="ui-field"><label class="ui-label" for="${id}">${escapeHTML(valText(a[0]))}</label>${input}${a[2] ? `<span class="ui-hint">${escapeHTML(valText(a[2]))}</span>` : ""}</div>`;
+      return `<div class="ui-field"><label class="ui-label" for="${id}">${richText(a[0])}</label>${input}${a[2] ? `<span class="ui-hint">${richText(a[2])}</span>` : ""}</div>`;
     }
     case "Input": {
       const rules = a[3] && typeof a[3] === "object" ? a[3] : {};
@@ -1273,9 +1289,9 @@ function renderNode(node) {
       return renderButtons(node);
     case "Link":
     case "TextLink": {
-      const label = escapeHTML(valText(a[0]));
-      const href = valText(a[1]);
-      return /^https?:\/\//i.test(href) ? anchorHTML(label, escapeHTML(href)) : label;
+      const label = richText(a[0]);
+      const href = normalizeHref(valText(a[1]));
+      return href ? anchorHTML(label, escapeHTML(href)) : label;
     }
     case "FollowUpBlock":
       return `<div class="ui-follow"><span>${"Preguntas relacionadas"}</span>${asArray(
@@ -1322,8 +1338,11 @@ function renderProgramInto(mount, program) {
   try {
     const env = parseProgram(program);
     const root = resolveValue(env.root, env);
-    if (!root || root.type !== "Card") throw new Error("sin root");
-    mount.innerHTML = renderNode(root);
+    if (!root) throw new Error("sin root");
+    /* El modelo a veces devuelve un componente suelto como raíz (por ejemplo
+       solo un Link): lo envolvemos en una Card en vez de perder la respuesta. */
+    const card = root.type === "Card" ? root : { type: "Card", args: [root] };
+    mount.innerHTML = renderNode(card);
     return true;
   } catch (err) {
     mount.innerHTML = `<p class="ui-fallback">${escapeHTML(programToText(program) || "No se pudo mostrar la interfaz.")}</p>`;
