@@ -713,21 +713,22 @@ function refreshAIStatus() {
   const text = $("#aiStatusText");
   const profileStatus = $("#profileStatus");
   const mobileAvatar = $("#mobileAvatar");
+  const notice = $("#aiOffNotice");
   const label = PROVIDERS[settings.provider].label;
   if (settings.apiKey) {
+    if (status) status.hidden = false;
     if (status && text) {
       status.dataset.state = "online";
       text.textContent = `IA activa · ${label}`;
       status.title = `Modelo ${settings.model}. La key se guarda solo en este navegador.`;
     }
+    if (notice) notice.hidden = true;
     if (profileStatus) profileStatus.textContent = `IA activa · ${label}`;
     if (mobileAvatar) { mobileAvatar.dataset.online = "true"; mobileAvatar.title = `IA activa · ${label}`; }
   } else {
-    if (status && text) {
-      status.dataset.state = "demo";
-      text.textContent = "Modo demostración (sin IA)";
-      status.title = "Haz clic en tu perfil para agregar una API key gratuita";
-    }
+    /* Sin key: se retira el estado del lateral y el aviso vive en la página */
+    if (status) status.hidden = true;
+    if (notice) notice.hidden = false;
     if (profileStatus) profileStatus.textContent = "Configurar IA (local)";
     if (mobileAvatar) { mobileAvatar.dataset.online = "false"; mobileAvatar.title = "Configurar IA (local)"; }
   }
@@ -936,6 +937,7 @@ historyEl.addEventListener("keydown", (e) => {
 menuToggle.addEventListener("click", () => setMenu(app.dataset.menu !== "open"));
 $("#mobileMenuBtn").addEventListener("click", () => setMenu(app.dataset.menu !== "open"));
 $("#mobileProfileBtn").addEventListener("click", () => { closeMenu(); openSettings(); });
+$("#aiOffConfigBtn").addEventListener("click", () => { closeMenu(); openSettings(); });
 $("#scrim").addEventListener("click", () => setMenu(false));
 menuQuery.addEventListener("change", (e) => setMenu(!e.matches));
 

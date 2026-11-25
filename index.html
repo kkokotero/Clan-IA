@@ -23,16 +23,18 @@
   <header class="mobile-topbar" id="mobileTopbar">
     <button class="logo-tile brand" id="mobileMenuBtn" type="button"
             aria-label="Abrir menú" aria-expanded="false" aria-controls="sidebar">
-      <span class="ic">menu</span>
+      <span class="logo" aria-hidden="true">cruelty_free</span>
     </button>
     <div class="brand-text">
       <span class="brand-name">Ritchie AI</span>
       <span class="brand-sub">Asistente educativo</span>
     </div>
-    <button class="mobile-top-icon" id="mobileNewChat" type="button" aria-label="Nueva conversación"><span class="ic">add</span></button>
-    <button class="mobile-top-icon" id="mobileProfileBtn" type="button" aria-label="Abrir configuración de IA">
-      <span class="mobile-avatar" id="mobileAvatar">ED</span>
-    </button>
+    <div class="topbar-actions">
+      <button class="mobile-top-icon" id="mobileNewChat" type="button" aria-label="Nueva conversación"><span class="ic">add</span></button>
+      <button class="mobile-top-icon" id="mobileProfileBtn" type="button" aria-label="Abrir configuración de IA">
+        <span class="mobile-avatar" id="mobileAvatar">ED</span>
+      </button>
+    </div>
   </header>
 
   <!-- ========== BARRA LATERAL ========== -->
@@ -77,6 +79,12 @@
 
   <!-- ========== ÁREA PRINCIPAL ========== -->
   <main class="main">
+
+    <div class="ai-off-notice" id="aiOffNotice" role="status" hidden>
+      <span class="ic sm">cloud_off</span>
+      <span>Sin conexión con la IA. Las respuestas son de demostración; configura una key en tu perfil para conectar.</span>
+      <button class="btn btn-text" id="aiOffConfigBtn" type="button">Configurar IA</button>
+    </div>
 
     <section class="chat" id="chat" aria-live="polite">
       <!-- Estado vacío -->
