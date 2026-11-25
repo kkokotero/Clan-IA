@@ -29,6 +29,9 @@ tablas y avisos en lugar de texto plano. Si el CDN no carga, la app degrada a re
      `openrouter/free`; también Nemotron 3 Ultra, ERNIE 5.5 Flash, Nemotron 3.5
      Super VL/Lightning, Gemma 4 26B y Ling 3.2 Flash (todos `:free`).
 4. Guarda. El indicador debe pasar a **"IA activa · Google Gemini"** (u OpenRouter).
+5. Cada respuesta de la IA tiene **Copiar** y **Rehacer**; cada mensaje tuyo tiene **Copiar**
+   y **Editar**. Al editar se crea una rama nueva: usa el selector **Rama 1/2** para
+   cambiar entre versiones dentro del mismo chat.
 
 La clave se guarda en `localStorage` de tu navegador (en tu máquina, sin servidor), bajo la
 clave `ritchie-ia-config-ia`. El perfil muestra el estado (`IA activa · …` o `Configurar IA

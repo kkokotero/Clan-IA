@@ -290,6 +290,7 @@ const SENSITIVE = [
 let conversations = [];
 let currentId = null;
 let busy = false;
+let editingId = null;
 
 /* ---------- Utilidades ---------- */
 const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") + " ";
@@ -297,6 +298,37 @@ const escapeHTML = (s) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const current = () => conversations.find((c) => c.id === currentId);
+
+/* ---------- Mensajes en árbol: cada mensaje puede tener ramas ---------- */
+const nodesOf = (conv) => (conv ? conv.nodes || (conv.nodes = []) : []);
+const nodeById = (id, conv = current()) => nodesOf(conv).find((n) => n.id === id);
+const childNodes = (id, conv = current()) => nodesOf(conv).filter((n) => n.parentId === id);
+function branchSiblings(node, conv = current()) {
+  if (!node) return [];
+  return nodesOf(conv).filter((n) => n.parentId === node.parentId && n.role === node.role);
+}
+function lastLeaf(node, conv = current()) {
+  let leaf = node;
+  let kids = childNodes(leaf.id, conv);
+  while (kids.length) { leaf = kids[kids.length - 1]; kids = childNodes(leaf.id, conv); }
+  return leaf;
+}
+function activePath(conv = current()) {
+  if (!conv) return [];
+  const byId = new Map(nodesOf(conv).map((n) => [n.id, n]));
+  const path = [];
+  let node = byId.get(conv.activeLeafId);
+  while (node) { path.unshift(node); node = node.parentId ? byId.get(node.parentId) : null; }
+  return path;
+}
+function addNode(node, parentId = undefined) {
+  const conv = current();
+  const parent = parentId === undefined ? conv?.activeLeafId ?? null : parentId;
+  const n = { id: uid(), parentId: parent, ...node };
+  nodesOf(conv).push(n);
+  conv.activeLeafId = n.id;
+  return n;
+}
 
 /* ---------- Estado vacío: saludo y acciones rápidas variables ---------- */
 const WELCOMES = [
@@ -356,6 +388,20 @@ function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(convers
 function load() {
   try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) conversations = JSON.parse(raw); }
   catch (e) { conversations = []; }
+  /* Los chats guardados antes de las ramas se convierten a una sola rama lineal */
+  conversations.forEach((c) => {
+    if (!Array.isArray(c.nodes) && Array.isArray(c.messages)) {
+      let parentId = null;
+      c.nodes = c.messages.map((m) => {
+        const n = { ...m, id: uid(), parentId };
+        parentId = n.id;
+        return n;
+      });
+      c.activeLeafId = parentId;
+      delete c.messages;
+    }
+    if (!Array.isArray(c.nodes)) c.nodes = [];
+  });
 }
 
 /* ---------- Motor de respuesta simulado ---------- */
@@ -646,14 +692,18 @@ function unmountOpenUI() {
 
 /* ---------- Plantillas ---------- */
 function cardHTML(msg) {
+  const preamble = msg.preamble ? `<div class="preamble">${msg.preamble}</div>` : "";
+  if (msg.pending) {
+    return `${preamble}<div class="card card-pending"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Ritchie AI está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span></div></div>`;
+  }
   if (msg.type === "openui") {
-    return `<div class="card card-openui"><div class="openui-mount"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Preparando interfaz…</span></div></div></div>`;
+    return `${preamble}<div class="card card-openui"><div class="openui-mount"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Preparando interfaz<span class="thinking-ring" aria-hidden="true"></span></span></div></div></div>`;
   }
   if (msg.type === "answer") {
-    return `<div class="card">${msg.short ? `<p class="short">${msg.short}</p>` : ""}${msg.html || ""}</div>`;
+    return `${preamble}<div class="card">${msg.short ? `<p class="short">${msg.short}</p>` : ""}${msg.html || ""}</div>`;
   }
   if (msg.type === "safety") {
-    return `<div class="card is-safety">
+    return `${preamble}<div class="card is-safety">
       <div class="status-row">
         <span class="status-ico">${icon("shield", "lg")}</span>
         <div>
@@ -665,7 +715,7 @@ function cardHTML(msg) {
       <div class="actions"><button class="btn btn-filled" data-action="tl">${icon("groups")}Hablar con el TL (Team Leader)</button></div>
     </div>`;
   }
-  return `<div class="card is-error">
+  return `${preamble}<div class="card is-error">
     <div class="status-row">
       <span class="status-ico">${icon("error", "lg")}</span>
       <div>
@@ -680,14 +730,55 @@ function cardHTML(msg) {
   </div>`;
 }
 
+function piiWarningHTML() {
+  return `<div class="pii-warning">${icon("security", "lg")} <div><b>Protección de datos personales</b><p>Hemos detectado datos personales en tu mensaje. Por tu seguridad, fueron ocultados automáticamente. Ritchie AI nunca solicita ni almacena datos personales.</p></div></div>`;
+}
+
+function msgActionsHTML(node) {
+  if (node.role === "user") {
+    return `<div class="msg-actions">
+      <button class="msg-action" type="button" data-action="copy" data-msg-id="${node.id}" title="Copiar" aria-label="Copiar mensaje">${icon("content_copy")}</button>
+      <button class="msg-action" type="button" data-action="edit" data-msg-id="${node.id}" title="Editar" aria-label="Editar mensaje">${icon("edit")}</button>
+    </div>`;
+  }
+  return `<div class="msg-actions">
+    <button class="msg-action" type="button" data-action="copy" data-msg-id="${node.id}" title="Copiar" aria-label="Copiar respuesta">${icon("content_copy")}</button>
+    <button class="msg-action" type="button" data-action="redo" data-msg-id="${node.id}" title="Rehacer" aria-label="Rehacer respuesta">${icon("refresh")}</button>
+  </div>`;
+}
+
+function branchBarHTML(node) {
+  const siblings = branchSiblings(node);
+  if (siblings.length < 2) return "";
+  const index = siblings.findIndex((n) => n.id === node.id);
+  return `<div class="branch-bar" role="group" aria-label="Ramas del mensaje">
+    <button class="branch-btn" type="button" data-action="branch-prev" data-msg-id="${node.id}" aria-label="Rama anterior">${icon("chevron_left", "sm")}</button>
+    <span class="branch-count">Rama ${index + 1}/${siblings.length}</span>
+    <button class="branch-btn" type="button" data-action="branch-next" data-msg-id="${node.id}" aria-label="Rama siguiente">${icon("chevron_right", "sm")}</button>
+  </div>`;
+}
+
+function editFormHTML(text) {
+  return `<form class="edit-form" data-edit-form>
+    <textarea rows="2" aria-label="Editar mensaje">${escapeHTML(text)}</textarea>
+    <div class="edit-actions">
+      <button class="edit-btn" type="button" data-action="cancel-edit">Cancelar</button>
+      <button class="edit-btn is-primary" type="submit">Guardar</button>
+    </div>
+  </form>`;
+}
+
 function appendMessage(msg, animate = true) {
   const wrap = document.createElement("div");
+  wrap.dataset.id = msg.id || "";
   if (msg.role === "user") {
     wrap.className = "msg user";
-    wrap.innerHTML = `<div class="user-bubble">${escapeHTML(msg.text)}</div>`;
+    wrap.innerHTML = msg.id === editingId
+      ? `<div class="msg-body">${editFormHTML(msg.text)}</div>`
+      : `<div class="msg-body"><div class="user-bubble">${escapeHTML(msg.text)}</div>${msgActionsHTML(msg)}${branchBarHTML(msg)}</div>`;
   } else {
     wrap.className = "msg bot";
-    wrap.innerHTML = LOGO_MINI + cardHTML(msg);
+    wrap.innerHTML = LOGO_MINI + `<div class="msg-stack">${cardHTML(msg)}${msgActionsHTML(msg)}${branchBarHTML(msg)}</div>`;
   }
   if (!animate) wrap.style.animation = "none";
   messagesEl.appendChild(wrap);
@@ -698,14 +789,26 @@ function appendMessage(msg, animate = true) {
 
 function showThinking() {
   const wrap = document.createElement("div");
-  wrap.className = "msg bot";
+  wrap.className = "msg bot is-thinking";
   wrap.id = "thinking";
-  wrap.innerHTML = LOGO_MINI + `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Pensando...</span></div>`;
+  wrap.innerHTML = LOGO_MINI + `<div class="thinking">
+    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="thinking-label">Ritchie AI está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span>
+  </div>`;
   messagesEl.appendChild(wrap);
   scrollDown();
 }
 const hideThinking = () => { const t = $("#thinking"); if (t) t.remove(); };
 const scrollDown = () => requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
+
+/* El fragmento que está llegando termina con un círculo que late */
+function renderStream(partial, card) {
+  const lines = cleanResponse(partial).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const marked = lines.map((l, i) => escapeHTML(l) + (i === lines.length - 1 ? STREAM_TAIL : ""));
+  card.innerHTML = `<p class="short">${marked[0] || `Escribiendo${STREAM_TAIL}`}</p><div class="api-answer">${marked.slice(1).map((l) => `<p>${l}</p>`).join("")}</div>`;
+}
 
 /* ---------- Render ---------- */
 function renderHistory() {
@@ -732,10 +835,11 @@ function renderChat() {
   unmountOpenUI();
   messagesEl.innerHTML = "";
   const conv = current();
-  const empty = !conv || conv.messages.length === 0;
+  const path = activePath(conv);
+  const empty = path.length === 0;
   welcome.hidden = !empty;
   main.classList.toggle("is-empty", empty);
-  if (!empty) conv.messages.forEach((m) => appendMessage(m, false));
+  if (!empty) path.forEach((m) => appendMessage(m, false));
   else { chat.scrollTop = 0; renderWelcome(); }
 }
 
@@ -746,7 +850,7 @@ function ask(question, hidden = false) {
   const hideMessage = hidden || /Datos del formulario:\s*\{/.test(question);
   if (!current()) {
     const title = hideMessage ? "Encuesta respondida" : question.slice(0, 40);
-    const conv = { id: uid(), title, messages: [] };
+    const conv = { id: uid(), title, nodes: [], activeLeafId: null };
     conversations.push(conv);
     currentId = conv.id;
   }
@@ -755,46 +859,44 @@ function ask(question, hidden = false) {
   main.classList.remove("is-empty");
   // Redactar datos personales del input del usuario antes de mostrar
   const safeQuestion = redactPII(question);
+  let parentId = conv.activeLeafId ?? null;
   if (!hideMessage) {
-    const userMsg = { role: "user", text: safeQuestion };
-    conv.messages.push(userMsg);
-    appendMessage(userMsg);
+    const userNode = addNode({ role: "user", text: safeQuestion }, parentId);
+    parentId = userNode.id;
+    appendMessage(userNode);
   }
   renderHistory();
-  // Avisar si se detectaron datos personales
-  if (!hideMessage && containsPII(question)) {
-    const piiWarn = { role: "bot", type: "answer", noSource: true,
-      html: `<div class="pii-warning">${icon("security", "lg")} <div><b>Protección de datos personales</b><p>Hemos detectado datos personales en tu mensaje. Por tu seguridad, fueron ocultados automáticamente. Ritchie AI nunca solicita ni almacena datos personales.</p></div></div>` };
-    conv.messages.push(piiWarn);
-    appendMessage(piiWarn);
-  }
-  respond(safeQuestion);
+  const preamble = !hideMessage && containsPII(question) ? piiWarningHTML() : "";
+  respond(safeQuestion, { parentId, preamble });
 }
 
-function finishResponse(result, wrap, question) {
+function finishResponse(result, { node = null, parentId = null, preamble = "", question = "" } = {}) {
   if (typeof result.short === "string") result.short = redactPII(result.short);
   if (typeof result.html === "string") result.html = redactPII(result.html);
-  const botMsg = { role: "bot", ...result, question };
-  if (wrap) {
-    unmountWrap(wrap);
-    wrap.innerHTML = LOGO_MINI + cardHTML(result);
-    if (result.type === "openui") mountOpenUI(wrap, result.response);
-  } else {
-    appendMessage(botMsg);
-  }
-  current().messages.push(botMsg);
+  const botNode = node || addNode({ role: "bot", ...result, preamble, question }, parentId);
+  if (node) Object.assign(botNode, result, { role: "bot", preamble, question });
+  delete botNode.pending;
+  const conv = current();
+  conv.activeLeafId = botNode.id;
   save();
+  renderChat();
   busy = false;
   updateSend();
   input.focus();
 }
 
-async function respond(question) {
+async function respond(question, { parentId = null, preamble = "", node = null } = {}) {
   busy = true;
   updateSend();
-  showThinking();
+  if (node) {
+    /* Al rehacer, el mensaje anterior se reemplaza en el acto por este estado pendiente */
+    current().activeLeafId = node.id;
+    renderChat();
+  } else {
+    showThinking();
+  }
   let result;
-  let wrap = null;
+  let streamingNode = null;
   try {
     const settings = getSettings();
     const q = normalize(question);
@@ -803,18 +905,18 @@ async function respond(question) {
     } else if (settings.apiKey) {
       hideThinking();
       const useOpenUI = !!(window.__OpenUI && window.__OpenUI.Renderer && window.__OpenUI.createRoot);
-      wrap = appendMessage({ role: "bot",
-        type: useOpenUI ? "openui" : "answer", response: "", short: "", html: "" });
+      streamingNode = node || addNode({ role: "bot", type: useOpenUI ? "openui" : "answer",
+        response: "", short: "", html: "", preamble, question }, parentId);
+      const wrap = node
+        ? messagesEl.querySelector(`.msg[data-id="${streamingNode.id}"]`)
+        : appendMessage(streamingNode);
+      if (wrap) wrap.classList.add("is-streaming");
       try {
-        /* La interfaz se va dibujando con cada token que llega */
+        /* Los fragmentos van dibujando el texto; el círculo marca la última palabra */
         const text = await streamAI(question, settings, (partial) => {
-          /* Los fragmentos no son programas válidos: OpenUI se dibuja al terminar */
           if (useOpenUI) return;
           const card = wrap.querySelector(".card");
-          if (card) {
-            const lines = cleanResponse(partial).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-            card.innerHTML = `<p class="short">${escapeHTML(lines[0] || "Pensando...")}</p><div class="api-answer">${lines.slice(1).map((l) => `<p>${escapeHTML(l)}</p>`).join("")}</div>`;
-          }
+          if (card) renderStream(partial, card);
         });
         result = resultFromText(cleanResponse(text), question);
       } catch (err) {
@@ -827,6 +929,7 @@ async function respond(question) {
       }
     } else {
       // Sin key: el asistente responde con el motor local de demostración
+      await pause(650);
       result = resolveAnswer(question);
     }
   } catch (err) {
@@ -834,7 +937,109 @@ async function respond(question) {
       message: `No se pudo conectar con ${PROVIDERS[getSettings().provider].label}: ${err.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.` };
   }
   hideThinking();
-  finishResponse(result, wrap, question);
+  finishResponse(result, { node: node || streamingNode, parentId, preamble, question });
+}
+
+/* ---------- Acciones de mensajes: copiar, editar, rehacer y ramas ---------- */
+function nodeText(node) {
+  if (node.role === "user") return node.text || "";
+  const wrap = messagesEl.querySelector(`.msg[data-id="${node.id}"]`);
+  const card = wrap && wrap.querySelector(".card");
+  if (!card) return node.short || node.message || "";
+  const clone = card.cloneNode(true);
+  clone.querySelectorAll(".source, .actions, .actions *").forEach((el) => el.remove());
+  return clone.innerText.trim() || node.short || "";
+}
+
+async function copyText(text) {
+  const modern = async () => {
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") return false;
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (e) { return false; }
+  };
+  /* En algunos navegadores la API espera permiso: si no responde, usamos el método clásico */
+  try { if (await Promise.race([modern(), pause(600)])) return true; }
+  catch (e) {}
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch (err) {}
+  area.remove();
+  return ok;
+}
+
+function flashCopied(btn, ok) {
+  const originalHTML = btn.innerHTML;
+  const originalLabel = btn.getAttribute("aria-label") || btn.title;
+  btn.innerHTML = icon(ok ? "check" : "error");
+  const label = ok ? "Copiado" : "No se pudo copiar";
+  btn.title = label;
+  btn.setAttribute("aria-label", label);
+  btn.classList.add("is-copied");
+  setTimeout(() => {
+    btn.innerHTML = originalHTML;
+    btn.title = originalLabel;
+    btn.setAttribute("aria-label", originalLabel);
+    btn.classList.remove("is-copied");
+  }, 1200);
+}
+
+function regenerate(botId) {
+  const bot = nodeById(botId);
+  if (!bot || bot.role !== "bot") return;
+  const parent = bot.parentId ? nodeById(bot.parentId) : null;
+  const question = bot.question || parent?.text || "";
+  const newNode = addNode({ role: "bot", type: "answer", response: "", short: "", html: "",
+    preamble: bot.preamble || "", question, pending: true }, bot.parentId);
+  respond(question, { parentId: bot.parentId, preamble: bot.preamble || "", node: newNode });
+}
+
+function switchBranch(id, delta) {
+  const conv = current();
+  const node = nodeById(id);
+  const siblings = branchSiblings(node, conv);
+  if (siblings.length < 2) return;
+  const index = siblings.findIndex((n) => n.id === id);
+  const target = siblings[(index + delta + siblings.length) % siblings.length];
+  conv.activeLeafId = lastLeaf(target, conv).id;
+  save();
+  renderChat();
+}
+
+function saveEdit(id, text) {
+  if (!text) return;
+  const old = nodeById(id);
+  if (!old || old.role !== "user") return;
+  const safe = redactPII(text);
+  const newNode = addNode({ role: "user", text: safe }, old.parentId);
+  editingId = null;
+  save();
+  renderChat();
+  renderHistory();
+  respond(safe, { parentId: newNode.id, preamble: containsPII(text) ? piiWarningHTML() : "" });
+}
+
+async function handleMsgAction(btn) {
+  const action = btn.dataset.action;
+  const node = nodeById(btn.dataset.msgId || btn.closest(".msg")?.dataset.id);
+  if (!node) return;
+  if (action === "copy") { flashCopied(btn, await copyText(nodeText(node))); return; }
+  if (busy) return;
+  if (action === "edit") {
+    editingId = node.id;
+    renderChat();
+    requestAnimationFrame(() => {
+      const area = messagesEl.querySelector(".edit-form textarea");
+      if (area) { area.focus(); area.setSelectionRange(area.value.length, area.value.length); }
+    });
+  }
+  if (action === "redo") regenerate(node.id);
+  if (action === "branch-prev") switchBranch(node.id, -1);
+  if (action === "branch-next") switchBranch(node.id, 1);
 }
 
 function updateSend() { sendBtn.disabled = busy || !input.value.trim(); }
@@ -904,7 +1109,15 @@ $("#suggestions").addEventListener("click", (e) => {
   if (chip) ask(chip.dataset.q);
 });
 
+const MSG_ACTIONS = ["copy", "edit", "redo", "branch-prev", "branch-next", "cancel-edit"];
 messagesEl.addEventListener("click", (e) => {
+  const act = e.target.closest("[data-action]");
+  if (act && MSG_ACTIONS.includes(act.dataset.action)) {
+    e.preventDefault();
+    if (act.dataset.action === "cancel-edit") { editingId = null; renderChat(); return; }
+    handleMsgAction(act);
+    return;
+  }
   const doc = e.target.closest("[data-doc]");
   if (doc) {
     e.preventDefault();
@@ -912,7 +1125,6 @@ messagesEl.addEventListener("click", (e) => {
     openModal("docModal");
     return;
   }
-  const act = e.target.closest("[data-action]");
   if (!act) return;
   if (act.dataset.action === "tl") openSettings("tl");
   if (act.dataset.action === "rephrase") {
@@ -921,6 +1133,13 @@ messagesEl.addEventListener("click", (e) => {
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   }
+});
+
+messagesEl.addEventListener("submit", (e) => {
+  if (!e.target.matches("[data-edit-form]")) return;
+  e.preventDefault();
+  const text = e.target.querySelector("textarea").value.trim();
+  saveEdit(e.target.closest(".msg").dataset.id, text);
 });
 
 $("#tlBtnSide").addEventListener("click", () => { closeMenu(); openSettings("tl"); });
@@ -966,7 +1185,7 @@ function activateSettingsTab(name) {
 function updateHistoryStats() {
   const el = $("#historyStats");
   if (!el) return;
-  const total = conversations.reduce((n, c) => n + (c.messages ? c.messages.length : 0), 0);
+  const total = conversations.reduce((n, c) => n + (c.nodes ? c.nodes.length : 0), 0);
   el.innerHTML = `<div class="stat"><b>${conversations.length}</b><span>Conversaciones</span></div>` +
     `<div class="stat"><b>${total}</b><span>Mensajes</span></div>`;
   $("#deleteCurrent").disabled = !current();
@@ -1080,6 +1299,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeMod
 function startNewChat() {
   if (busy) return;
   currentId = null;
+  editingId = null;
   renderChat();
   renderHistory();
   closeMenu();
@@ -1101,6 +1321,7 @@ historyEl.addEventListener("click", (e) => {
   const item = e.target.closest(".history-item");
   if (item && !busy) {
     currentId = item.dataset.id;
+    editingId = null;
     renderChat(); renderHistory(); closeMenu();
   }
 });
