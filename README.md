@@ -7,8 +7,9 @@ gratuitos de [Google Gemini](https://aistudio.google.com/apikey) u
 **No hay servidor, ni Node, ni `package.json`, ni build.** Abre `index.html` y funciona.
 
 Las respuestas de la IA se generan en **OpenUI Lang**, pero se dibujan con un **renderizador
-propio** (`app.js` + `styles.css`) que usa los mismos colores, formas y componentes que el resto
-de la app: tarjetas, pasos, tablas, pestañas, avisos y formularios en lugar de texto plano. El
+propio** (`static/app.js` + `static/styles.css`) que usa los mismos colores, formas y
+componentes que el resto de la app: tarjetas, pasos, tablas, pestañas, avisos y formularios en lugar
+de texto plano. El
 bundle de [OpenUI](https://openui.com/) se carga desde CDN **solo para construir el prompt**; si
 no carga, se usa un prompt mínimo y las respuestas siguen viéndose con la estética de la app.
 
@@ -53,11 +54,12 @@ con el siguiente modelo gratuito de la lista antes de mostrar el error.
 
 - `index.html` carga solo el bundle de `@openuidev/browser-bundle@0.2` desde jsDelivr, que
   expone `openuiChatLibrary` en `window.__OpenUI`. Ya **no se carga su CSS ni su Renderer**.
-- `app.js` usa `openuiChatLibrary.prompt({...})` para generar el system prompt: así el modelo
-  conoce la sintaxis y los componentes permitidos. Las reglas de la cohorte y de privacidad se
-  pasan como `preamble`.
+- `static/app.js` usa `openuiChatLibrary.prompt({...})` para generar el system prompt: así el
+  modelo conoce la sintaxis y los componentes permitidos. Las reglas de la cohorte y de privacidad
+  se pasan como `preamble`.
 - La IA devuelve un programa (siempre empieza con `root = Card(...)`) y un intérprete propio en
-  `app.js` lo convierte en HTML con las clases de la app. El prompt incluye ejemplos y reglas
+  `static/app.js` lo convierte en HTML con las clases de la app. El prompt incluye ejemplos y
+  reglas
   para combinar **tarjetas, encabezados, callouts, separadores, pasos, tablas, listas, entidades,
   pestañas, etiquetas, botones y sugerencias de seguimiento**, eligiendo la vista según el
   contenido; no inventa cifras para gráficas.
@@ -106,6 +108,6 @@ caben todas en la pantalla.
 
 - `index.html`: interfaz, modales (documento y **Configuración**, con secciones de IA,
   chats, ayuda y TL (Team Leader)).
-- `styles.css`: estilos, incluido el indicador de conexión y el formulario de IA.
-- `app.js`: chat, historial, motor local de respaldo y llamada directa a Gemini/OpenRouter.
+- `static/styles.css`: estilos, incluido el indicador de conexión y el formulario de IA.
+- `static/app.js`: chat, historial, motor local de respaldo y llamada directa a Gemini/OpenRouter.
 - `HALLAZGOS.md`: resultados de la prueba con otro equipo.
