@@ -36,6 +36,8 @@
   --error: #c8453f;
   --error-container: #fdebe9;
   --error-border: #f3c6c2;
+  --warning: #9a5b12;
+  --warning-container: #fff0d9;
 
   --state-hover: rgba(103, 80, 164, 0.08);
 
@@ -1585,6 +1587,33 @@ a.ui-btn {
 }
 .is-error h3 {
   color: #8e2b26;
+}
+.is-quota .status-ico {
+  background: var(--warning-container);
+  color: var(--warning);
+}
+.is-quota h3 {
+  color: var(--warning);
+}
+.is-key .status-ico,
+.is-model .status-ico {
+  background: var(--primary-container);
+  color: var(--primary);
+}
+.is-key h3,
+.is-model h3 {
+  color: var(--on-primary-container);
+}
+.is-connection .status-ico {
+  background: var(--secondary-container);
+  color: var(--secondary);
+}
+.is-connection h3 {
+  color: #2c3d80;
+}
+.is-empty .status-ico {
+  background: var(--surface-variant);
+  color: var(--on-surface-variant);
 }
 .is-safety .status-ico {
   background: var(--secondary-container);

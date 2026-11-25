@@ -1455,6 +1455,78 @@ const PROVIDERS = {
   },
 };
 
+/* Los errores del proveedor se convierten en tarjetas comprensibles: nunca se
+   muestra al usuario el texto técnico completo (URLs, límites, modelos…). */
+function aiErrorInfo(err, providerLabel, model) {
+  const raw = String((err && err.message) || err || "error desconocido");
+  const lower = raw.toLowerCase();
+  const provider = providerLabel || "El proveedor de IA";
+  const retry = raw.match(
+    /retry in\s+(\d+(?:[.,]\d+)?)\s*(s|seg|segundos|seconds?|m|min|minutes?)?/i,
+  );
+  let wait = "";
+  if (retry) {
+    const amount = Number(String(retry[1]).replace(",", "."));
+    const unit = (retry[2] || "s").toLowerCase();
+    const seconds = /m|min/.test(unit) ? amount * 60 : amount;
+    wait = seconds < 60
+      ? ` en unos ${Math.max(1, Math.ceil(seconds))} segundos`
+      : ` en unos ${Math.ceil(seconds / 60)} minutos`;
+  }
+  if (
+    /quota|rate.?limit|too many requests|429|resource_exhausted|exceeded|per minute|per day|please retry/i.test(
+      lower,
+    )
+  )
+    return {
+      kind: "quota",
+      title: "Límite de uso alcanzado",
+      message: `${provider} agotó temporalmente su cuota${wait}. No es un problema de tu clave: espera un momento o cambia de modelo/proveedor en Configurar IA.`,
+    };
+  if (/invalid|unauthor|401|403|api key|expired|credential/i.test(lower))
+    return {
+      kind: "key",
+      title: "La clave no fue aceptada",
+      message: `${provider} rechazó la clave guardada. Abre Configurar IA y pega una clave válida, o elige otro proveedor.`,
+    };
+  if (/model.*not found|404|does not exist|unsupported model/i.test(lower))
+    return {
+      kind: "model",
+      title: "El modelo no está disponible",
+      message: `${provider} no encontró el modelo ${model || "elegido"}. Abre Configurar IA y selecciona otro de la lista.`,
+    };
+  if (
+    /fetch|network|load failed|cors|offline|timeout|aborted|socket|failed to connect/i.test(
+      lower,
+    )
+  )
+    return {
+      kind: "connection",
+      title: "No se pudo conectar",
+      message: `No hubo respuesta de ${provider}. Revisa tu conexión e inténtalo de nuevo; si continúa, cambia de proveedor en Configurar IA.`,
+    };
+  if (/vacía|empty/i.test(lower))
+    return {
+      kind: "empty",
+      title: "El modelo no devolvió texto",
+      message: `${provider} terminó la respuesta sin contenido. Vuelve a intentarlo o cambia de modelo en Configurar IA.`,
+    };
+  return {
+    kind: "error",
+    title: "No encontré una respuesta",
+    message: `${provider}: ${raw.length > 180 ? `${raw.slice(0, 180)}…` : raw}`,
+  };
+}
+
+function aiErrorResult(err, question, settings) {
+  const info = aiErrorInfo(
+    err,
+    PROVIDERS[settings.provider]?.label,
+    settings.model,
+  );
+  return { type: "error", kind: info.kind, title: info.title, question, message: info.message };
+}
+
 const SYSTEM_PROMPT = `Eres Ritchie AI, el asistente educativo de la cohorte Ritchie en Riwi.
 Responde SOLO con información de los documentos de la cohorte y de las herramientas del dispositivo.
 Los documentos son de ejemplo: para la fecha o hora de hoy usa la herramienta, no los documentos.
@@ -2503,7 +2575,7 @@ async function askAI(question, settings, context = "") {
     } catch (err) {
       lastError = err;
       const retryable =
-        /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(
+        /503|429|quota|rate.?limit|exceeded|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(
           err.message || "",
         );
       if (!retryable) break;
@@ -2632,7 +2704,7 @@ async function streamAI(question, settings, onChunk, context = "") {
     } catch (err) {
       lastError = err;
       const retryable =
-        /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(
+        /503|429|quota|rate.?limit|exceeded|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(
           err.message || "",
         );
       if (!retryable) break;
@@ -3314,18 +3386,34 @@ function cardHTML(msg) {
       <div class="actions"><button class="btn btn-filled" data-action="tl">${icon("groups")}Hablar con el TL (Team Leader)</button></div>
     </div>`;
   }
-  return `${preamble}<div class="card is-error">
+  const looksLikeAIFailure =
+    msg.kind && ["quota", "key", "model", "connection", "empty"].includes(msg.kind);
+  const errorLook = {
+    quota: ["is-quota", "schedule"],
+    key: ["is-key", "key"],
+    model: ["is-model", "smart_toy"],
+    connection: ["is-connection", "wifi_off"],
+    empty: ["is-empty", "smart_toy"],
+    error: ["is-error", "error"],
+  }[msg.kind] || ["is-error", "error"];
+  const questionAttr = escapeHTML(msg.question || "");
+  const retryButton = `<button class="btn btn-filled" data-action="retry-ai" data-q="${questionAttr}">${icon("refresh")}Reintentar</button>`;
+  const settingsButton = `<button class="btn btn-tonal" data-action="open-ai-settings">${icon("settings")}Configurar IA</button>`;
+  const actions = looksLikeAIFailure
+    ? msg.kind === "key" || msg.kind === "model"
+      ? settingsButton + retryButton
+      : retryButton + settingsButton
+    : `<button class="btn btn-filled" data-action="rephrase" data-q="${questionAttr}">${icon("edit")}Reformular la pregunta</button>
+       <button class="btn btn-tonal" data-action="tl">${icon("groups")}Hablar con el TL (Team Leader)</button>`;
+  return `${preamble}<div class="card ${errorLook[0]}">
     <div class="status-row">
-      <span class="status-ico">${icon("error", "lg")}</span>
+      <span class="status-ico">${icon(errorLook[1], "lg")}</span>
       <div>
-        <h3>No encontré una respuesta</h3>
+        <h3>${escapeHTML(msg.title || "No encontré una respuesta")}</h3>
         <p>${escapeHTML(msg.message || "No tengo información suficiente para responder esa pregunta con seguridad. Puedes reformularla con otras palabras o hablar con una persona.")}</p>
       </div>
     </div>
-    <div class="actions">
-      <button class="btn btn-filled" data-action="rephrase" data-q="${escapeHTML(msg.question || "")}">${icon("edit")}Reformular la pregunta</button>
-      <button class="btn btn-tonal" data-action="tl">${icon("groups")}Hablar con el TL (Team Leader)</button>
-    </div>
+    <div class="actions">${actions}</div>
   </div>`;
 }
 
@@ -3654,11 +3742,7 @@ async function respond(
           if (card) renderStream(complete, card);
           result = resultFromText(complete, question);
         } catch (e2) {
-          result = {
-            type: "error",
-            question,
-            message: `No se pudo conectar con ${PROVIDERS[settings.provider].label}: ${e2.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.`,
-          };
+          result = aiErrorResult(e2, question, settings);
         }
       }
     } else {
@@ -3667,11 +3751,7 @@ async function respond(
       result = await resolveAnswer(question);
     }
   } catch (err) {
-    result = {
-      type: "error",
-      question,
-      message: `No se pudo conectar con ${PROVIDERS[getSettings().provider].label}: ${err.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.`,
-    };
+    result = aiErrorResult(err, question, getSettings());
   }
   finished = true;
   hideThinking();
@@ -3971,6 +4051,20 @@ messagesEl.addEventListener("click", (e) => {
   }
   if (!act) return;
   if (act.dataset.action === "tl") openSettings("tl");
+  if (act.dataset.action === "open-ai-settings") {
+    closeMenu();
+    openSettings("ia");
+    return;
+  }
+  if (act.dataset.action === "retry-ai") {
+    const q = String(act.dataset.q || "").trim();
+    if (!q || busy) return;
+    input.value = q;
+    autoGrow();
+    updateSend();
+    ask(q);
+    return;
+  }
   if (act.dataset.action === "rephrase") {
     input.value = act.dataset.q;
     autoGrow();
@@ -4206,7 +4300,7 @@ $("#aiTest").addEventListener("click", async () => {
     helpText.textContent =
       "✔ Conexión correcta. Guarda para usarla en este navegador.";
   } catch (err) {
-    helpText.textContent = `✘ ${err.message || "No se pudo conectar"}`;
+    helpText.textContent = `✘ ${aiErrorInfo(err, PROVIDERS[provider].label, settings.model).message}`;
   } finally {
     btn.disabled = false;
   }

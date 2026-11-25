@@ -128,6 +128,20 @@ solo en ese caso.
 Si un modelo responde **503/429** (alta demanda o cuota), la app reintenta automáticamente
 con el siguiente modelo gratuito de la lista antes de mostrar el error.
 
+Cuando ningún modelo funciona, el error se muestra como una tarjeta según su causa:
+
+- **Límite de uso alcanzado** (cuota o demasiadas peticiones): indica cuándo reintentar y
+  sugiere cambiar de modelo/proveedor. No muestra el texto técnico del proveedor.
+- **La clave no fue aceptada**: invita a corregir la key en **Configurar IA**.
+- **El modelo no está disponible**, **No se pudo conectar** o **El modelo no devolvió texto**:
+  cada uno tiene su propio mensaje y color.
+- Las tarjetas de error de IA ofrecen **Reintentar** y **Configurar IA**; el error genérico
+  conserva **Reformular la pregunta** y **Hablar con el TL**.
+
+No se añadió la API de OpenCode como proveedor: su API de Console no habilita CORS para el
+navegador y sus modelos gratuitos devuelven `403` fuera de OpenCode. Si se quiere usar,
+tendría que ser desde un servidor propio o desde una instancia local de OpenCode.
+
 ## Respuestas con interfaz propia
 
 - `index.html` carga solo el bundle de `@openuidev/browser-bundle@0.2` desde jsDelivr, que

@@ -100,7 +100,7 @@ La key se escribe en el modal de configuración y viaja **directamente desde el 
 | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent?key=…` (y `:streamGenerateContent?alt=sse&key=…` para streaming) | Por defecto `gemini-4-hydrogen` (recomendado); también `gemini-3.5-flash-lite` (rápido). Se retiraron modelos deprecados o saturados con 503. |
 | OpenRouter | `https://openrouter.ai/api/v1/chat/completions` con cabecera `Authorization: Bearer <key>` | Por defecto `openrouter/free`; también modelos `:free` como Nemotron 3 Ultra, ERNIE 5.5 Flash, Gemma 4 26B y Ling 3.2 Flash. El catálogo exacto de IDs está en `PROVIDERS` ([static/app.js](static/app.js), líneas 21-63). |
 
-Si un modelo responde **503/429** (alta demanda o cuota), la app reintenta automáticamente con el siguiente modelo gratuito de la lista antes de mostrar el error (comportamiento descrito en [README.md](README.md)). El reintento solo se activa si el mensaje coincide con `/503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i` (`askAI`, líneas 777-807; `streamAI`, líneas 901-929); en streaming se descarta el texto parcial del modelo caído antes de probar el siguiente. Las peticiones usan `temperature: 0.3` y un máximo de 2500 tokens de salida; Gemini envía la key en la URL y OpenRouter en la cabecera `Bearer`, con `HTTP-Referer` y `X-Title` (líneas 680-725 y 835-899).
+Si un modelo responde **503/429** (alta demanda o cuota), la app reintenta automáticamente con el siguiente modelo gratuito de la lista antes de mostrar el error (comportamiento descrito en [README.md](README.md)). El reintento solo se activa si el mensaje coincide con `/503|429|quota|rate.?limit|exceeded|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i` (`askAI` y `streamAI`; ver §3.9); en streaming se descarta el texto parcial del modelo caído antes de probar el siguiente. Las peticiones usan `temperature: 0.3` y un máximo de 2500 tokens de salida; Gemini envía la key en la URL y OpenRouter en la cabecera `Bearer`, con `HTTP-Referer` y `X-Title` (líneas 680-725 y 835-899).
 
 La cadena de resiliencia es: **streaming → llamada normal → tarjeta de error honesta** (con proveedor y motivo), o **motor local** directamente si no hay key.
 
@@ -247,7 +247,25 @@ ahora íntegro el contenido de las llamadas a herramientas (`cleanResponse(..., 
 correo o teléfono en los parámetros no se convierta en `[correo oculto]` antes de escribir en Moodle;
 el texto visible de la respuesta sigue redactándose como antes.
 
-### 3.9 Mapa rápido del código
+### 3.9 Errores de IA con tarjetas propias
+
+Antes, cualquier fallo del proveedor terminaba en la tarjeta roja «No encontré una respuesta» con el
+texto técnico completo: por ejemplo, un mensaje de cuota de Gemini con URLs, el límite de tokens por
+minuto y el modelo. Ahora `aiErrorInfo()` clasifica el error en **quota**, **key**, **model**,
+**connection**, **empty** o **error** y genera un mensaje corto en español. La cuota incluye el tiempo
+de espera que comunica el proveedor (`retry in …`) y no menciona la clave; la clave invita a
+`Configurar IA`; la conexión sugiere volver a intentar. Cada tarjeta tiene su color e icono y sus
+acciones: **Reintentar** (vuelve a llamar a `ask()` con la misma pregunta) y **Configurar IA**. La
+prueba de conexión del modal usa el mismo clasificador, sin volcar el error crudo. El patrón de
+reintento automático de `askAI()` y `streamAI()` también reconoce `quota`, `rate limit` y `exceeded`.
+
+Se estudió añadir la API de OpenCode como tercer proveedor. Según la documentación oficial de
+OpenCode Console, su API no habilita CORS para navegadores y los modelos gratuitos solo funcionan
+dentro de OpenCode (otros clientes reciben `403`). Una verificación real devolvió `OPTIONS 404` y
+ninguna cabecera `Access-Control-Allow-Origin`. El usuario eligió **no añadirlo**: se mantienen
+Gemini y OpenRouter y se documenta la limitación en el README.
+
+### 3.10 Mapa rápido del código
 
 | Bloque | Líneas de [static/app.js](static/app.js) | Responsabilidad |
 |---|---|---|
