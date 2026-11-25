@@ -649,7 +649,7 @@ function renderHistory() {
     item.dataset.tip = c.title;
     item.tabIndex = 0;
     item.dataset.id = c.id;
-    item.innerHTML = `${icon("chat", "sm")}<span>${escapeHTML(c.title)}</span><button class="history-del" data-del="${c.id}" aria-label="Eliminar conversación">${icon("delete", "sm")}</button>`;
+    item.innerHTML = `${icon("chat", "sm")}<span class="history-title">${escapeHTML(c.title)}</span><button class="history-del" data-del="${c.id}" aria-label="Eliminar conversación">${icon("delete", "sm")}</button>`;
     historyEl.appendChild(item);
   });
 }
