@@ -227,8 +227,8 @@ keywords: ["material", "recurso", "estudio", "documento", "apuntes", "diapositiv
     ]),
   },
   {
-    keywords: ["coach", "contacto", "hablar con una persona"],
-    html: `<h3>Hablar con una persona</h3><p>Un coach puede ayudarte con lo que Ritchie AI no puede resolver. Usa el botón <b>Hablar con un coach</b> de la barra lateral.</p>`,
+    keywords: ["tl", "team leader", "contacto", "hablar con una persona"],
+    html: `<h3>Hablar con una persona</h3><p>Un TL (Team Leader) puede ayudarte con lo que Ritchie AI no puede resolver. Usa el botón <b>Hablar con el TL (Team Leader)</b> de la barra lateral.</p>`,
     noSource: true,
   },
   {
@@ -315,7 +315,7 @@ const QUICK_ACTIONS = [
   { q: "¿Qué tareas debo entregar esta semana?", icon: "assignment" },
   { q: "¿Dónde encuentro los materiales de estudio?", icon: "menu_book" },
   { q: "¿Dónde están las grabaciones de las clases?", icon: "videocam" },
-  { q: "¿Cómo puedo hablar con un coach?", icon: "groups" },
+  { q: "¿Cómo puedo hablar con el TL (Team Leader)?", icon: "groups" },
 ];
 const randomIndex = (n) => Math.floor(Math.random() * n);
 function shuffled(list) {
@@ -659,10 +659,10 @@ function cardHTML(msg) {
         <div>
           <h3>Este tema requiere atención personal</h3>
           <p>Las preguntas sobre salud, calificaciones, situaciones personales delicadas o decisiones sobre otras personas no deben resolverse con un asistente de IA.</p>
-          <p>Por favor, <b>consulta directamente con un coach o una persona responsable</b>. Ellos podrán ayudarte con el cuidado y la confidencialidad que mereces.</p>
+          <p>Por favor, <b>consulta directamente con el TL (Team Leader) o una persona responsable</b>. Ellos podrán ayudarte con el cuidado y la confidencialidad que mereces.</p>
         </div>
       </div>
-      <div class="actions"><button class="btn btn-filled" data-action="coach">${icon("groups")}Hablar con un coach</button></div>
+      <div class="actions"><button class="btn btn-filled" data-action="tl">${icon("groups")}Hablar con el TL (Team Leader)</button></div>
     </div>`;
   }
   return `<div class="card is-error">
@@ -675,7 +675,7 @@ function cardHTML(msg) {
     </div>
     <div class="actions">
       <button class="btn btn-filled" data-action="rephrase" data-q="${escapeHTML(msg.question || "")}">${icon("edit")}Reformular la pregunta</button>
-      <button class="btn btn-tonal" data-action="coach">${icon("groups")}Hablar con un coach</button>
+      <button class="btn btn-tonal" data-action="tl">${icon("groups")}Hablar con el TL (Team Leader)</button>
     </div>
   </div>`;
 }
@@ -914,7 +914,7 @@ messagesEl.addEventListener("click", (e) => {
   }
   const act = e.target.closest("[data-action]");
   if (!act) return;
-  if (act.dataset.action === "coach") openModal("coachModal");
+  if (act.dataset.action === "tl") openSettings("tl");
   if (act.dataset.action === "rephrase") {
     input.value = act.dataset.q;
     autoGrow(); updateSend();
@@ -923,9 +923,8 @@ messagesEl.addEventListener("click", (e) => {
   }
 });
 
-$("#coachBtnSide").addEventListener("click", () => { closeMenu(); openModal("coachModal"); });
-$("#helpBtn").addEventListener("click", () => { closeMenu(); openModal("helpModal"); });
-$("#helpToCoach").addEventListener("click", () => { closeModals(); openModal("coachModal"); });
+$("#tlBtnSide").addEventListener("click", () => { closeMenu(); openSettings("tl"); });
+$("#helpBtn").addEventListener("click", () => { closeMenu(); openSettings("help"); });
 
 /* ---------- Configuración de la IA gratuita ---------- */
 const providerSel = $("#aiProvider");
@@ -959,10 +958,9 @@ function activateSettingsTab(name) {
     const active = tab.dataset.tab === name;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
+    const panel = document.getElementById(tab.getAttribute("aria-controls"));
+    if (panel) panel.hidden = !active;
   });
-  const ia = name === "ia";
-  $("#panelIA").hidden = !ia;
-  $("#panelChats").hidden = ia;
 }
 
 function updateHistoryStats() {
@@ -974,13 +972,13 @@ function updateHistoryStats() {
   $("#deleteCurrent").disabled = !current();
 }
 
-function openSettings() {
+function openSettings(tab = "ia") {
   const s = getSettings();
   providerSel.value = s.provider;
   keyInput.value = s.apiKey;
   populateModels(s.provider, s.model);
   helpText.textContent = PROVIDERS[s.provider].help;
-  activateSettingsTab("ia");
+  activateSettingsTab(tab);
   updateHistoryStats();
   openModal("settingsModal");
 }
@@ -1040,9 +1038,12 @@ $("#aiTest").addEventListener("click", async () => {
   }
 });
 
-/* ---------- Chats e historial ---------- */
+/* ---------- Secciones de configuración ---------- */
 document.querySelectorAll(".settings-tab").forEach((tab) => {
   tab.addEventListener("click", () => activateSettingsTab(tab.dataset.tab));
+});
+document.querySelectorAll("[data-settings-tab]").forEach((btn) => {
+  btn.addEventListener("click", () => activateSettingsTab(btn.dataset.settingsTab));
 });
 
 $("#exportHistory").addEventListener("click", () => {

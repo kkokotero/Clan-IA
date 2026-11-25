@@ -62,7 +62,7 @@
 
     <div class="sidebar-footer">
       <button class="nav-item" id="helpBtn"><span class="ic">help</span><span class="label">Ayuda</span></button>
-      <button class="btn btn-tonal block" id="coachBtnSide"><span class="ic">groups</span><span class="label">Hablar con un coach</span></button>
+      <button class="btn btn-tonal block" id="tlBtnSide"><span class="ic">groups</span><span class="label">Hablar con el TL (Team Leader)</span></button>
       <button class="profile" id="profileBtn" type="button"
               title="Abrir configuración de IA (se guarda en este navegador)"
               aria-label="Abrir configuración de IA del perfil">
@@ -109,26 +109,6 @@
   </main>
 </div>
 
-<!-- ========== MODAL: COACH ========== -->
-<div class="modal" id="coachModal" role="dialog" aria-modal="true" aria-labelledby="coachTitle" hidden>
-  <div class="modal-card">
-    <button class="icon-btn modal-close" data-close aria-label="Cerrar"><span class="ic">close</span></button>
-    <div class="modal-head">
-      <div class="modal-ico"><span class="ic lg">groups</span></div>
-      <h2 id="coachTitle">Habla con un coach</h2>
-    </div>
-    <p>Una persona real puede ayudarte con lo que Ritchie AI no puede resolver.</p>
-    <ul class="contact-list">
-      <li><span class="ic">mail</span><div>coach@ejemplo.com<small>Correo</small></div></li>
-      <li><span class="ic">phone</span><div>+57 300 000 0000<small>WhatsApp</small></div></li>
-      <li><span class="ic">schedule</span><div>Lunes a viernes, 8:00 a. m. – 6:00 p. m.<small>Horario de atención</small></div></li>
-      <li><span class="ic">chat</span><div>#ayuda-coaches<small>Canal de la cohorte</small></div></li>
-    </ul>
-    <div class="note"><span class="ic sm">info</span><span>Datos de contacto de demostración (ficticios). No son información oficial.</span></div>
-    <div class="modal-actions"><button class="btn btn-filled" data-close>Entendido</button></div>
-  </div>
-</div>
-
 <!-- ========== MODAL: DOCUMENTO DE DEMOSTRACIÓN ========== -->
 <div class="modal" id="docModal" role="dialog" aria-modal="true" aria-labelledby="docTitle" hidden>
   <div class="modal-card">
@@ -152,89 +132,105 @@
       <h2 id="settingsTitle">Configuración</h2>
     </div>
 
-    <div class="settings-tabs" role="tablist" aria-label="Secciones de configuración">
-      <button class="settings-tab active" type="button" role="tab" aria-selected="true" aria-controls="panelIA" data-tab="ia">
-        <span class="ic sm">key</span>IA
-      </button>
-      <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="panelChats" data-tab="chats">
-        <span class="ic sm">chat</span>Chats e historial
-      </button>
-    </div>
-
-    <div class="settings-panel" id="panelIA" role="tabpanel">
-      <p>Conecta el asistente con un modelo <b>gratuito</b>. La clave se guarda <b>solo en este navegador</b>: no hay servidor ni se envía a ningún sitio propio.</p>
-      <form class="settings-form" id="settingsForm" autocomplete="off">
-        <label class="field">
-          <span>Proveedor</span>
-          <select id="aiProvider">
-            <option value="gemini">Google Gemini (plan gratis)</option>
-            <option value="openrouter">OpenRouter (modelos :free)</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>API key gratuita</span>
-          <input id="aiKey" type="password" placeholder="Pega aquí tu API key" spellcheck="false" />
-        </label>
-        <label class="field">
-          <span>Modelo</span>
-          <select id="aiModel"></select>
-        </label>
-        <label class="field" id="customModelField" hidden>
-          <span>Modelo personalizado (ID exacto)</span>
-          <input id="aiModelCustom" type="text" spellcheck="false" placeholder="p. ej. gemini-3.5-flash" />
-        </label>
-        <p class="field-help" id="aiHelp"></p>
-        <div class="note"><span class="ic sm">info</span><span>Conseguir una key: <b>aistudio.google.com/apikey</b> (Gemini) u <b>openrouter.ai/keys</b>. Usa una key de prueba restringida: al estar en el navegador, cualquier persona con acceso a él podría verla.</span></div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-tonal" id="aiClear">Quitar key</button>
-          <button type="button" class="btn btn-outlined" id="aiTest">Probar conexión</button>
-          <button type="button" class="btn btn-outlined" data-close>Cancelar</button>
-          <button type="submit" class="btn btn-filled">Guardar</button>
-        </div>
-      </form>
-    </div>
-
-    <div class="settings-panel" id="panelChats" role="tabpanel" hidden>
-      <p>Tus conversaciones se guardan <b>solo en este navegador</b>. Puedes exportarlas o borrarlas desde aquí.</p>
-      <div class="settings-stats" id="historyStats"></div>
-      <div class="settings-list">
-        <button class="settings-row" type="button" id="exportHistory">
-          <span class="ic">download</span>
-          <span><b>Exportar historial</b><small>Descarga un archivo JSON con todos los chats</small></span>
+    <div class="settings-layout">
+      <div class="settings-tabs" role="tablist" aria-orientation="vertical" aria-label="Secciones de configuración">
+        <button class="settings-tab active" type="button" role="tab" aria-selected="true" aria-controls="panelIA" data-tab="ia">
+          <span class="ic sm">key</span>IA
         </button>
-        <button class="settings-row" type="button" id="deleteCurrent">
-          <span class="ic">delete</span>
-          <span><b>Borrar conversación actual</b><small>Quita solo el chat que estás viendo</small></span>
+        <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="panelChats" data-tab="chats">
+          <span class="ic sm">chat</span>Chats e historial
         </button>
-        <button class="settings-row danger" type="button" id="clearHistory">
-          <span class="ic">delete_sweep</span>
-          <span><b>Borrar todo el historial</b><small>Elimina todas las conversaciones guardadas</small></span>
+        <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="panelHelp" data-tab="help">
+          <span class="ic sm">help</span>Ayuda
+        </button>
+        <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="panelTL" data-tab="tl">
+          <span class="ic sm">groups</span>TL (Team Leader)
         </button>
       </div>
-      <div class="note"><span class="ic sm">info</span><span>Borrar el historial no afecta a la configuración de la IA. La acción no se puede deshacer.</span></div>
-    </div>
-  </div>
-</div>
 
-<!-- ========== MODAL: AYUDA ========== -->
-<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
-  <div class="modal-card">
-    <button class="icon-btn modal-close" data-close aria-label="Cerrar"><span class="ic">close</span></button>
-    <div class="modal-head">
-      <div class="modal-ico"><span class="ic lg">help</span></div>
-      <h2 id="helpTitle">Ayuda</h2>
-    </div>
-    <p>Así puedes sacarle el mejor provecho a Ritchie AI.</p>
-    <ul class="help-list">
-      <li><span class="ic">key</span><span><b>Conecta tu IA.</b> Haz clic en tu <b>perfil</b> (abajo en la barra lateral) y pega una API key gratuita de Gemini u OpenRouter. Sin key, la app responde en modo demostración.</span></li>
-      <li><span class="ic">chat</span><span><b>Pregunta con claridad.</b> Sesiones, actividades, fechas de entrega, proyectos y materiales.</span></li>
-      <li><span class="ic">description</span><span><b>Revisa la fuente.</b> Cada respuesta indica el documento del que proviene.</span></li>
-      <li><span class="ic">shield</span><span><b>Temas sensibles.</b> Salud, calificaciones, situaciones personales o decisiones sobre otras personas se atienden con un coach.</span></li>
-    </ul>
-    <div class="note"><span class="ic sm">info</span><span>Los documentos de la cohorte son ficticios, incluso cuando responde una IA real.</span></div>
-    <div class="modal-actions">
-      <button class="btn btn-outlined" id="helpToCoach"><span class="ic">groups</span>Hablar con un coach</button>
-      <button class="btn btn-filled" data-close>Cerrar</button>
+      <div class="settings-panels">
+        <div class="settings-panel" id="panelIA" role="tabpanel">
+          <p>Conecta el asistente con un modelo <b>gratuito</b>. La clave se guarda <b>solo en este navegador</b>: no hay servidor ni se envía a ningún sitio propio.</p>
+          <form class="settings-form" id="settingsForm" autocomplete="off">
+            <label class="field">
+              <span>Proveedor</span>
+              <select id="aiProvider">
+                <option value="gemini">Google Gemini (plan gratis)</option>
+                <option value="openrouter">OpenRouter (modelos :free)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>API key gratuita</span>
+              <input id="aiKey" type="password" placeholder="Pega aquí tu API key" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>Modelo</span>
+              <select id="aiModel"></select>
+            </label>
+            <label class="field" id="customModelField" hidden>
+              <span>Modelo personalizado (ID exacto)</span>
+              <input id="aiModelCustom" type="text" spellcheck="false" placeholder="p. ej. gemini-3.5-flash" />
+            </label>
+            <p class="field-help" id="aiHelp"></p>
+            <div class="note"><span class="ic sm">info</span><span>Conseguir una key: <b>aistudio.google.com/apikey</b> (Gemini) u <b>openrouter.ai/keys</b>. Usa una key de prueba restringida: al estar en el navegador, cualquier persona con acceso a él podría verla.</span></div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-tonal" id="aiClear">Quitar key</button>
+              <button type="button" class="btn btn-outlined" id="aiTest">Probar conexión</button>
+              <button type="button" class="btn btn-outlined" data-close>Cancelar</button>
+              <button type="submit" class="btn btn-filled">Guardar</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="settings-panel" id="panelChats" role="tabpanel" hidden>
+          <p>Tus conversaciones se guardan <b>solo en este navegador</b>. Puedes exportarlas o borrarlas desde aquí.</p>
+          <div class="settings-stats" id="historyStats"></div>
+          <div class="settings-list">
+            <button class="settings-row" type="button" id="exportHistory">
+              <span class="ic">download</span>
+              <span><b>Exportar historial</b><small>Descarga un archivo JSON con todos los chats</small></span>
+            </button>
+            <button class="settings-row" type="button" id="deleteCurrent">
+              <span class="ic">delete</span>
+              <span><b>Borrar conversación actual</b><small>Quita solo el chat que estás viendo</small></span>
+            </button>
+            <button class="settings-row danger" type="button" id="clearHistory">
+              <span class="ic">delete_sweep</span>
+              <span><b>Borrar todo el historial</b><small>Elimina todas las conversaciones guardadas</small></span>
+            </button>
+          </div>
+          <div class="note"><span class="ic sm">info</span><span>Borrar el historial no afecta a la configuración de la IA. La acción no se puede deshacer.</span></div>
+        </div>
+
+        <div class="settings-panel" id="panelHelp" role="tabpanel" hidden>
+          <p>Así puedes sacarle el mejor provecho a Ritchie AI.</p>
+          <ul class="help-list">
+            <li><span class="ic">key</span><span><b>Conecta tu IA.</b> Haz clic en tu <b>perfil</b> (abajo en la barra lateral) y pega una API key gratuita de Gemini u OpenRouter. Sin key, la app responde en modo demostración.</span></li>
+            <li><span class="ic">chat</span><span><b>Pregunta con claridad.</b> Sesiones, actividades, fechas de entrega, proyectos y materiales.</span></li>
+            <li><span class="ic">description</span><span><b>Revisa la fuente.</b> Cada respuesta indica el documento del que proviene.</span></li>
+            <li><span class="ic">shield</span><span><b>Temas sensibles.</b> Salud, calificaciones, situaciones personales o decisiones sobre otras personas se atienden con el TL (Team Leader).</span></li>
+          </ul>
+          <div class="note"><span class="ic sm">info</span><span>Los documentos de la cohorte son ficticios, incluso cuando responde una IA real.</span></div>
+          <div class="modal-actions">
+            <button class="btn btn-outlined" type="button" data-settings-tab="ia"><span class="ic">key</span>Configurar IA</button>
+            <button class="btn btn-filled" type="button" data-settings-tab="tl"><span class="ic">groups</span>Hablar con el TL (Team Leader)</button>
+          </div>
+        </div>
+
+        <div class="settings-panel" id="panelTL" role="tabpanel" hidden>
+          <p>Una persona real puede ayudarte con lo que Ritchie AI no puede resolver.</p>
+          <ul class="contact-list">
+            <li><span class="ic">mail</span><div>tl@ejemplo.com<small>Correo</small></div></li>
+            <li><span class="ic">phone</span><div>+57 300 000 0000<small>WhatsApp</small></div></li>
+            <li><span class="ic">schedule</span><div>Lunes a viernes, 8:00 a. m. – 6:00 p. m.<small>Horario de atención</small></div></li>
+            <li><span class="ic">chat</span><div>#ayuda-tl<small>Canal de la cohorte</small></div></li>
+          </ul>
+          <div class="note"><span class="ic sm">info</span><span>Datos de contacto de demostración (ficticios). No son información oficial.</span></div>
+          <div class="modal-actions">
+            <button class="btn btn-outlined" type="button" data-settings-tab="help"><span class="ic">help</span>Ver ayuda</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>

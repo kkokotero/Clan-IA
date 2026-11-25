@@ -79,12 +79,13 @@ misma configuración de IA.
   una key de producción. Para un despliegue público real, la key debería vivir en un backend.
 - Los datos personales detectados en la pregunta se ocultan antes de enviarlos al modelo y
   también se redactan en la respuesta. El texto de la IA se escapa antes de insertarse en el DOM.
-- Los temas sensibles (salud, calificaciones, situaciones personales) se derivan a un coach
-  y nunca se envían a la IA.
+- Los temas sensibles (salud, calificaciones, situaciones personales) se derivan al
+  TL (Team Leader) y nunca se envían a la IA.
 
 ## Archivos
 
-- `index.html`: interfaz, modales (coach, ayuda, documento y **Configurar IA**).
+- `index.html`: interfaz, modales (documento y **Configuración**, con secciones de IA,
+  chats, ayuda y TL (Team Leader)).
 - `styles.css`: estilos, incluido el indicador de conexión y el formulario de IA.
 - `app.js`: chat, historial, motor local de respaldo y llamada directa a Gemini/OpenRouter.
 - `HALLAZGOS.md`: resultados de la prueba con otro equipo.

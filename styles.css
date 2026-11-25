@@ -405,14 +405,20 @@ body.ai-off { filter: grayscale(1); }
 .field-help { font-size: .78rem; color: var(--on-surface-variant); margin: -6px 0 0; }
 
 /* Pestañas y sección de chats del modal de configuración */
-.settings-tabs { display: flex; gap: 6px; margin: 4px 0 16px; border-bottom: 1px solid var(--outline-variant); }
+#settingsModal .modal-card { max-width: 800px; }
+.settings-layout { display: flex; align-items: flex-start; gap: 20px; margin-top: 4px; }
+.settings-tabs {
+  display: flex; flex-direction: column; gap: 4px; flex: 0 0 200px;
+  margin: 0; padding-right: 12px; border-right: 1px solid var(--outline-variant);
+}
 .settings-tab {
-  display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px;
-  border-radius: 12px 12px 0 0; font-weight: 500; font-size: .9rem;
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 10px 12px; border-radius: 12px; font-weight: 500; font-size: .9rem;
   color: var(--on-surface-variant); transition: background-color .18s, color .18s;
 }
 .settings-tab:hover { background: var(--state-hover); }
 .settings-tab.active { color: var(--primary); background: var(--primary-container); }
+.settings-panels { flex: 1; min-width: 0; }
 .settings-panel[hidden] { display: none; }
 .settings-stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 16px; }
 .stat {
@@ -521,4 +527,8 @@ body.ai-off { filter: grayscale(1); }
   .disclaimer { font-size: .72rem; }
   .modal { align-items: end; padding: 0; }
   .modal-card { border-radius: 28px 28px 0 0; max-width: none; }
+  #settingsModal .modal-card { padding: 24px 16px 18px; }
+  .settings-layout { gap: 10px; }
+  .settings-tabs { flex-basis: 96px; padding-right: 6px; }
+  .settings-tab { gap: 4px; padding: 9px 6px; font-size: .78rem; }
 }
