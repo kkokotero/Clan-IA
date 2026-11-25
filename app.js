@@ -709,28 +709,18 @@ function updateSend() { sendBtn.disabled = busy || !input.value.trim(); }
 /* ---------- Estado de conexión con la IA (según la key guardada) ---------- */
 function refreshAIStatus() {
   const settings = getSettings();
-  const status = $("#aiStatus");
-  const text = $("#aiStatusText");
+  const notice = $("#aiOffNotice");
   const profileStatus = $("#profileStatus");
   const mobileAvatar = $("#mobileAvatar");
-  const notice = $("#aiOffNotice");
-  const label = PROVIDERS[settings.provider].label;
-  if (settings.apiKey) {
-    if (status) status.hidden = false;
-    if (status && text) {
-      status.dataset.state = "online";
-      text.textContent = `IA activa · ${label}`;
-      status.title = `Modelo ${settings.model}. La key se guarda solo en este navegador.`;
-    }
-    if (notice) notice.hidden = true;
-    if (profileStatus) profileStatus.textContent = `IA activa · ${label}`;
-    if (mobileAvatar) { mobileAvatar.dataset.online = "true"; mobileAvatar.title = `IA activa · ${label}`; }
-  } else {
-    /* Sin key: se retira el estado del lateral y el aviso vive en la página */
-    if (status) status.hidden = true;
-    if (notice) notice.hidden = false;
-    if (profileStatus) profileStatus.textContent = "Configurar IA (local)";
-    if (mobileAvatar) { mobileAvatar.dataset.online = "false"; mobileAvatar.title = "Configurar IA (local)"; }
+  const connected = Boolean(settings.apiKey);
+
+  /* El estado se comunica con el color de la interfaz, sin textos de estado */
+  document.body.classList.toggle("ai-off", !connected);
+  if (notice) notice.hidden = connected;
+  if (profileStatus) profileStatus.textContent = "Configurar IA (local)";
+  if (mobileAvatar) {
+    mobileAvatar.dataset.online = String(connected);
+    mobileAvatar.title = "Configurar IA (local)";
   }
 }
 
