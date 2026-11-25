@@ -1056,16 +1056,24 @@ body.ai-off {
 }
 .ui-list-action {
   margin-left: auto;
-  width: 32px;
-  height: 32px;
+  align-self: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
+  background: var(--surface);
   color: var(--primary);
-  transition: background-color 0.18s;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s,
+    color 0.18s;
 }
 .ui-list-action:hover {
-  background: var(--state-hover);
+  background: var(--primary-container);
+  border-color: var(--primary);
+  color: var(--on-primary-container);
 }
 .ui-tags {
   display: flex;
@@ -1332,6 +1340,39 @@ body.ai-off {
 .ui-btn-tertiary:hover {
   background: var(--state-hover);
 }
+/* Un formulario con una sola acción: el botón ocupa todo el ancho disponible */
+.ui-buttons-full {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.ui-buttons-full .ui-btn {
+  width: 100%;
+}
+
+/* Enlaces de las respuestas: se abren en una pestaña nueva */
+.ui-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--primary-container);
+  text-underline-offset: 3px;
+  transition:
+    color 0.18s,
+    text-decoration-color 0.18s;
+}
+.ui-link:hover {
+  color: var(--primary-hover);
+  text-decoration-color: currentColor;
+}
+.ui-link::after {
+  content: "open_in_new";
+  margin-left: 3px;
+  font-family: "Material Symbols Outlined";
+  font-size: 14px;
+  line-height: 1;
+  font-feature-settings: "liga";
+  vertical-align: -2px;
+}
 
 /* Listas, pestañas y sugerencias de seguimiento */
 .ui-follow {
@@ -1402,15 +1443,55 @@ body.ai-off {
   border: 1px solid var(--outline-variant);
   border-radius: var(--r-md);
   background: var(--surface-low);
+  overflow: hidden;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s;
+}
+.ui-accordion-item[open] {
+  border-color: var(--primary);
+  background: var(--surface);
 }
 .ui-accordion-item summary {
-  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
   font-size: 1rem;
+  line-height: 1.4;
   font-weight: 600;
+  color: var(--on-surface);
   cursor: pointer;
+  list-style: none;
+  transition:
+    background-color 0.18s,
+    color 0.18s;
+}
+.ui-accordion-item summary::-webkit-details-marker {
+  display: none;
+}
+.ui-accordion-item summary::after {
+  content: "expand_more";
+  margin-left: auto;
+  font-family: "Material Symbols Outlined";
+  font-size: 20px;
+  line-height: 1;
+  font-feature-settings: "liga";
+  color: var(--primary);
+}
+.ui-accordion-item summary:hover {
+  background: var(--state-hover);
+  color: var(--primary);
+}
+.ui-accordion-item[open] > summary {
+  color: var(--primary);
+  background: var(--state-hover);
+}
+.ui-accordion-item[open] > summary::after {
+  content: "expand_less";
 }
 .ui-accordion-item > div {
-  padding: 0 14px 14px;
+  padding: 0 16px 16px;
 }
 .ui-code {
   padding: 14px;

@@ -86,6 +86,7 @@ REGLAS DE ÉTICA Y PRIVACIDAD (obligatorias):
 8. SIN FUENTES: No menciones los nombres de los documentos, sus archivos ni ninguna sección "Sources"/"Fuente". No uses los componentes Sources ni CardSourceProvider. Usa la información sin citarla.
 9. TRANSPARENCIA IA: No lo aclares en el texto; la interfaz ya lo indica.
 10. AUTONOMÍA: Tu rol es INFORMAR, nunca decidir por el usuario. No añadas notas sobre quién decide.
+11. ENLACES: Solo incluye un enlace si su URL aparece literalmente en los documentos; nunca inventes ni completes una URL. Escríbelo como componente Link("texto del enlace", "https://...") o dentro de un texto como [texto](https://...). Los enlaces se abren en una pestaña nueva. No los presentes como "Fuente" ni los uses en lugar de la respuesta desarrollada.
 
 DOCUMENTOS DE LA COHORTE:
 
@@ -173,12 +174,13 @@ q1 = FollowUpItem("Ver el calendario de la cohorte")`,
         "Nunca pidas datos personales ni los repitas en el programa.",
         "No uses Sources, CardSourceProvider ni ninguna lista de fuentes. No escribas la palabra 'Fuente' ni nombres de archivos PDF. Usa los datos sin citarlos.",
         "No incluyas bloques de código markdown: devuelve únicamente el programa OpenUI Lang.",
+        'Los enlaces son parte del contenido, no citas: usa Link("Etiqueta", "https://...") o [Etiqueta](https://...) dentro de TextContent solo con URLs que aparezcan literalmente en los documentos; nunca inventes una URL ni escribas "Fuente". Se abren en una pestaña nueva.',
       ],
     });
   }
   return (
     SYSTEM_PROMPT +
-    "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes."
+    "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes. Para enlaces usa Link(\"Etiqueta\", \"https://...\") o [Etiqueta](https://...) solo con URLs presentes en los documentos; se abren en pestaña nueva."
   );
 }
 
@@ -762,10 +764,10 @@ function resultFromText(clean, question) {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
-  const short = lines[0] || "";
+  const short = richText(lines[0] || "");
   const detailHTML = lines
     .slice(1)
-    .map((l) => `<p>${escapeHTML(l.replace(/^[-•*]\s*/, ""))}</p>`)
+    .map((l) => `<p>${richText(l.replace(/^[-•*]\s*/, ""))}</p>`)
     .join("");
   return {
     type: "answer",
@@ -1080,11 +1082,30 @@ function resolveValue(v, env, seen = new Set()) {
 const valText = (v) =>
   v == null ? "" : typeof v === "object" ? "" : String(v);
 const asArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
-function richText(v) {
-  return escapeHTML(valText(v))
+
+/* Enlaces en el texto de la IA: markdown [etiqueta](https://...) o URLs sueltas.
+   El texto ya está escapado, así que solo se aceptan esquemas http/https. */
+const MD_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/gi;
+const BARE_URL = /(^|[\s(])(https?:\/\/[^\s<>()]+)/gi;
+const formatInline = (s) =>
+  s
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-    .replace(/\*([^*]+)\*/g, "<i>$1</i>")
-    .replace(/\r?\n/g, "<br>");
+    .replace(/\*([^*]+)\*/g, "<i>$1</i>");
+const anchorHTML = (label, href) =>
+  `<a class="ui-link" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+function richText(v) {
+  const links = [];
+  let out = escapeHTML(valText(v)).replace(MD_LINK, (_, label, href) => {
+    const token = `\u0000${links.length}\u0000`;
+    links.push(anchorHTML(formatInline(label), href));
+    return token;
+  });
+  out = formatInline(out).replace(/\r?\n/g, "<br>");
+  out = out.replace(BARE_URL, (_, before, url) => {
+    const clean = url.replace(/[.,;:!?]+$/, "");
+    return `${before}${anchorHTML(clean, clean)}${url.slice(clean.length)}`;
+  });
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => links[Number(i)] || "");
 }
 function actionText(v) {
   if (!v) return "";
@@ -1097,6 +1118,7 @@ function renderButtons(node, inForm = false) {
   const list =
     node && node.type === "Buttons" ? asArray(node.args?.[0]) : asArray(node);
   const vertical = node?.args?.[1] === "column";
+  const full = inForm && list.length === 1;
   const body = list
     .map((b, i) => {
       if (!b || b.type !== "Button") return renderNode(b);
@@ -1109,7 +1131,7 @@ function renderButtons(node, inForm = false) {
       return `<button type="${submit ? "submit" : "button"}" class="ui-btn ui-btn-${variant}"${action ? ` data-toassistant="${escapeHTML(action)}"` : ""}>${escapeHTML(label)}</button>`;
     })
     .join("");
-  return `<div class="ui-buttons${vertical ? " ui-buttons-column" : ""}">${body}</div>`;
+  return `<div class="ui-buttons${vertical ? " ui-buttons-column" : ""}${full ? " ui-buttons-full" : ""}">${body}</div>`;
 }
 function renderNode(node) {
   if (node == null || node === false) return "";
@@ -1249,6 +1271,12 @@ function renderNode(node) {
       return renderButtons(node);
     case "Button":
       return renderButtons(node);
+    case "Link":
+    case "TextLink": {
+      const label = escapeHTML(valText(a[0]));
+      const href = valText(a[1]);
+      return /^https?:\/\//i.test(href) ? anchorHTML(label, escapeHTML(href)) : label;
+    }
     case "FollowUpBlock":
       return `<div class="ui-follow"><span>${"Preguntas relacionadas"}</span>${asArray(
         a[0],
@@ -1518,8 +1546,12 @@ function finishResponse(
   result,
   { node = null, parentId = null, preamble = "", question = "" } = {},
 ) {
-  if (typeof result.short === "string") result.short = redactPII(result.short);
-  if (typeof result.html === "string") result.html = redactPII(result.html);
+  /* El texto ya se redactó antes de convertirlo en HTML; no volvamos a
+     tocar enlaces generados (un redactado tardío rompería su href). */
+  if (typeof result.short === "string" && !/<[a-z]/i.test(result.short))
+    result.short = redactPII(result.short);
+  if (typeof result.html === "string" && !/<a\s/i.test(result.html))
+    result.html = redactPII(result.html);
   const botNode =
     node || addNode({ role: "bot", ...result, preamble, question }, parentId);
   if (node) Object.assign(botNode, result, { role: "bot", preamble, question });

@@ -73,7 +73,14 @@ con el siguiente modelo gratuito de la lista antes de mostrar el error.
   **Configuración de IA** (`index.html` usa `.ui-form`, `.ui-field`, `.ui-input`, `.ui-select` y
   `.ui-btn`). Usan `Form` con `FormControl`, pistas, `Select`, `Chips`, `OptionCards`, `TextArea`,
   casillas y botones primarios/secundarios: campos tonales de 56 px, estados seleccionados con
-  marca de verificación, botones de 48 px y una columna en móvil.
+  marca de verificación, botones de 48 px y una columna en móvil. Si el formulario tiene un solo
+  botón, ese botón ocupa todo el ancho disponible.
+- Los **acordeones** (`SectionBlock`/`Accordion`) muestran una flecha Material a la derecha del
+  `summary`, que cambia al abrir, y las listas tienen una acción circular con borde para avanzar.
+- La IA puede incluir **enlaces** como `Link("Etiqueta", "https://...")` o como
+  `[Etiqueta](https://...)` dentro de un texto; se pintan con el color de la app y **se abren en una
+  pestaña nueva** (`target="_blank"` y `rel="noopener noreferrer"`). Solo se aceptan URLs `http`/`https`
+  y el prompt pide no inventarlas.
 - La tipografía sigue la escala **Material 3 Expressive** y la del resto de la página: títulos
   22/28, cuerpo 16/24, texto secundario 14/20 y etiquetas 15/20; los textos grandes de las
   respuestas ya no se reducen.
