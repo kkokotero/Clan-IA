@@ -70,6 +70,34 @@ directamente a `moodle.riwi.io`.
   respuesta y se las devuelve para que siga avanzando **hasta 12 pasos** antes de dibujar la interfaz.
   Si algo no existe en tu cuenta, lo dice en lugar de inventarlo. Es un bucle de herramientas en
   texto, compatible con Gemini y OpenRouter.
+- **Verificación de nombres:** antes de nombrar cursos, materiales, actividades o preguntas
+  relacionadas, el modelo debe llamar a
+  `MOODLE_VERIFY({"names":["Nombre 1","Nombre 2"]})`. La app comprueba cada nombre contra los cursos,
+  materiales, actividades y eventos realmente leídos, y devuelve los nombres exactos válidos junto
+  con los `NO ENCONTRADOS`. El modelo no puede extrapolar nombres (por ejemplo, suponer un `T2.1`
+  porque existe un `T1.1`) ni incluir lo marcado como no encontrado: si la respuesta depende de eso,
+  responde `MOODLE_NOT_FOUND`. La app exige la verificación antes de dibujar la interfaz y descarta
+  las respuestas que cuelan nombres no verificados.
+- **Detalle de todos los trabajos:** al conectar se consulta `mod_assign_get_assignments` para tus
+  cursos y se guardan el nombre, el curso, la fecha límite, las instrucciones, la calificación
+  máxima, la modalidad y el enlace de cada tarea. Ese bloque entra en el system prompt y el modelo
+  debe copiarlo al responder «qué tengo que hacer», «trabajos», «pendientes» o una semana concreta;
+  ya no se limita a decir «revisa la actividad registrada». Si una etiqueta aparece solo dentro de
+  las instrucciones (por ejemplo «semana 2»), esa tarea también cuenta. Las actividades que no son
+  `assign` se completan con la fecha límite y la descripción de `core_course_get_contents`. Sin key de
+  IA, la respuesta local muestra los mismos detalles con enlace a Moodle.
+- **Perfil, compañeros y mensajes:** al conectar se guarda tu perfil real de
+  `core_webservice_get_site_info`, se consultan los compañeros matriculados en tus cursos con
+  `core_enrol_get_enrolled_users` (todos los campos que Moodle expone) y el modelo puede leer tus
+  conversaciones con `core_message_get_conversations` y `core_message_get_messages` mediante
+  `MOODLE_TOOL`. Las contraseñas nunca se piden ni se guardan.
+- **Chats de la app:** `CHAT_LIST`, `CHAT_READ` y `CHAT_WRITE` permiten al modelo listar, leer,
+  renombrar, vaciar o eliminar conversaciones. Los cambios de chat muestran el mismo diálogo de
+  confirmación que las escrituras en Moodle.
+- **Escritura en Moodle con confirmación:** `MOODLE_WRITE` solo acepta
+  `core_user_update_users` (siempre con tu `userid`) y `core_message_send_instant_messages`
+  (destinatarios ya descubiertos). Antes de enviar cualquier cambio, la app muestra un diálogo con
+  la función y los datos; si cancelas, no se envía nada. `MOODLE_TOOL` sigue siendo solo de lectura.
 - **Calendario real:** al conectar se consulta `core_calendar_get_calendar_events` (con respaldo de
   `core_calendar_get_action_events_by_timesort`) y sus eventos, con fechas y URLs, se incluyen en el
   contexto. Con Moodle conectado el prompt ya **no incluye los documentos de demostración** ni sus

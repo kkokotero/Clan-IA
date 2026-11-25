@@ -134,6 +134,20 @@
     </div>
   </div>
 
+  <!-- ========== MODAL: CONFIRMACIÓN DE CAMBIOS ========== -->
+  <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+    <div class="modal-card">
+      <button class="icon-btn modal-close" data-close aria-label="Cancelar cambio"><span class="ic">close</span></button>
+      <div class="modal-head">
+        <div class="modal-ico"><span class="ic lg">verified_user</span></div>
+        <h2 id="confirmTitle">Confirmar cambio</h2>
+      </div>
+      <p id="confirmText"></p>
+      <div class="note"><span class="ic sm">info</span><span>Ritchie AI no modifica nada sin tu autorización. Revisa los datos antes de confirmar.</span></div>
+      <div class="modal-actions"><button class="btn btn-tonal" data-confirm="no">Cancelar</button><button class="btn btn-filled" data-confirm="yes">Confirmar</button></div>
+    </div>
+  </div>
+
   <!-- ========== MODAL: CONFIGURACIÓN ========== -->
   <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
     <div class="modal-card">

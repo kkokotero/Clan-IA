@@ -24,8 +24,15 @@ let moodleUser = "";
 let moodleUserId = 0;
 let moodleCourses = [];
 let moodleMaterials = [];
+/* Detalles reales de los trabajos/tareas (instrucciones, entrega y enlace). */
+let moodleTasks = [];
 let moodleContext = "";
 let moodleFunctions = [];
+/* Catálogo sin filtrar: las funciones de escritura no entran en moodleFunctions
+   pero sí se necesitan para validar MOODLE_WRITE. */
+let moodleAllFunctions = [];
+let moodlePeople = [];
+let moodlePeopleIds = new Set();
 let moodleCMIds = [];
 /* Memoria de la navegación por URLs: el modelo sigue los enlaces que aparecen
    en los datos de Moodle para llegar al contenido concreto. */
@@ -66,8 +73,12 @@ function clearMoodle() {
   moodleUserId = 0;
   moodleCourses = [];
   moodleMaterials = [];
+  moodleTasks = [];
   moodleContext = "";
   moodleFunctions = [];
+  moodleAllFunctions = [];
+  moodlePeople = [];
+  moodlePeopleIds = new Set();
   moodleCMIds = [];
   moodleContents = {};
   moodleURLs = [];
@@ -230,6 +241,11 @@ const MOODLE_SELF_USER_FNS = new Set([
   "core_calendar_get_calendar_events",
   "core_calendar_get_action_events_by_timesort",
   "core_calendar_get_action_events_by_course",
+  "mod_assign_get_submission_status",
+  "core_message_get_conversations",
+  "core_message_get_messages",
+  "core_message_get_contact_messages",
+  "core_message_get_unread_conversations_count",
 ]);
 function sanitizeMoodleParams(fn, rawObj) {
   const source =
@@ -295,6 +311,21 @@ function sanitizeMoodleParams(fn, rawObj) {
         const id = moodleId(value, moodleCMIds);
         if (id != null) params[key] = id;
       }
+      return;
+    }
+    /* core_user_get_users_by_field(field="id") solo puede mirar tu propio id. */
+    if (/^values(?:\[\d+\])?$/.test(key)) {
+      const id = moodleId(value, ownId);
+      if (id != null) params[key] = id;
+      return;
+    }
+    /* Los estados de entrega solo se consultan para trabajos ya descubiertos. */
+    if (/^assign(?:ment)?id$/i.test(key)) {
+      const id = moodleId(
+        value,
+        moodleTasks.map((t) => t.id),
+      );
+      if (id != null) params[key] = id;
       return;
     }
     if (key === "events" && Array.isArray(value)) {
@@ -660,6 +691,232 @@ function moodleFindModule(key) {
     null
   );
 }
+/* Verificación de nombres: la IA no debe extrapolar materiales (por ejemplo,
+   suponer un "T2.1" porque existe un "T1.1"). Solo son válidos los que aparecen
+   literalmente en los datos leídos de Moodle. */
+function moodleVerifyIndex() {
+  const items = [];
+  const push = (type, name, alt, url) => {
+    if (!name) return;
+    items.push({
+      type,
+      name: String(name),
+      alt: (Array.isArray(alt) ? alt : []).filter(Boolean).map(String),
+      url: url ? String(url) : "",
+    });
+  };
+  moodleCourses.forEach((c) =>
+    push("curso", c.fullname || c.shortname, [c.shortname], c.url),
+  );
+  moodleMaterials.forEach((m) =>
+    push(m.kind === "actividad" ? "actividad" : "material", m.title, [m.filename], m.url),
+  );
+  moodleAllModules().forEach((m) =>
+    push("actividad", m.name, [m.modname], moodleModuleLink(m)),
+  );
+  moodleEvents.forEach((e) =>
+    push("evento", e.name, [], e.url || e.viewurl),
+  );
+  return items;
+}
+function moodleVerifyName(query, index) {
+  const q = normalize(String(query || "")).trim();
+  if (!q) return null;
+  const exact = index.find(
+    (x) =>
+      normalize(x.name) === q ||
+      x.alt.some((a) => normalize(a) === q),
+  );
+  if (exact) return exact;
+  /* Solo aceptamos coincidencias parciales si la búsqueda es suficientemente
+     específica; así "IA" no se valida contra "T1.3 - IA" por azar. */
+  if (q.length < 6) return null;
+  return (
+    index.find(
+      (x) =>
+        normalize(x.name).includes(q) ||
+        x.alt.some((a) => normalize(a).includes(q)) ||
+        (normalize(x.name).length >= 6 && q.includes(normalize(x.name))),
+    ) || null
+  );
+}
+function moodleVerifyResult(order) {
+  if (!(moodleContext || getMoodle().token))
+    return {
+      note: "Moodle no está conectado: no se pueden verificar nombres.",
+      valid: [],
+      invalid: [],
+    };
+  const raw =
+    order && (order.names || order.items || order.name || order.item);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const index = moodleVerifyIndex();
+  const valid = [];
+  const invalid = [];
+  list.slice(0, 40).forEach((value) => {
+    if (typeof value !== "string" || !value.trim()) return;
+    const found = moodleVerifyName(value, index);
+    if (found)
+      valid.push({
+        pedido: value.trim(),
+        real: found.name,
+        tipo: found.type,
+        url: found.url,
+      });
+    else invalid.push(value.trim());
+  });
+  return {
+    note:
+      `Verificación Moodle: válidos=${JSON.stringify(valid)}; ` +
+      `NO ENCONTRADOS=${JSON.stringify(invalid)}. ` +
+      "Usa solo los nombres exactos del campo 'real' y sus URLs literales. " +
+      "Los NO ENCONTRADOS no existen en esta cuenta: no los nombres ni los pongas en preguntas relacionadas. " +
+      "Si la pregunta depende de ellos, responde exactamente MOODLE_NOT_FOUND.",
+    valid,
+    invalid,
+  };
+}
+const applyMoodleVerify = (order) => moodleVerifyResult(order).note;
+
+/* ---------- Chats guardados en este navegador ---------- */
+function findChatRef(ref) {
+  const key = String(ref || "").trim();
+  if (!key || /^(current|actual|este|this)$/i.test(key)) return current() || null;
+  return (
+    conversations.find((c) => c.id === key) ||
+    conversations.find(
+      (c) => normalize(c.title).trim() === normalize(key).trim(),
+    ) ||
+    conversations.find((c) => normalize(c.title).includes(normalize(key).trim())) ||
+    null
+  );
+}
+function chatListResult(order) {
+  const limit = Math.min(Math.max(Number(order && order.limit) || 10, 1), 30);
+  const items = conversations.slice(-limit).map((c) => ({
+    id: c.id,
+    title: c.title,
+    mensajes: (c.nodes || []).length,
+  }));
+  return `Chats de esta app: ${JSON.stringify(items).slice(0, 3000)}`;
+}
+function chatReadResult(order) {
+  const conv = findChatRef(order && (order.id || order.chat || order.title));
+  if (!conv) return "No encontré ese chat en este navegador.";
+  const path = activePath(conv);
+  const limit = Math.min(Math.max(Number(order && order.limit) || 30, 1), 50);
+  const nodes = (path.length ? path : nodesOf(conv)).slice(-limit);
+  const lines = nodes.map((n) => {
+    const text = n.text || n.response || n.short || n.message || "";
+    return `${n.role || "bot"}: ${String(text).slice(0, 500)}`;
+  });
+  return `Chat "${conv.title}" (${conv.id}):\n${lines.join("\n").slice(0, 5000)}`;
+}
+async function applyChatWrite(order) {
+  const action = String((order && order.action) || "").toLowerCase();
+  const conv = findChatRef(order && (order.id || order.chat || order.title));
+  if (!conv) return "No encontré ese chat en este navegador.";
+  if (!["rename", "delete", "clear"].includes(action))
+    return "Acción de chat no permitida. Usa rename, delete o clear.";
+  if (action === "delete" && conv.id === currentId)
+    return "No puedo borrar la conversación activa mientras respondo.";
+  const label = `Chat: ${conv.title || conv.id}`;
+  const result =
+    action === "rename"
+      ? `Cambiar el título de "${conv.title}" a "${String(order.title || order.value || "").trim().slice(0, 80)}"`
+      : action === "delete"
+        ? `Eliminar la conversación "${conv.title}"`
+        : `Borrar todos los mensajes de "${conv.title}"`;
+  if (!(await askConfirmation(`${result}\n${label}`)))
+    return "Cambio cancelado: no se modificó ningún chat.";
+  if (action === "rename") {
+    const title = String(order.title || order.value || "").trim().slice(0, 80);
+    if (!title) return "No se indicó el nuevo título.";
+    conv.title = title;
+  } else if (action === "delete") {
+    conversations = conversations.filter((c) => c.id !== conv.id);
+  } else {
+    conv.nodes = [];
+    conv.activeLeafId = null;
+    if (conv.id === currentId) {
+      currentId = null;
+      editingId = null;
+    }
+  }
+  save();
+  renderHistory();
+  renderChat();
+  updateHistoryStats();
+  return `Chat actualizado (${action}): ${conv.title || label}`;
+}
+
+/* ---------- Escrituras en Moodle (siempre con confirmación) ---------- */
+const MOODLE_WRITABLE = new Set([
+  "core_user_update_users",
+  "core_message_send_instant_messages",
+]);
+function moodleWriteParams(fn, order) {
+  const p =
+    order && order.params && typeof order.params === "object" ? order.params : {};
+  if (fn === "core_user_update_users") {
+    const user = Array.isArray(p.users) ? p.users[0] : p.user || p;
+    if (!user || typeof user !== "object") return null;
+    const fields = [
+      "firstname",
+      "lastname",
+      "email",
+      "city",
+      "country",
+      "timezone",
+      "description",
+      "phone1",
+      "phone2",
+      "url",
+      "alternatename",
+    ];
+    const out = { "users[0][id]": moodleUserId };
+    fields.forEach((k) => {
+      if (typeof user[k] === "string" && user[k].trim())
+        out[`users[0][${k}]`] = moodleScalar(user[k].trim().slice(0, 300));
+    });
+    return Object.keys(out).length > 1 ? out : null;
+  }
+  if (fn === "core_message_send_instant_messages") {
+    const recipientid = moodleId(
+      p.recipientid ?? p.userid ?? p.to,
+      moodlePeopleIds.size ? [...moodlePeopleIds] : null,
+    );
+    const message =
+      typeof p.message === "string" ? p.message.trim().slice(0, 2000) : "";
+    if (!recipientid || !message) return null;
+    const out = { recipientid, message };
+    if (typeof p.subject === "string" && p.subject.trim())
+      out.subject = p.subject.trim().slice(0, 200);
+    return out;
+  }
+  return null;
+}
+async function applyMoodleWrite(order) {
+  if (!getMoodle().token)
+    return "Moodle no está conectado: no se puede escribir nada.";
+  const fn = String((order && (order.fn || order.function)) || "");
+  if (!MOODLE_WRITABLE.has(fn) || !moodleAllFunctions.includes(fn))
+    return `Esa escritura no está permitida: ${fn || "sin función"}. Solo se pueden actualizar tu perfil y enviar mensajes.`;
+  const params = moodleWriteParams(fn, order);
+  if (!params) return `Faltan datos válidos para ejecutar ${fn}.`;
+  const reason =
+    typeof order.reason === "string" ? order.reason.slice(0, 300) : "";
+  const detail = `El modelo quiere ejecutar ${fn} en Moodle.\n${reason}\nDatos: ${JSON.stringify(params).slice(0, 900)}`;
+  if (!(await askConfirmation(detail)))
+    return "Cambio cancelado: no se envió nada a Moodle.";
+  try {
+    const data = await moodleRequest(fn, params);
+    return `Cambio realizado en Moodle (${fn}): ${compactMoodleResult(data)}`;
+  } catch (err) {
+    return `No se pudo realizar el cambio en Moodle: ${err.message || err}`;
+  }
+}
+
 function moodleModuleLink(mod) {
   const direct = [mod && mod.url, mod && mod.urlweb].find(
     (v) => typeof v === "string" && /^https?:\/\//i.test(v),
@@ -677,6 +934,99 @@ const moodleCleanText = (v, max = 400) =>
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
+
+/* ---------- Trabajos/tareas: detalle real, no un aviso genérico ---------- */
+function moodleTaskURL(a) {
+  const direct = moodleDirectURL(a && a.url);
+  if (direct) return direct;
+  const cmid = Number(a && a.cmid);
+  if (cmid > 0) return `${getMoodle().base}/mod/assign/view.php?id=${cmid}`;
+  return "";
+}
+function moodleTaskSummary(t) {
+  const parts = [`- ${t.name} [trabajo] · ${t.course}`];
+  if (t.due) parts.push(`Fecha límite: ${t.due}`);
+  if (t.intro) parts.push(`Instrucciones: ${t.intro}`);
+  if (t.grade) parts.push(`Nota máxima: ${t.grade}`);
+  if (t.types) parts.push(`Modalidad: ${t.types}`);
+  if (t.url) parts.push(`Enlace: ${t.url}`);
+  return parts.join(" · ");
+}
+async function loadMoodleTasks(ids, courseName) {
+  moodleTasks = [];
+  if (!ids.length || !moodleToolAllowed("mod_assign_get_assignments")) return [];
+  try {
+    const data = await moodleRequest(
+      "mod_assign_get_assignments",
+      moodleIdsParam(ids, "courseids"),
+    );
+    const seen = new Set();
+    (Array.isArray(data && data.courses) ? data.courses : []).forEach((c) => {
+      const list = Array.isArray(c && c.assignments) ? c.assignments : [];
+      list.forEach((a) => {
+        if (!a || !a.name || seen.has(a.id)) return;
+        seen.add(a.id);
+        const courseid = Number(a.course || c.id) || 0;
+        const dueSeconds = Number(a.duedate);
+        moodleTasks.push({
+          id: Number(a.id) || 0,
+          cmid: Number(a.cmid) || 0,
+          courseid,
+          course: courseName(courseid),
+          name: String(a.name),
+          due:
+            Number.isFinite(dueSeconds) && dueSeconds > 0
+              ? moodleEventDate({ timestart: dueSeconds })
+              : "",
+          intro: moodleCleanText(a.intro || a.instructions || "", 260),
+          grade: a.grade == null || a.grade === "" ? "" : String(a.grade),
+          types: Array.isArray(a.submissiontypes)
+            ? a.submissiontypes.filter(Boolean).join(", ")
+            : "",
+          url: moodleTaskURL(a),
+        });
+      });
+    });
+  } catch (err) {
+    /* El sitio puede no exponer este módulo: se sigue con el resto de datos */
+  }
+  return moodleTasks;
+}
+
+/* Compañeros matriculados en los cursos propios: se guardan todos los campos
+   que Moodle expone (el usuario eligió ver toda la información disponible). */
+async function loadMoodlePeople(ids) {
+  moodlePeople = [];
+  moodlePeopleIds = new Set();
+  if (!ids.length || !moodleToolAllowed("core_enrol_get_enrolled_users"))
+    return moodlePeople;
+  const seen = new Set();
+  for (const cid of ids.slice(0, 10)) {
+    try {
+      const data = await moodleRequest("core_enrol_get_enrolled_users", {
+        courseid: cid,
+      });
+      (Array.isArray(data) ? data : []).forEach((u) => {
+        const id = Number(u && u.id);
+        if (!id || seen.has(id) || moodlePeople.length >= 80) return;
+        seen.add(id);
+        moodlePeopleIds.add(id);
+        moodlePeople.push(compactMoodleValue(u));
+      });
+    } catch (err) {
+      /* Un curso puede no permitir ver su lista de matriculados */
+    }
+  }
+  return moodlePeople;
+}
+function moodlePersonSummary(p) {
+  const name =
+    p.fullname || [p.firstname, p.lastname].filter(Boolean).join(" ") || `id ${p.id}`;
+  const roles = Array.isArray(p.roles)
+    ? p.roles.map((r) => r.shortname || r.name).filter(Boolean).join(", ")
+    : "";
+  return `- ${name} [id ${p.id}]${roles ? ` · ${roles}` : ""} · ${JSON.stringify(p).slice(0, 300)}`;
+}
 
 /* "Abre" un enlace de Moodle: solo se acepta el mismo sitio y se resuelve con
    servicios REST de lectura. El enlace queda memorizado para la respuesta. */
@@ -849,6 +1199,9 @@ async function moodleConnect(token, base) {
   moodleUser = info.fullname || info.username || "Estudiante";
   moodleUserId = Number(info.userid) || 0;
   moodleFunctions = safeMoodleFunctions(info.functions);
+  moodleAllFunctions = (Array.isArray(info.functions) ? info.functions : [])
+    .map((f) => (typeof f === "string" ? f : f && f.name))
+    .filter(Boolean);
   moodleCMIds = [];
 
   /* core_course_get_courses valida TODOS los cursos del sitio y falla si la
@@ -891,6 +1244,7 @@ async function moodleConnect(token, base) {
     if (!item || !item.name) return;
     const content = Array.isArray(item.content) ? item.content : [];
     const file = content.find((f) => f && f.fileurl) || {};
+    const deadline = Number(item.deadline);
     materials.push({
       kind,
       title: String(item.name),
@@ -898,6 +1252,14 @@ async function moodleConnect(token, base) {
       course: courseName(courseId),
       filename: file.filename || "",
       url: moodleDirectURL(file.fileurl || item.url || item.externalurl || ""),
+      detail: [
+        Number.isFinite(deadline) && deadline > 0
+          ? `Fecha límite: ${moodleEventDate({ timestart: deadline })}`
+          : "",
+        moodleCleanText(item.intro || item.description || "", 260),
+      ]
+        .filter(Boolean)
+        .join(" · "),
     });
   };
 
@@ -923,6 +1285,21 @@ async function moodleConnect(token, base) {
     });
   }
 
+  /* Los trabajos se piden aparte porque traen instrucciones, fecha límite y
+     calificación: con solo el nombre no se puede decir qué hay que hacer. */
+  await loadMoodleTasks(ids, courseName);
+  moodleTasks.forEach((t) =>
+    materials.push({
+      kind: "trabajo",
+      title: t.name,
+      courseId: t.courseid,
+      course: t.course,
+      filename: "",
+      url: t.url,
+      detail: moodleTaskSummary(t),
+    }),
+  );
+
   /* Si el sitio no expone esos módulos, al menos tomamos las actividades. */
   const contents = await Promise.allSettled(
     moodleCourses.map((c) =>
@@ -942,11 +1319,25 @@ async function moodleConnect(token, base) {
     );
   });
   moodleMaterials = materials;
+  await loadMoodlePeople(ids);
   const calendarLines = await loadMoodleCalendar();
 
+  const profile = compactMoodleValue({
+    userid: moodleUserId,
+    fullname: info.fullname,
+    username: info.username,
+    email: info.useremail || info.email,
+    city: info.city,
+    country: info.country,
+    timezone: info.timezone,
+    language: info.lang,
+  });
   const lines = [
     `Sitio Moodle: ${info.sitename || base}`,
     `Usuario: ${moodleUser}`,
+    "",
+    "Mi perfil real (de Moodle; para más campos usa core_user_get_users_by_field):",
+    `- ${JSON.stringify(profile)}`,
     `Fecha al conectar (para la hora actual usa DEVICE_INFO): ${new Date().toLocaleString("es-CO", { dateStyle: "full", timeStyle: "short" })}`,
     "",
     "Calendario real del usuario (eventos próximos):",
@@ -955,12 +1346,28 @@ async function moodleConnect(token, base) {
     "Cursos del usuario:",
     ...moodleCourses.map((c) => `- ${c.fullname}`),
     "",
+    "Compañeros de tus cursos (campos expuestos por Moodle):",
+    ...(moodlePeople.length
+      ? moodlePeople.slice(0, 30).map(moodlePersonSummary)
+      : ["- No se pudieron consultar compañeros con este token."]),
+    "",
+    "Trabajos y tareas reales con detalles (instrucciones, fecha límite y enlace):",
+    ...(moodleTasks.length
+      ? moodleTasks.slice(0, 100).map(moodleTaskSummary)
+      : [
+          '- No se pudieron consultar trabajos con este token. Si preguntan por tareas, usa MOODLE_TOOL({"fn":"mod_assign_get_assignments","params":{"courseids":[' +
+            ids.join(",") +
+            "]}}).",
+        ]),
+    "",
     "Materiales académicos reales (URLs literales):",
     ...moodleMaterials
-      .slice(0, 80)
+      .slice(0, 60)
       .map(
         (m) =>
-          `- ${m.title} [${m.kind}] · ${m.course}${m.url ? ` · ${m.url}` : ""}`,
+          `- ${m.title} [${m.kind}] · ${m.course}` +
+          (m.kind !== "trabajo" && m.detail ? ` · ${m.detail}` : "") +
+          (m.url ? ` · ${m.url}` : ""),
       ),
     "",
     "Funciones REST de solo lectura disponibles en este sitio:",
@@ -968,7 +1375,7 @@ async function moodleConnect(token, base) {
       ? moodleFunctions.map((f) => `- ${f}`)
       : ["- core_webservice_get_site_info", "- core_enrol_get_users_courses", "- core_course_get_contents"]),
   ];
-  moodleContext = lines.join("\n").slice(0, 14000);
+  moodleContext = lines.join("\n").slice(0, 24000);
   moodleURLs = [];
   collectMoodleURLs(moodleMaterials);
   updateMoodleUI();
@@ -1121,7 +1528,27 @@ ${moodleContext}
 HERRAMIENTAS DEL DISPOSITIVO (fecha, hora y equipo):
 - Para saber la fecha de hoy, la hora, la zona horaria o cualquier dato del dispositivo, responde SOLO con una o más líneas DEVICE_INFO({"keys":["date","time","timezone"]}), sin texto adicional ni bloques de código.
 - Campos disponibles: datetime, date, time, timezone, language, platform, device, screen, viewport, pixelratio, online, network, battery, memory, cpu, preferences. Si omites "keys" se consultan todos.
-- Puedes combinar DEVICE_INFO con MOODLE_OPEN y MOODLE_TOOL en la misma respuesta. Los valores devueltos son reales: úsalos tal cual.
+- Puedes combinar DEVICE_INFO con MOODLE_OPEN, MOODLE_TOOL, MOODLE_VERIFY, CHAT_LIST, CHAT_READ, CHAT_WRITE y MOODLE_WRITE en la misma respuesta. Los valores devueltos son reales: úsalos tal cual.
+
+PERFIL, COMPAÑEROS, CHATS Y CAMBIOS:
+- Tu perfil real está en el bloque "Mi perfil real". Para ver todos los campos usa MOODLE_TOOL({"fn":"core_user_get_users_by_field","params":{"field":"id","values":[${moodleUserId || 0}]}}).
+- Los compañeros de tus cursos están en el bloque "Compañeros de tus cursos" con los campos que Moodle expone. Para uno concreto usa MOODLE_TOOL({"fn":"core_enrol_get_enrolled_users","params":{"courseid":X}}). Puedes mostrar esos campos; nunca pidas contraseñas ni datos fuera de Moodle.
+- Para leer mensajes de Moodle usa MOODLE_TOOL({"fn":"core_message_get_conversations","params":{"userid":${moodleUserId || 0},"limitnum":20}}) y después MOODLE_TOOL({"fn":"core_message_get_messages","params":{"userid":${moodleUserId || 0},"conversationid":X,"limitnum":20}}).
+- Para los chats de esta app usa CHAT_LIST({"limit":10}), CHAT_READ({"id":"...","limit":30}) y CHAT_WRITE({"action":"rename","id":"...","title":"..."}). Las acciones delete y clear piden confirmación.
+- Para escribir en Moodle usa SOLO MOODLE_WRITE({"fn":"core_user_update_users","params":{"users":[{"firstname":"Nuevo nombre"}]},"reason":" por qué"}) o MOODLE_WRITE({"fn":"core_message_send_instant_messages","params":{"recipientid":X,"message":"..."},"reason":" por qué"}). El destinatario debe ser un compañero descubierto. La app muestra un diálogo y no envía nada sin que la persona confirme; si cancela, no insistas.
+- Nunca uses funciones de escritura directamente con MOODLE_TOOL: MOODLE_TOOL es solo de lectura.
+
+VERIFICACIÓN OBLIGATORIA DE NOMBRES:
+- Antes de escribir el programa final, comprueba CADA curso, material, actividad, evento y pregunta relacionada que vayas a nombrar con MOODLE_VERIFY({"names":["Nombre exacto 1","Nombre exacto 2"]}).
+- Usa solo los nombres que la herramienta devuelva en el campo "real" como válidos. Los que aparezcan en "NO ENCONTRADOS" no existen en esta cuenta: no los escribas, no los sugieras en FollowUpBlock ni en @ToAssistant, y no los completes por patrones (por ejemplo, inventar "T2.1" porque existe "T1.1").
+- Si preguntan por "trayecto 2", "semana 2" u otra etiqueta que no aparece literalmente en los datos, busca primero materiales reales con MOODLE_TOOL o MOODLE_OPEN y verifícalos. Si no hay coincidencia real, responde exactamente MOODLE_NOT_FOUND.
+- Nunca des por válido un nombre que solo aparezca en tu respuesta anterior o en el material de demostración.
+
+TRABAJOS Y TAREAS (detalles reales):
+- Si preguntan "qué tengo que hacer", "trabajos", "tareas", "pendientes", "entregas" o por una semana/actividad concreta, usa SOLO el bloque "Trabajos y tareas reales con detalles": copia el nombre exacto, el curso, la fecha límite, las instrucciones y el enlace de CADA trabajo que corresponda.
+- Nunca respondas de forma genérica "revisa la actividad registrada en Moodle": da el detalle leído. Si el bloque está vacío o no cubre lo que piden, consulta MOODLE_TOOL({"fn":"mod_assign_get_assignments","params":{"courseids":[...]}}) y luego abre el trabajo con MOODLE_OPEN antes de responder.
+- Una etiqueta como "semana 2" también puede aparecer dentro de las instrucciones de un trabajo real: si es así, ese trabajo sí coincide; cópialo con su fecha y su enlace.
+- Si después de consultar no hay un trabajo real que coincida, responde exactamente MOODLE_NOT_FOUND. No inventes semanas ni tareas por patrones.
 
 REGLAS DE VERDAD:
 - Para "próxima sesión", "próxima clase", "calendario", "cuándo" o cualquier fecha, mira SOLO el bloque "Calendario real del usuario". Si allí no está, consulta MOODLE_TOOL({"fn":"core_calendar_get_calendar_events","params":{"userid":${moodleUserId || 0},"days":60}}).
@@ -1134,21 +1561,23 @@ NAVEGACIÓN POR MOODLE:
 - course/view.php?id=X trae el contenido del curso; mod/.../view.php?id=X resuelve la actividad; pluginfile.php da el enlace al archivo; calendar/view.php muestra el evento. Así recorres curso → sección → actividad → archivo.
 - Para cualquier otro dato usa MOODLE_TOOL({"fn":"...","params":{...}}). Funciones de solo lectura disponibles: ${functionList}.
 - Puedes combinar varias líneas MOODLE_OPEN y MOODLE_TOOL en una respuesta. Tienes hasta ${MOODLE_MAX_STEPS} pasos y puedes reintentar si algo falla.
-- "userid" es siempre ${moodleUserId || "el de la sesión"}; "courseid"/"courseids" solo tus cursos; "cmid"/"cmids" solo actividades descubiertas. Nunca uses core_course_get_courses ni funciones de escritura.
+- "userid" es siempre ${moodleUserId || "el de la sesión"}; "courseid"/"courseids" solo tus cursos; "cmid"/"cmids" solo actividades descubiertas. Nunca uses core_course_get_courses. Las escrituras van solo por MOODLE_WRITE con confirmación.
 - Cuando ya tengas datos reales suficientes, devuelve SOLO el programa OpenUI Lang final con root = Card(...) como primera línea. No mezcles herramientas con el programa final.
 
-FORMATO OpenUI Lang: una sentencia "nombre = Componente(...)" por línea; desarrolla la respuesta con detalle usando CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock o Buttons con @ToAssistant("..."). StepsItem lleva dos argumentos. Toda variable definida debe usarse. Sin markdown, sin fuentes y sin datos personales.`;
+FORMATO OpenUI Lang: una sentencia "nombre = Componente(...)" por línea; desarrolla la respuesta con detalle usando CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock o Buttons con @ToAssistant("..."). StepsItem lleva dos argumentos. Toda variable definida debe usarse. Sin markdown, sin fuentes y sin contraseñas; puedes mostrar tu perfil y los campos de compañeros que devuelva Moodle.`;
   const lib = window.__OpenUI && window.__OpenUI.openuiChatLibrary;
   if (lib && typeof lib.prompt === "function") {
     return lib.prompt({
       preamble,
       examples: [example],
       additionalRules: [
-        "Responde en español neutro, con detalle claro (120-250 palabras cuando el tema lo permita), pero SOLO con datos que estén en Moodle, en el dispositivo o en las consultas.",
+        "Responde en español neutro, con detalle claro (120-250 palabras cuando el tema lo permita), pero SOLO con datos verificados con MOODLE_VERIFY o leídos del dispositivo. Nunca extrapoles nombres de materiales ni cursos.",
+        'Cuando pregunten por trabajos o "qué hay que hacer", muestra el nombre, el curso, la fecha límite y las instrucciones literales del bloque de tareas; nunca escribas solo "revisa la actividad registrada".',
         "Escribe root = Card(...) como primera línea y una sentencia por línea; usa argumentos posicionales, nunca 'clave: valor'.",
         'Si preguntan por fechas o sesiones, copia la fecha y hora exactas del calendario de Moodle; si no aparece, responde exactamente MOODLE_NOT_FOUND. No escribas "Calendario de la cohorte" ni fechas de ejemplo.',
         'Los enlaces solo pueden ser URLs literales de Moodle; usa Link("Etiqueta","URL") o [Etiqueta](URL). No escribas "Fuente" ni nombres de PDF.',
-        "Nunca pidas ni repitas datos personales. No incluyas bloques de código markdown.",
+        'Puedes mostrar tu perfil y los datos de compañeros que devuelva Moodle; nunca pidas contraseñas ni repitas datos de fuera de Moodle. Los cambios se hacen solo con MOODLE_WRITE y confirmación.',
+        "No incluyas bloques de código markdown.",
       ],
     });
   }
@@ -1338,12 +1767,62 @@ const PII_PATTERNS = [
   },
   { regex: /\b\d{6,10}\b/g, label: "[documento oculto]" },
 ];
-function redactPII(text) {
+/* Las llamadas a herramientas viajan como parámetros: redactar su contenido
+   rompería una escritura (por ejemplo, un correo en MOODLE_WRITE). */
+function protocolSpans(text) {
+  const markers = [
+    "MOODLE_WRITE",
+    "MOODLE_TOOL",
+    "MOODLE_VERIFY",
+    "MOODLE_OPEN",
+    "DEVICE_INFO",
+    "CHAT_LIST",
+    "CHAT_READ",
+    "CHAT_WRITE",
+  ];
+  const re = new RegExp(`(?:${markers.join("|")})\\s*\\(`, "gi");
+  const spans = [];
+  let match;
+  while ((match = re.exec(text))) {
+    let i = re.lastIndex;
+    let depth = 1;
+    let quote = false;
+    let esc = false;
+    for (; i < text.length && depth > 0; i++) {
+      const c = text[i];
+      if (quote) {
+        if (esc) esc = false;
+        else if (c === "\\") esc = true;
+        else if (c === '"') quote = false;
+        continue;
+      }
+      if (c === '"') quote = true;
+      else if (c === "(") depth++;
+      else if (c === ")") depth--;
+    }
+    if (depth === 0) spans.push([match.index, i]);
+    re.lastIndex = i;
+  }
+  return spans;
+}
+function redactSegment(text) {
   let cleaned = text;
   PII_PATTERNS.forEach(({ regex, label }) => {
     cleaned = cleaned.replace(new RegExp(regex.source, regex.flags), label);
   });
   return cleaned;
+}
+function redactPII(text, keepTools = false) {
+  const src = String(text == null ? "" : text);
+  const spans = keepTools ? protocolSpans(src) : [];
+  if (!spans.length) return redactSegment(src);
+  let out = "";
+  let pos = 0;
+  spans.forEach(([start, end]) => {
+    out += redactSegment(src.slice(pos, start)) + src.slice(start, end);
+    pos = end;
+  });
+  return out + redactSegment(src.slice(pos));
 }
 function containsPII(text) {
   return PII_PATTERNS.some(({ regex }) =>
@@ -1541,13 +2020,7 @@ const SENSITIVE = [
   "estres",
   "triste",
   "suicid",
-  "calificacion",
-  "mis notas",
-  "mi nota",
-  "promedio",
-  "aprobar",
-  "reprob",
-  "perder el curso",
+  /* Calificaciones y compañeros ya se responden con datos reales de Moodle. */
   "situacion personal",
   "problema personal",
   "asunto personal",
@@ -1561,8 +2034,6 @@ const SENSITIVE = [
   "sancionar",
   "despedir",
   "castigar",
-  "mi compañero",
-  "mi companero",
   "decidir sobre",
 ];
 
@@ -1788,7 +2259,30 @@ function resolveMoodleAnswer(question) {
       noSource: true,
     };
   }
-  if (/tarea|actividad|pendiente|entrega|vence/.test(q)) {
+  if (/tarea|actividad|pendiente|entrega|vence|trabajo|que tengo que hacer/.test(q)) {
+    if (moodleTasks.length) {
+      const rows = moodleTasks.slice(0, 50).map((t) => [
+        "assignment",
+        moodleCleanText(t.name, 70),
+        [t.course, t.due ? `Fecha límite: ${t.due}` : "", t.intro]
+          .filter(Boolean)
+          .join(" · "),
+      ]);
+      const links = moodleTasks
+        .filter((t) => t.url)
+        .slice(0, 50)
+        .map(
+          (t) =>
+            `<p><a href="${escapeHTML(t.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(t.name)}</a></p>`,
+        )
+        .join("");
+      return {
+        type: "answer",
+        short: `Tienes ${moodleTasks.length} trabajos visibles en Moodle.`,
+        html: `<h3>Trabajos reales de tu Moodle</h3>${facts(rows)}${links}`,
+        noSource: true,
+      };
+    }
     const mods = moodleAllModules()
       .filter((m) => /assign|quiz|choice|workshop/.test(String(m.modname || "")))
       .slice(0, 8);
@@ -1932,7 +2426,7 @@ function detectSource(text) {
 
 function cleanResponse(raw) {
   // Algunos modelos envuelven el programa en bloques ```; los quitamos antes de renderizar.
-  return redactPII(raw)
+  return redactPII(raw, true)
     .trim()
     .replace(/^```[a-z]*\s*/i, "")
     .replace(/```\s*$/, "")
@@ -2176,19 +2670,60 @@ async function runAIWithTools(question, settings, onChunk, useStream = true) {
   const emit = typeof onChunk === "function" ? onChunk : () => {};
   const entries = [];
   const toolNotes = [];
+  const rejectedNames = [];
+  let verifiedAny = false;
   let text = useStream
     ? await streamAI(question, settings, emit, "")
     : await askAI(question, settings, "");
   for (let step = 1; step <= MOODLE_MAX_STEPS; step++) {
     const clean = cleanResponse(text);
     const deviceCalls = extractDeviceCalls(clean);
+    const verifyCalls = extractProtocolCalls(clean, "MOODLE_VERIFY");
     const openCalls = extractOpenCalls(clean);
     const calls = extractMoodleCalls(clean);
-    if (!deviceCalls.length && !openCalls.length && !calls.length) break;
+    const chatListCalls = extractProtocolCalls(clean, "CHAT_LIST");
+    const chatReadCalls = extractProtocolCalls(clean, "CHAT_READ");
+    const chatWriteCalls = extractProtocolCalls(clean, "CHAT_WRITE");
+    const writeCalls = extractProtocolCalls(clean, "MOODLE_WRITE");
+    if (
+      !deviceCalls.length &&
+      !verifyCalls.length &&
+      !openCalls.length &&
+      !calls.length &&
+      !chatListCalls.length &&
+      !chatReadCalls.length &&
+      !chatWriteCalls.length &&
+      !writeCalls.length
+    ) {
+      /* Con Moodle conectado, ningún nombre se da por válido sin verificarlo. */
+      const isProgram = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
+      if (
+        (moodleContext || getMoodle().token) &&
+        !verifiedAny &&
+        isProgram &&
+        !DEVICE_QUESTION.test(question)
+      ) {
+        const demand =
+          'Aún no verificaste los nombres. Antes de responder, llama a MOODLE_VERIFY({"names":[...]}) con TODOS los cursos, materiales, actividades y preguntas relacionadas que vayas a nombrar; usa solo los que devuelva como válidos. Si no puedes verificar lo que piden, responde exactamente MOODLE_NOT_FOUND.';
+        toolNotes.push(demand);
+        text = await askAI(question, settings, "\n\n" + demand);
+        continue;
+      }
+      break;
+    }
     emit("");
     for (const order of deviceCalls)
       toolNotes.push(await applyDeviceInfo(order));
     if (moodleContext || getMoodle().token) {
+      for (const order of verifyCalls) {
+        const check = moodleVerifyResult(order);
+        toolNotes.push(check.note);
+        check.invalid.forEach((name) => {
+          if (name.length >= 5 && !rejectedNames.includes(name))
+            rejectedNames.push(name);
+        });
+        verifiedAny = true;
+      }
       for (const order of openCalls)
         toolNotes.push(await applyMoodleOpen(order));
       for (const call of calls) {
@@ -2207,13 +2742,25 @@ async function runAIWithTools(question, settings, onChunk, useStream = true) {
         entries.push({ fn: call.fn, params: call.params, data });
         if (call.fn === "core_course_get_contents" && Array.isArray(data))
           moodleContents[call.params.courseid] = data;
+        /* Los compañeros descubiertos sirven como destinatarios válidos de mensajes. */
+        if (call.fn === "core_enrol_get_enrolled_users" && Array.isArray(data))
+          data.forEach((u) => {
+            const id = Number(u && u.id);
+            if (id) moodlePeopleIds.add(id);
+          });
       }
+      for (const order of writeCalls)
+        toolNotes.push(await applyMoodleWrite(order));
     } else {
-      if (openCalls.length || calls.length)
+      if (verifyCalls.length || openCalls.length || calls.length || writeCalls.length)
         toolNotes.push(
           "Moodle no está conectado: esa información solo está disponible si el usuario ingresa desde «Mi Moodle».",
         );
     }
+    for (const order of chatListCalls) toolNotes.push(chatListResult(order));
+    for (const order of chatReadCalls) toolNotes.push(chatReadResult(order));
+    for (const order of chatWriteCalls)
+      toolNotes.push(await applyChatWrite(order));
     if (entries.length > MOODLE_MAX_LOG_ENTRIES)
       entries.splice(0, entries.length - MOODLE_MAX_LOG_ENTRIES);
     const toolLog = toolNotes.length
@@ -2232,11 +2779,28 @@ async function runAIWithTools(question, settings, onChunk, useStream = true) {
      y si se le cuela el calendario de demostración, tampoco lo mostramos. */
   if (
     extractDeviceCalls(finalClean).length ||
+    extractProtocolCalls(finalClean, "MOODLE_VERIFY").length ||
     extractOpenCalls(finalClean).length ||
     extractMoodleCalls(finalClean).length ||
+    extractProtocolCalls(finalClean, "MOODLE_WRITE").length ||
+    extractProtocolCalls(finalClean, "CHAT_LIST").length ||
+    extractProtocolCalls(finalClean, "CHAT_READ").length ||
+    extractProtocolCalls(finalClean, "CHAT_WRITE").length ||
     ((moodleContext || getMoodle().token) && MOODLE_DEMO_LEAK.test(finalClean))
   )
     return "MOODLE_NOT_FOUND";
+  /* Última red de seguridad: nada de lo marcado como NO ENCONTRADO puede
+     aparecer en la respuesta, y los nombres sin verificar no se muestran. */
+  if (moodleContext || getMoodle().token) {
+    const flat = normalize(finalClean);
+    if (
+      rejectedNames.some((name) => flat.includes(normalize(name).trim())) ||
+      (!verifiedAny &&
+        !DEVICE_QUESTION.test(question) &&
+        /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(finalClean))
+    )
+      return "MOODLE_NOT_FOUND";
+  }
   return text;
 }
 
@@ -2863,7 +3427,10 @@ const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
    primer caso dibujamos componentes reales con lo que ya viene; en el segundo,
    mostramos el texto como siempre. Nunca se ve el código fuente del programa. */
 const PARTIAL_PROGRAM = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*\S/;
-const PARTIAL_TOOL = /MOODLE_(?:TOOL|OPEN)\s*\(/i;
+const PARTIAL_TOOL = /MOODLE_(?:TOOL|OPEN|VERIFY)\s*\(/i;
+const PARTIAL_VERIFY = /MOODLE_VERIFY\s*\(/i;
+const PARTIAL_WRITE = /MOODLE_WRITE\s*\(/i;
+const PARTIAL_CHAT = /CHAT_(?:LIST|READ|WRITE)\s*\(/i;
 const PARTIAL_DEVICE = /DEVICE_INFO\s*\(/i;
 
 /* El fragmento que está llegando termina con un círculo que late */
@@ -2877,6 +3444,18 @@ function renderStream(partial, card) {
   }
   if (PARTIAL_DEVICE.test(clean)) {
     mount.innerHTML = `<p class="stream-placeholder">Consultando fecha, hora y dispositivo${STREAM_TAIL}</p>`;
+    return;
+  }
+  if (PARTIAL_VERIFY.test(clean)) {
+    mount.innerHTML = `<p class="stream-placeholder">Verificando nombres en Moodle${STREAM_TAIL}</p>`;
+    return;
+  }
+  if (PARTIAL_WRITE.test(clean)) {
+    mount.innerHTML = `<p class="stream-placeholder">Preparando cambio en Moodle${STREAM_TAIL}</p>`;
+    return;
+  }
+  if (PARTIAL_CHAT.test(clean)) {
+    mount.innerHTML = `<p class="stream-placeholder">Consultando tus chats${STREAM_TAIL}</p>`;
     return;
   }
   if (PARTIAL_TOOL.test(clean)) {
@@ -3277,8 +3856,24 @@ function openModal(id) {
   const btn = m.querySelector(".btn-filled, .ui-btn-primary");
   if (btn) btn.focus();
 }
+let pendingConfirm = null;
+function settleConfirm(value) {
+  const resolve = pendingConfirm;
+  pendingConfirm = null;
+  document.querySelectorAll(".modal").forEach((m) => (m.hidden = true));
+  if (resolve) resolve(Boolean(value));
+}
+function askConfirmation(description) {
+  return new Promise((resolve) => {
+    pendingConfirm = resolve;
+    const text = $("#confirmText");
+    if (text) text.textContent = String(description || "").slice(0, 1400);
+    openModal("confirmModal");
+  });
+}
 function closeModals() {
   document.querySelectorAll(".modal").forEach((m) => (m.hidden = true));
+  if (pendingConfirm) settleConfirm(false);
 }
 const menuQuery = window.matchMedia("(max-width: 900px)");
 const menuToggle = $("#menuToggle");
@@ -3685,6 +4280,12 @@ document.querySelectorAll(".modal").forEach((m) =>
     if (e.target === m || e.target.closest("[data-close]")) closeModals();
   }),
 );
+const confirmModal = $("#confirmModal");
+if (confirmModal)
+  confirmModal.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-confirm]");
+    if (btn) settleConfirm(btn.dataset.confirm === "yes");
+  });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeModals();

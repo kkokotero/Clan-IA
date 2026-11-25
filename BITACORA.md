@@ -206,6 +206,47 @@ texto íntegro antes de cerrarla e ignora fragmentos tardíos (`finished`), y `f
 la respuesta definitiva desde el nodo guardado, quita `is-streaming` y fuerza un desplazamiento
 inmediato al final para evitar que el scroll suave deje la vista arriba.
 
+Para evitar que el modelo extrapole nombres (por ejemplo, inventar `T2.1 - Algoritmia 2` porque
+existe `T1.2 - Algoritmia 1`), se añadió la herramienta
+`MOODLE_VERIFY({"names":["..."]})`. `moodleVerifyIndex()` reúne los cursos, materiales, actividades y
+eventos leídos realmente de Moodle y `moodleVerifyResult()` devuelve los nombres exactos válidos con
+su URL y una lista `NO ENCONTRADOS`. El prompt exige verificar cada nombre antes de dibujar la interfaz,
+incluidas las preguntas relacionadas. `runAIWithTools()` fuerza la verificación si el modelo responde
+con un programa sin haberla pedido y, como red de seguridad, descarta la respuesta si aparece un
+nombre marcado como no encontrado. El streaming muestra «Verificando nombres en Moodle» mientras se
+ejecuta la herramienta.
+
+Para que «en análisis de datos, semana 2, ¿qué tengo que hacer?» no se respondiera con un aviso
+genérico, `moodleConnect()` también consulta `mod_assign_get_assignments` con los cursos propios.
+`loadMoodleTasks()` guarda el nombre, el curso, la fecha límite, las instrucciones, la nota máxima,
+la modalidad y el enlace de cada trabajo; `moodleTaskSummary()` los añade al bloque «Trabajos y
+tareas reales con detalles» del contexto, y las tareas entran en `moodleMaterials` para poder
+verificar sus nombres y abrirlas. El prompt obliga a copiar ese detalle (incluidas las etiquetas que
+aparecen dentro de las instrucciones) y `resolveMoodleAnswer()` lo muestra también sin key de IA.
+El contexto pasó a 24000 caracteres para que quepan todos los trabajos, y `assignid` solo acepta
+tareas ya descubiertas. `addMaterial()` también conserva la fecha límite y la descripción de las
+actividades leídas con `core_course_get_contents`, de modo que los trabajos que no son `assign`
+tampoco se quedan en un simple nombre.
+
+Se amplió el alcance a petición del usuario: el modelo puede ver su perfil, a sus compañeros y sus
+mensajes de Moodle, además de los chats guardados en el navegador. `moodleConnect()` guarda el catálogo
+sin filtrar en `moodleAllFunctions` (las funciones de escritura no entraban en `moodleFunctions`) y
+`loadMoodlePeople()` reúne a los matriculados en los cursos propios con todos sus campos; sus ids
+sirven además para validar destinatarios. `core_message_get_conversations` y
+`core_message_get_messages` se añadieron a `MOODLE_SELF_USER_FNS`, y `values[]` de
+`core_user_get_users_by_field` se fuerza al `userid` propio.
+
+Los chats locales se exponen con `CHAT_LIST`, `CHAT_READ` y `CHAT_WRITE` (renombrar, vaciar o borrar;
+no se puede borrar la conversación activa). Las escrituras de Moodle van por `MOODLE_WRITE` y solo se
+permiten `core_user_update_users` y `core_message_send_instant_messages`, con parámetros propios
+validados. Toda escritura, en Moodle o en los chats, pasa por un diálogo `#confirmModal`: si se
+cancela, no se envía nada. El streaming muestra «Preparando cambio en Moodle» o «Consultando tus
+chats» sin revelar el protocolo. Se retiraron `mi compañero` y las calificaciones de la lista
+`SENSITIVE` para que esas preguntas se respondan con datos reales de Moodle. `redactPII()` conserva
+ahora íntegro el contenido de las llamadas a herramientas (`cleanResponse(..., true)`) para que un
+correo o teléfono en los parámetros no se convierta en `[correo oculto]` antes de escribir en Moodle;
+el texto visible de la respuesta sigue redactándose como antes.
+
 ### 3.9 Mapa rápido del código
 
 | Bloque | Líneas de [static/app.js](static/app.js) | Responsabilidad |
