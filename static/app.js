@@ -27,6 +27,10 @@ let moodleMaterials = [];
 let moodleContext = "";
 let moodleFunctions = [];
 let moodleCMIds = [];
+/* Memoria de la navegación por URLs: el modelo sigue los enlaces que aparecen
+   en los datos de Moodle para llegar al contenido concreto. */
+let moodleContents = {};
+let moodleURLs = [];
 
 /* El usuario ingresa con usuario y contraseña; Moodle devuelve un token que se
    guarda en este navegador ( igual que la key de la IA ) para no volver a pedir
@@ -64,6 +68,8 @@ function clearMoodle() {
   moodleContext = "";
   moodleFunctions = [];
   moodleCMIds = [];
+  moodleContents = {};
+  moodleURLs = [];
   try {
     localStorage.removeItem(MOODLE_KEY);
   } catch (e) {}
@@ -279,12 +285,12 @@ function sanitizeMoodleParams(fn, rawObj) {
   return params;
 }
 
-/* Extrae todas las llamadas MOODLE_TOOL(...) de una respuesta, aunque vengan
-   varias en líneas distintas o con texto alrededor. */
-function extractMoodleCalls(text) {
+/* Escáner con paréntesis balanceados: sirve para MOODLE_TOOL y MOODLE_OPEN,
+   incluso si el modelo escribe varias llamadas en una misma respuesta. */
+function extractProtocolCalls(text, marker = "MOODLE_TOOL") {
   const src = String(text || "");
   const calls = [];
-  const re = /MOODLE_TOOL\s*\(/gi;
+  const re = new RegExp(marker + "\\s*\\(", "gi");
   let match;
   while ((match = re.exec(src))) {
     let i = re.lastIndex;
@@ -313,12 +319,20 @@ function extractMoodleCalls(text) {
     } catch (e) {
       continue;
     }
-    const fn = obj && (obj.fn || obj.function || obj.name);
-    if (!fn) continue;
-    calls.push({ fn, raw: obj, params: sanitizeMoodleParams(fn, obj) });
+    if (obj && typeof obj === "object") calls.push(obj);
   }
   return calls;
 }
+function extractMoodleCalls(text) {
+  return extractProtocolCalls(text, "MOODLE_TOOL")
+    .map((obj) => {
+      const fn = obj.fn || obj.function || obj.name;
+      return fn ? { fn, raw: obj, params: sanitizeMoodleParams(fn, obj) } : null;
+    })
+    .filter(Boolean);
+}
+/* El modelo sigue un enlace real de Moodle con MOODLE_OPEN({"url":"..."}) */
+const extractOpenCalls = (text) => extractProtocolCalls(text, "MOODLE_OPEN");
 /* Se conserva por compatibilidad con el formato de una sola herramienta */
 function parseMoodleTool(text) {
   return extractMoodleCalls(text)[0] || null;
@@ -357,6 +371,163 @@ function compactMoodleResult(data) {
   let text = JSON.stringify(compactMoodleValue(data));
   if (text && text.length > 8000) text = text.slice(0, 8000) + "… (recortado)";
   return text;
+}
+
+/* ---------- Navegación por las URLs que aparecen en Moodle ----------
+   Los servicios REST devuelven enlaces reales (course/view.php,
+   mod/.../view.php, pluginfile.php...). El modelo los "abre" con
+   MOODLE_OPEN: validamos el enlace, sacamos sus identificadores y traemos los
+   datos asociados para llegar hasta el material concreto. Solo lectura. */
+function rememberMoodleURL(raw) {
+  const safe = moodleSafeURL(raw);
+  if (!safe) return null;
+  if (!moodleURLs.includes(safe)) {
+    moodleURLs.push(safe);
+    if (moodleURLs.length > 60) moodleURLs.shift();
+  }
+  return safe;
+}
+
+/* Guarda los enlaces que van apareciendo en las respuestas de Moodle. */
+function collectMoodleURLs(value, depth = 0) {
+  if (value == null || depth > 8) return;
+  if (typeof value === "string") {
+    const found = value.match(/https?:\/\/[^\s"'<>\\]+/g) || [];
+    found.forEach(rememberMoodleURL);
+    rememberMoodleURL(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.slice(0, 100).forEach((v) => collectMoodleURLs(v, depth + 1));
+    return;
+  }
+  if (typeof value === "object")
+    Object.values(value)
+      .slice(0, 60)
+      .forEach((v) => collectMoodleURLs(v, depth + 1));
+}
+
+function moodleAllModules() {
+  const out = [];
+  Object.entries(moodleContents).forEach(([cid, sections]) => {
+    (sections || []).forEach((s, i) =>
+      (s.modules || []).forEach((m) =>
+        out.push({
+          ...m,
+          courseid: Number(cid),
+          sectionid: i,
+          sectionname: s.name || s.title || `Sección ${i + 1}`,
+        }),
+      ),
+    );
+  });
+  return out;
+}
+function moodleCourseName(id) {
+  const c = moodleCourses.find((x) => x.id === Number(id));
+  return c ? c.fullname || c.shortname || `Curso ${id}` : `Curso ${id}`;
+}
+function moodleFindModule(key) {
+  if (key == null || key === "") return null;
+  const all = moodleAllModules();
+  const id = Number(key);
+  if (Number.isFinite(id) && id > 0) {
+    const exact = all.find((m) => Number(m.id) === id);
+    if (exact) return exact;
+  }
+  const q = normalize(String(key)).trim();
+  if (!q) return null;
+  return (
+    all.find((m) => normalize(String(m.name || "")).includes(q)) ||
+    all.find((m) => normalize(String(m.modname || "")).includes(q)) ||
+    null
+  );
+}
+function moodleModuleLink(mod) {
+  const direct = [mod && mod.url, mod && mod.urlweb].find(
+    (v) => typeof v === "string" && /^https?:\/\//i.test(v),
+  );
+  const embedded =
+    !direct && typeof (mod && mod.content) === "string"
+      ? (mod.content.match(/https?:\/\/[^\s"'<>]+/) || [])[0]
+      : null;
+  return moodleDirectURL(direct || embedded || "");
+}
+const moodleCleanText = (v, max = 400) =>
+  String(v == null ? "" : v)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+
+/* "Abre" un enlace de Moodle: solo se acepta el mismo sitio y se resuelve con
+   servicios REST de lectura. El enlace queda memorizado para la respuesta. */
+async function moodleOpenURL(raw) {
+  const safe = rememberMoodleURL(raw);
+  if (!safe) return "Enlace no válido: solo se aceptan URLs http/https.";
+  let u;
+  try {
+    u = new URL(safe);
+  } catch (e) {
+    return "Enlace no válido.";
+  }
+  let originOk = false;
+  try {
+    originOk = u.origin === new URL(getMoodle().base).origin;
+  } catch (e) {}
+  if (!originOk)
+    return `El enlace ${safe} no pertenece a tu Moodle; no lo seguimos.`;
+
+  const ids = {};
+  ["id", "courseid", "cmid", "c", "a", "b"].forEach((k) => {
+    if (u.searchParams.has(k)) ids[k] = u.searchParams.get(k);
+  });
+  let detail = "";
+  try {
+    if (/\/course\/view\.php/i.test(u.pathname) && ids.id) {
+      const courseid = moodleId(ids.id, moodleAllowedCourseIds());
+      if (courseid == null) detail = "Ese curso no está entre tus cursos matriculados.";
+      else {
+        const data = await moodleRequest("core_course_get_contents", { courseid });
+        moodleContents[courseid] = data;
+        collectMoodleCMIds(data);
+        collectMoodleURLs(data);
+        detail = `Contenido del curso ${moodleCourseName(courseid)}: ${compactMoodleResult(data)}`;
+      }
+    } else if (/\/mod\/[a-z]+\/view\.php/i.test(u.pathname) && ids.id) {
+      const mod = moodleAllModules().find((m) => Number(m.id) === Number(ids.id));
+      detail = mod
+        ? `Actividad "${moodleCleanText(mod.name, 120)}" (${mod.modname || "material"}) en ${moodleCourseName(mod.courseid)}`
+        : "No hay una actividad con ese id entre los materiales descubiertos.";
+      const link = moodleModuleLink(mod);
+      if (link) detail += `\nEnlace directo: ${link}`;
+    } else if (/\/pluginfile\.php/i.test(u.pathname)) {
+      detail = `Archivo: ${moodleDirectURL(safe)}`;
+    } else {
+      detail = `Página de Moodle ${u.pathname}${ids.id ? ` (id ${ids.id})` : ""}`;
+    }
+  } catch (err) {
+    detail = `No se pudo leer ese enlace: ${err.message || err}`;
+  }
+  return (
+    `Enlace seguido: ${safe}\n${detail}\n` +
+    `Enlaces disponibles: ${moodleURLs.length}. Sigue otro enlace o devuelve el programa OpenUI Lang final.`
+  );
+}
+
+/* MOODLE_OPEN acepta una URL o un nombre/id de actividad ya descubierto. */
+async function applyMoodleOpen(order) {
+  if (!order || typeof order !== "object")
+    return "Orden MOODLE_OPEN no válida.";
+  let raw = order.url || order.href || order.link;
+  if (!raw) {
+    const key = order.cmid ?? order.id ?? order.name ?? order.query ?? order.activity;
+    const mod = moodleFindModule(key);
+    raw = mod ? moodleModuleLink(mod) || mod.url : null;
+    if (!raw) return "No encontré esa actividad ni ese enlace entre tus materiales de Moodle.";
+  }
+  return moodleOpenURL(raw);
 }
 
 /* Descarga cursos y materiales reales y prepara el contexto de la IA */
@@ -446,8 +617,10 @@ async function moodleConnect(token, base) {
       moodleRequest("core_course_get_contents", { courseid: c.id }),
     ),
   );
+  moodleContents = {};
   contents.forEach((r, i) => {
     if (r.status !== "fulfilled" || !Array.isArray(r.value)) return;
+    moodleContents[moodleCourses[i].id] = r.value;
     collectMoodleCMIds(r.value);
     r.value.forEach((section) =>
       (section.modules || []).forEach((m) => {
@@ -479,6 +652,8 @@ async function moodleConnect(token, base) {
       : ["- core_webservice_get_site_info", "- core_enrol_get_users_courses", "- core_course_get_contents"]),
   ];
   moodleContext = lines.join("\n").slice(0, 14000);
+  moodleURLs = [];
+  collectMoodleURLs(moodleMaterials);
   updateMoodleUI();
   return info;
 }
@@ -615,15 +790,16 @@ ${moodleContext}
 
 Este bloque prevalece sobre los documentos de demostración cuando el usuario pregunte por sus cursos o materiales. Sus URLs están autorizadas: puedes usarlas tal cual en Link("Etiqueta", "URL") o [Etiqueta](URL). Nunca inventes otras URLs de Moodle ni cursos que no aparezcan aquí.
 
-NAVEGACIÓN POR MOODLE (bucle de herramientas):
-- Si te falta información, responde SOLO con una o más líneas MOODLE_TOOL({"fn":"...","params":{...}}), sin texto adicional ni bloques de código.
-- Puedes pedir varias consultas en la misma respuesta: una por línea. Se ejecutan todas y se te devuelven juntas.
-- Después puedes pedir más consultas. Tienes hasta ${MOODLE_MAX_STEPS} pasos; úsalos para recorrer cursos → secciones → actividades → archivos, calificaciones o lo que haga falta.
-- Funciones disponibles (solo lectura): ${moodleFunctionList}.
+NAVEGACIÓN POR MOODLE (sigue los enlaces, sin lista fija de comandos):
+- Los datos de Moodle contienen URLs reales. Para abrir una, responde SOLO con una o más líneas MOODLE_OPEN({"url":"https://..."}), sin texto adicional ni bloques de código.
+- También puedes abrir por nombre o id de lo ya descubierto: MOODLE_OPEN({"name":"Tarea 1"}) o MOODLE_OPEN({"cmid":101}).
+- Al abrir course/view.php?id=X se consulta el contenido de ese curso; al abrir mod/.../view.php?id=X se resuelve la actividad; al abrir pluginfile.php se obtiene el enlace directo al archivo. Así avanzas de curso → sección → actividad → archivo.
+- Para consultar cualquier otro dato usa MOODLE_TOOL({"fn":"...","params":{...}}). Funciones disponibles (solo lectura): ${moodleFunctionList}.
+- Puedes combinar varias líneas MOODLE_OPEN y MOODLE_TOOL en la misma respuesta. Tienes hasta ${MOODLE_MAX_STEPS} pasos.
 - Parámetros: "userid" siempre ${moodleUserId || "el de tu sesión"}; "courseid"/"courseids" solo tus cursos; "cmid"/"cmids" solo actividades que hayas descubierto; los arrays llevan hasta 20 ids.
 - Nunca uses core_course_get_courses (falla con cursos ajenos) ni funciones de escritura (create, update, delete, submit, enrol, set, save, send...).
-- Si una consulta falla, cambia de función o de parámetros y sigue intentando.
-- Cuando ya tengas suficiente información, devuelve SOLO el programa OpenUI Lang final. No mezcles MOODLE_TOOL con el programa final en la misma respuesta.
+- Si un enlace o una consulta falla, prueba con otro enlace de los devueltos o cambia de función. Si algo no existe en la cuenta del usuario, dilo con claridad en vez de inventarlo.
+- Cuando ya tengas suficiente información, devuelve SOLO el programa OpenUI Lang final con las URLs reales en Link("Etiqueta","URL"). No mezcles herramientas con el programa final.
 `
     : "";
   const preamble = SYSTEM_PROMPT + moodleSection;
@@ -1290,6 +1466,14 @@ function resultFromText(clean, question) {
         "No tengo información suficiente en los documentos de la cohorte para responder eso. Prueba a reformular la pregunta.",
     };
   }
+  if (/^\s*MOODLE_NOT_FOUND\s*$/i.test(clean)) {
+    return {
+      type: "error",
+      question,
+      message:
+        "No encontré eso en tu Moodle con los permisos de tu cuenta. Prueba a pedirlo con otro nombre o pide que siga los enlaces disponibles.",
+    };
+  }
   const isProgram = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
   if (isProgram) return { type: "openui", response: clean };
   /* Respuesta en texto: se muestra con el mismo estilo que el resto del chat */
@@ -1489,18 +1673,22 @@ function buildMoodleToolLog(entries, step) {
   return log;
 }
 
-/* Bucle de herramientas: la IA pide una o varias consultas, las ejecutamos y le
-   devolvemos los resultados para que siga recorriendo Moodle o dibuje la UI. */
+/* Bucle de herramientas: la IA abre enlaces reales de Moodle con MOODLE_OPEN y
+   consulta funciones REST con MOODLE_TOOL, varias veces por turno. */
 async function runAIWithTools(question, settings, onChunk, useStream = true) {
   const emit = typeof onChunk === "function" ? onChunk : () => {};
   const entries = [];
+  const urlNotes = [];
   let text = useStream
     ? await streamAI(question, settings, emit, "")
     : await askAI(question, settings, "");
   for (let step = 1; step <= MOODLE_MAX_STEPS && moodleContext; step++) {
-    const calls = extractMoodleCalls(cleanResponse(text));
-    if (!calls.length) break;
+    const clean = cleanResponse(text);
+    const openCalls = extractOpenCalls(clean);
+    const calls = extractMoodleCalls(clean);
+    if (!openCalls.length && !calls.length) break;
     emit("");
+    for (const order of openCalls) urlNotes.push(await applyMoodleOpen(order));
     for (const call of calls) {
       let data;
       if (!moodleToolAllowed(call.fn)) {
@@ -1509,16 +1697,28 @@ async function runAIWithTools(question, settings, onChunk, useStream = true) {
         try {
           data = await moodleRequest(call.fn, call.params);
           if (call.fn === "core_course_get_contents") collectMoodleCMIds(data);
+          collectMoodleURLs(data);
         } catch (err) {
           data = { error: err.message || String(err) };
         }
       }
       entries.push({ fn: call.fn, params: call.params, data });
+      if (call.fn === "core_course_get_contents" && Array.isArray(data))
+        moodleContents[call.params.courseid] = data;
     }
     if (entries.length > MOODLE_MAX_LOG_ENTRIES)
       entries.splice(0, entries.length - MOODLE_MAX_LOG_ENTRIES);
-    text = await askAI(question, settings, buildMoodleToolLog(entries, step));
+    const urlLog = urlNotes.length
+      ? "\n\n--- Enlaces de Moodle seguidos ---\n" +
+        urlNotes.slice(-4).join("\n\n") +
+        "\nPuedes seguir otro enlace con MOODLE_OPEN o consultar datos con MOODLE_TOOL."
+      : "";
+    text = await askAI(question, settings, buildMoodleToolLog(entries, step) + urlLog);
   }
+  const finalClean = cleanResponse(text);
+  /* Si el modelo se queda pidiendo herramientas, nunca mostramos el protocolo. */
+  if (extractOpenCalls(finalClean).length || extractMoodleCalls(finalClean).length)
+    return "MOODLE_NOT_FOUND";
   return text;
 }
 
@@ -2134,7 +2334,7 @@ const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
    primer caso dibujamos componentes reales con lo que ya viene; en el segundo,
    mostramos el texto como siempre. Nunca se ve el código fuente del programa. */
 const PARTIAL_PROGRAM = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*\S/;
-const PARTIAL_TOOL = /MOODLE_TOOL\s*\(/i;
+const PARTIAL_TOOL = /MOODLE_(?:TOOL|OPEN)\s*\(/i;
 
 /* El fragmento que está llegando termina con un círculo que late */
 function renderStream(partial, card) {
@@ -2146,7 +2346,7 @@ function renderStream(partial, card) {
     mount = card.querySelector(".ui-render");
   }
   if (PARTIAL_TOOL.test(clean)) {
-    mount.innerHTML = `<p class="stream-placeholder">Consultando Moodle${STREAM_TAIL}</p>`;
+    mount.innerHTML = `<p class="stream-placeholder">Recorriendo Moodle${STREAM_TAIL}</p>`;
     return;
   }
   if (PARTIAL_PROGRAM.test(clean)) {

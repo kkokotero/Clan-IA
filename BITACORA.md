@@ -169,6 +169,16 @@ si el modelo omite el `userid` de `core_enrol_get_users_courses`, se completa co
 El modelo tiene hasta 12 pasos, puede reintentar si una consulta falla y recibe un historial
 compactado (máximo 8 entradas y 24.000 caracteres) para no agotar su ventana de contexto.
 
+Después se descartó la idea de un panel de vista previa: al ser una app estática no se puede
+incrustar Moodle y controlarlo desde fuera (política same-origin), y añadir Playwright habría
+requerido un backend. En su lugar el modelo **sigue las URLs que aparecen en los propios datos de
+Moodle** con `MOODLE_OPEN({"url":"..."})`. `collectMoodleURLs()` guarda los enlaces que devuelven las
+consultas REST; `moodleOpenURL()` exige que pertenezcan al sitio conectado, extrae `id`/`courseid`/
+`cmid` y trae el contenido asociado (`core_course_get_contents` para `course/view.php`, resolución de
+actividades para `mod/.../view.php` y enlace con token para `pluginfile.php`). `applyMoodleOpen()`
+también permite abrir por nombre o `cmid` ya descubierto. Si tras los 12 pasos el modelo sigue
+pidiendo herramientas, se devuelve `MOODLE_NOT_FOUND` para no mostrar el protocolo ni inventar datos.
+
 ### 3.9 Mapa rápido del código
 
 | Bloque | Líneas de [static/app.js](static/app.js) | Responsabilidad |

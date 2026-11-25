@@ -58,15 +58,18 @@ directamente a `moodle.riwi.io`.
   y Moodle lanza «Curso o actividad no accesible» si tu cuenta no tiene acceso a alguno (por ejemplo
   el curso 2). Ese contenido se añade al system prompt y se muestra en **Acceso directo a tus
   materiales** con enlaces `pluginfile.php?...&token=...` que abren en pestaña nueva.
-- **Navegación por la IA:** el modelo puede pedir una o varias consultas por turno, por ejemplo
-  `MOODLE_TOOL({"fn":"core_course_get_contents","params":{"courseid":7}})`. El catálogo se lee del
-  propio Moodle (`core_webservice_get_site_info`) y se filtra a funciones de **solo lectura** —no
-  solo cursos y materiales, también tareas, calificaciones, foros y demás módulos que el sitio
-  exponga—. La app valida los parámetros (`userid` siempre el tuyo, cursos y actividades descubiertas
-  solo los tuyos), ejecuta todas las consultas de la respuesta y devuelve los resultados al modelo
-  para que siga avanzando **hasta 12 pasos** antes de dibujar la interfaz final. Si una consulta
-  falla, el modelo puede cambiar de función y reintentar. Es un bucle de herramientas en texto,
-  compatible con Gemini y OpenRouter.
+- **Navegación por URLs de Moodle:** la IA "abre" los enlaces reales que aparecen en los datos:
+  `MOODLE_OPEN({"url":"https://moodle.riwi.io/course/view.php?id=7"})`. Al abrir un enlace de curso
+  consulta sus secciones; al abrir una actividad resuelve el material; al abrir un `pluginfile.php`
+  obtiene el enlace directo. También puede abrir por `name` o `cmid`. Las URLs ajenas al sitio se
+  rechazan.
+- **Consultas REST libres:** con `MOODLE_TOOL({"fn":"...","params":{...}})` el modelo consulta
+  cualquier función de **solo lectura** del catálogo real que expone el sitio (cursos, tareas,
+  calificaciones, foros…), sin una lista fija de comandos. La app valida los parámetros (`userid`
+  siempre el tuyo, cursos y actividades solo los descubiertos), ejecuta **todas** las llamadas de la
+  respuesta y se las devuelve para que siga avanzando **hasta 12 pasos** antes de dibujar la interfaz.
+  Si algo no existe en tu cuenta, lo dice en lugar de inventarlo. Es un bucle de herramientas en
+  texto, compatible con Gemini y OpenRouter.
 - Sin API key, el motor local despliega los materiales en acordeones. Si no hay conexión, una
   pregunta sobre Moodle explica cómo ingresar.
 
