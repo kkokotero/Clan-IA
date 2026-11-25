@@ -85,17 +85,15 @@
       <!-- Estado vacío -->
       <div class="welcome" id="welcome">
         <div class="logo-tile hero" aria-hidden="true"><span class="logo">cruelty_free</span></div>
-        <span class="badge badge-neutral kicker">Ritchie AI · Asistente educativo</span>
-        <h1>¡Hola! Soy Ritchie AI, tu asistente virtual. ¿En qué puedo ayudarte hoy?</h1>
+        <h1 id="welcomeTitle">¡Hola! Soy Ritchie AI, tu asistente virtual. ¿En qué puedo ayudarte hoy?</h1>
         <p class="welcome-sub">Pregúntame sobre tus clases, sesiones, actividades, fechas de entrega y proyectos.</p>
-        <div class="suggestions" id="suggestions">
-          <button class="chip" data-q="¿Cuándo es la próxima sesión de IA?"><span class="ico"><span class="ic lg">calendar_month</span></span>¿Cuándo es la próxima sesión de IA?</button>
-          <button class="chip" data-q="¿Cuándo se entrega el proyecto?"><span class="ico"><span class="ic lg">flag</span></span>¿Cuándo se entrega el proyecto?</button>
-          <button class="chip" data-q="¿Qué actividades tenemos pendientes?"><span class="ico"><span class="ic lg">check_circle</span></span>¿Qué actividades tenemos pendientes?</button>
-          <button class="chip" data-q="¿Dónde encuentro los materiales de estudio?"><span class="ico"><span class="ic lg">menu_book</span></span>¿Dónde encuentro los materiales de estudio?</button>
-        </div>
+        <div class="suggestions" id="suggestions"></div>
       </div>
       <div class="messages" id="messages"></div>
+      <p class="disclaimer" role="note">
+        <span class="ic sm">info</span>
+        <span>Ritchie AI puede cometer errores. Verifica siempre las fuentes.</span>
+      </p>
     </section>
 
     <footer class="composer-wrap">
@@ -103,10 +101,6 @@
         <textarea id="input" rows="1" placeholder="Escribe tu pregunta aquí..." aria-label="Escribe tu pregunta"></textarea>
         <button type="submit" class="send tip-tr" id="send" aria-label="Enviar pregunta" data-tip="Enviar" disabled><span class="ic lg">send</span></button>
       </form>
-      <p class="disclaimer" role="note">
-        <span class="ic sm">info</span>
-        <span>Ritchie AI es un asistente de inteligencia artificial. Puede cometer errores o proporcionar información incorrecta. Verifica siempre las fuentes.</span>
-      </p>
     </footer>
   </main>
 </div>

@@ -4,6 +4,7 @@
    ========================================================= */
 const $ = (sel) => document.querySelector(sel);
 const app = $("#app");
+const main = $(".main");
 const chat = $("#chat");
 const welcome = $("#welcome");
 const messagesEl = $("#messages");
@@ -239,6 +240,60 @@ const escapeHTML = (s) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const current = () => conversations.find((c) => c.id === currentId);
+
+/* ---------- Estado vacío: saludo y acciones rápidas variables ---------- */
+const WELCOMES = [
+  "¡Hola! Soy Ritchie AI, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
+  "¡Qué gusto verte! Pregúntame lo que necesites saber de la cohorte.",
+  "Estoy aquí para ayudarte con sesiones, entregas, actividades y proyectos. ¿Por dónde empezamos?",
+  "¡Hola! Cuéntame qué necesitas y lo busco en los materiales de la cohorte.",
+  "Listo para ayudarte: tengo a mano el calendario, las actividades y las guías del proyecto.",
+];
+const QUICK_ACTIONS = [
+  { q: "¿Cuándo es la próxima sesión de IA?", icon: "calendar_month" },
+  { q: "¿Cuándo es la próxima clase de IA?", icon: "schedule" },
+  { q: "¿Cuándo se entrega el proyecto?", icon: "flag" },
+  { q: "¿Cuál es la fecha límite del proyecto?", icon: "event" },
+  { q: "¿Qué actividades tengo pendientes?", icon: "check_circle" },
+  { q: "¿Qué tareas debo entregar esta semana?", icon: "assignment" },
+  { q: "¿Dónde encuentro los materiales de estudio?", icon: "menu_book" },
+  { q: "¿Dónde están las grabaciones de las clases?", icon: "videocam" },
+  { q: "¿Cómo puedo hablar con un coach?", icon: "groups" },
+];
+const randomIndex = (n) => Math.floor(Math.random() * n);
+function shuffled(list) {
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+const welcomePicks = new Map();
+function welcomePick() {
+  const conv = current();
+  /* Cada conversación nueva estrena saludo y acciones; las existentes conservan los suyos */
+  if (conv && !welcomePicks.has(conv.id)) {
+    welcomePicks.set(conv.id, {
+      greeting: WELCOMES[randomIndex(WELCOMES.length)],
+      actions: shuffled(QUICK_ACTIONS).slice(0, 4),
+    });
+  }
+  return conv
+    ? welcomePicks.get(conv.id)
+    : { greeting: WELCOMES[randomIndex(WELCOMES.length)], actions: shuffled(QUICK_ACTIONS).slice(0, 4) };
+}
+function renderWelcome() {
+  const pick = welcomePick();
+  const title = $("#welcomeTitle");
+  const suggestions = $("#suggestions");
+  if (title) title.textContent = pick.greeting;
+  if (suggestions) {
+    suggestions.innerHTML = pick.actions.map((a) =>
+      `<button class="chip" data-q="${escapeHTML(a.q)}"><span class="ico"><span class="ic lg">${a.icon}</span></span>${escapeHTML(a.q)}</button>`
+    ).join("");
+  }
+}
 
 function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations)); } catch (e) {} }
 function load() {
@@ -605,8 +660,9 @@ function renderChat() {
   const conv = current();
   const empty = !conv || conv.messages.length === 0;
   welcome.hidden = !empty;
+  main.classList.toggle("is-empty", empty);
   if (!empty) conv.messages.forEach((m) => appendMessage(m, false));
-  else chat.scrollTop = 0;
+  else { chat.scrollTop = 0; renderWelcome(); }
 }
 
 /* ---------- Flujo principal ---------- */
@@ -620,6 +676,7 @@ function ask(question) {
   }
   const conv = current();
   welcome.hidden = true;
+  main.classList.remove("is-empty");
   // Redactar datos personales del input del usuario antes de mostrar
   const safeQuestion = redactPII(question);
   const userMsg = { role: "user", text: safeQuestion };
