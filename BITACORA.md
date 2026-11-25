@@ -199,6 +199,13 @@ y el streaming muestra «Consultando fecha, hora y dispositivo». `resolveAnswer
 asíncrona para que, sin key de IA, las preguntas de fecha/hora/equipo se respondan con esos mismos
 datos reales en vez de con el calendario de ejemplo.
 
+Se corrigió también una respuesta que se veía cortada mientras se generaba y solo aparecía completa
+tras recargar. `readSSE()` descartaba el último evento cuando llegaba sin salto de línea, así que se
+procesa el resto del búfer al cerrar el flujo. Además, `respond()` vuelve a pintar la tarjeta con el
+texto íntegro antes de cerrarla e ignora fragmentos tardíos (`finished`), y `finishResponse()` repinta
+la respuesta definitiva desde el nodo guardado, quita `is-streaming` y fuerza un desplazamiento
+inmediato al final para evitar que el scroll suave deje la vista arriba.
+
 ### 3.9 Mapa rápido del código
 
 | Bloque | Líneas de [static/app.js](static/app.js) | Responsabilidad |

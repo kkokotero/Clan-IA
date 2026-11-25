@@ -2027,24 +2027,29 @@ async function readSSE(res, onData) {
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const handleLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) return;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+    try {
+      onData(JSON.parse(payload));
+    } catch (e) {
+      /* evento incompleto */
+    }
+  };
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-      const payload = trimmed.slice(5).trim();
-      if (!payload || payload === "[DONE]") continue;
-      try {
-        onData(JSON.parse(payload));
-      } catch (e) {
-        /* evento incompleto */
-      }
-    }
+    for (const line of lines) handleLine(line);
   }
+  /* El último evento puede llegar sin salto de línea: sin esto se pierde el
+     final de la respuesta y la tarjeta se queda a medias. */
+  buffer += decoder.decode();
+  if (buffer.trim()) handleLine(buffer);
 }
 
 async function streamGemini(question, settings, system, onChunk) {
@@ -2838,8 +2843,19 @@ const hideThinking = () => {
   const t = $("#thinking");
   if (t) t.remove();
 };
-const scrollDown = () =>
-  requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
+const scrollDown = (instant = false) =>
+  requestAnimationFrame(() => {
+    if (instant) {
+      /* El desplazamiento suave puede dejar la vista arriba cuando la
+         respuesta crece de golpe: al terminar queremos verla completa. */
+      const previous = chat.style.scrollBehavior;
+      chat.style.scrollBehavior = "auto";
+      chat.scrollTop = chat.scrollHeight;
+      chat.style.scrollBehavior = previous;
+    } else {
+      chat.scrollTop = chat.scrollHeight;
+    }
+  });
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
 
@@ -2979,6 +2995,17 @@ function finishResponse(
   conv.activeLeafId = botNode.id;
   save();
   renderChat();
+  /* La respuesta definitiva se vuelve a pintar desde el nodo guardado: así
+     ningún fragmento tardío del streaming puede dejar la tarjeta incompleta. */
+  const finalWrap = messagesEl.querySelector(`.msg[data-id="${botNode.id}"]`);
+  if (finalWrap) {
+    finalWrap.classList.remove("is-streaming");
+    if (botNode.type === "openui") {
+      const mount = finalWrap.querySelector(".ui-render");
+      if (mount) renderProgramInto(mount, botNode.response);
+    }
+  }
+  scrollDown(true);
   busy = false;
   updateSend();
   input.focus();
@@ -2999,6 +3026,7 @@ async function respond(
   }
   let result;
   let streamingNode = null;
+  let finished = false;
   try {
     const settings = getSettings();
     const q = normalize(question);
@@ -3028,15 +3056,24 @@ async function respond(
         /* Los fragmentos van dibujando el texto; si la IA pide consultar Moodle,
            ejecutamos la herramienta y le devolvemos el resultado antes de pintar. */
         const text = await runAIWithTools(question, settings, (partial) => {
+          if (finished) return;
           const card = wrap.querySelector(".card");
           if (card) renderStream(partial, card);
         });
-        result = resultFromText(cleanResponse(text), question);
+        const complete = cleanResponse(text);
+        /*Último repintado con el texto íntegro: si algún fragmento no llegó a
+          dibujarse, la tarjeta no se queda cortada antes de finalizar. */
+        const card = wrap.querySelector(".card");
+        if (card) renderStream(complete, card);
+        result = resultFromText(complete, question);
       } catch (err) {
         /* Si el proveedor no soporta streaming, usamos la llamada normal */
         try {
           const text = await runAIWithTools(question, settings, () => {}, false);
-          result = resultFromText(cleanResponse(text), question);
+          const complete = cleanResponse(text);
+          const card = wrap.querySelector(".card");
+          if (card) renderStream(complete, card);
+          result = resultFromText(complete, question);
         } catch (e2) {
           result = {
             type: "error",
@@ -3057,6 +3094,7 @@ async function respond(
       message: `No se pudo conectar con ${PROVIDERS[getSettings().provider].label}: ${err.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.`,
     };
   }
+  finished = true;
   hideThinking();
   finishResponse(result, {
     node: node || streamingNode,
