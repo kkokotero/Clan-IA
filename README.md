@@ -6,9 +6,11 @@ gratuitos de [Google Gemini](https://aistudio.google.com/apikey) u
 
 **No hay servidor, ni Node, ni `package.json`, ni build.** Abre `index.html` y funciona.
 
-Las respuestas de la IA se generan en **OpenUI Lang** y se dibujan con el renderer oficial de
-[OpenUI](https://openui.com/) (`@openuidev/browser-bundle`) cargado desde CDN: tarjetas, pasos,
-tablas y avisos en lugar de texto plano. Si el CDN no carga, la app degrada a respuestas en texto.
+Las respuestas de la IA se generan en **OpenUI Lang**, pero se dibujan con un **renderizador
+propio** (`app.js` + `styles.css`) que usa los mismos colores, formas y componentes que el resto
+de la app: tarjetas, pasos, tablas, pestañas, avisos y formularios en lugar de texto plano. El
+bundle de [OpenUI](https://openui.com/) se carga desde CDN **solo para construir el prompt**; si
+no carga, se usa un prompt mínimo y las respuestas siguen viéndose con la estética de la app.
 
 > Los documentos de la cohorte son ficticios (de demostración). Sin una API key configurada,
 > la app responde con su motor local de respaldo y lo indica en la barra lateral.
@@ -47,34 +49,38 @@ solo en ese caso.
 Si un modelo responde **503/429** (alta demanda o cuota), la app reintenta automáticamente
 con el siguiente modelo gratuito de la lista antes de mostrar el error.
 
-## Respuestas con OpenUI
+## Respuestas con interfaz propia
 
-- `index.html` carga el CSS y el bundle de `@openuidev/browser-bundle@0.2` desde jsDelivr; el
-  bundle expone `window.__OpenUI` con `Renderer`, `createRoot` y `openuiChatLibrary`.
+- `index.html` carga solo el bundle de `@openuidev/browser-bundle@0.2` desde jsDelivr, que
+  expone `openuiChatLibrary` en `window.__OpenUI`. Ya **no se carga su CSS ni su Renderer**.
 - `app.js` usa `openuiChatLibrary.prompt({...})` para generar el system prompt: así el modelo
   conoce la sintaxis y los componentes permitidos. Las reglas de la cohorte y de privacidad se
   pasan como `preamble`.
-- La IA devuelve un programa OpenUI Lang (siempre empieza con `root = Card(...)`) y el
-  `Renderer` lo convierte en interfaz dentro de cada mensaje. El prompt incluye ejemplos y
-  reglas para combinar **tarjetas, encabezados, callouts, separadores, pasos, tablas, listas,
-  entidades, pestañas, etiquetas, botones y sugerencias de seguimiento**, eligiendo la vista
-  según el contenido; no inventa cifras para gráficas.
+- La IA devuelve un programa (siempre empieza con `root = Card(...)`) y un intérprete propio en
+  `app.js` lo convierte en HTML con las clases de la app. El prompt incluye ejemplos y reglas
+  para combinar **tarjetas, encabezados, callouts, separadores, pasos, tablas, listas, entidades,
+  pestañas, etiquetas, botones y sugerencias de seguimiento**, eligiendo la vista según el
+  contenido; no inventa cifras para gráficas.
 - La respuesta llega **en tiempo real**: se usa `streamGenerateContent` (Gemini) o `stream: true`
-  (OpenRouter) y la interfaz se redibuja con cada fragmento. Si el streaming falla, se usa la
-  llamada normal.
-- El prompt pide respuestas desarrolladas (120–250 palabras) con varios componentes OpenUI,
+  (OpenRouter) y el texto se dibuja con cada fragmento; al terminar se sustituye por la interfaz.
+  Si el streaming falla, se usa la llamada normal.
+- El prompt pide respuestas desarrolladas (120–250 palabras) con varios componentes,
   prohíbe `Sources`/`CardSourceProvider` y **no muestra nombres de documentos, PDFs, bloques de
   fuente ni notas de autonomía** en los mensajes.
-- Los **formularios generados** (encuestas y preferencias) usan `Form` con `FormControl`, pistas,
-  `Select`, `Chips`, `OptionCards`, `TextArea`, casillas y botones primarios/secundarios. El CSS
-  les da una tarjeta propia, más espacio, estados seleccionados con la paleta de la app, botones
-  de 44 px y una columna en móvil; el encabezado «Related Queries» se muestra en español.
-- Al enviar un formulario, la respuesta resume las preferencias en una **lista de datos con
-  etiquetas legibles** en lugar de una lista de texto plano.
-- El CSS fuerza **colores oscuros y legibles** dentro de la respuesta OpenUI (OpenUI trae textos
-  grises muy claros por defecto) y oculta cualquier sección de fuentes que el renderer genere.
-- Si no hay conexión con el CDN, se usa un prompt mínimo y las respuestas se muestran como texto.
-- Requiere internet para cargar el bundle; la API key sigue siendo gratuita y local.
+- Los **formularios personalizados** son los mismos componentes en las respuestas de la IA y en
+  **Configuración de IA** (`index.html` usa `.ui-form`, `.ui-field`, `.ui-input`, `.ui-select` y
+  `.ui-btn`). Usan `Form` con `FormControl`, pistas, `Select`, `Chips`, `OptionCards`, `TextArea`,
+  casillas y botones primarios/secundarios: campos tonales de 56 px, estados seleccionados con
+  marca de verificación, botones de 48 px y una columna en móvil.
+- La tipografía sigue la escala **Material 3 Expressive** y la del resto de la página: títulos
+  22/28, cuerpo 16/24, texto secundario 14/20 y etiquetas 15/20; los textos grandes de las
+  respuestas ya no se reducen.
+- Al enviar un formulario, el chat muestra solo el **mensaje de la persona** (por ejemplo,
+  «Guardar mis preferencias»); los datos del formulario viajan ocultos como contexto para la IA
+  y se resumen después en una **lista de datos con etiquetas legibles**.
+- Si no hay conexión con el CDN, se usa un prompt mínimo, pero las respuestas siguen
+  dibujándose con la interfaz propia. Requiere internet solo para cargar el bundle del prompt;
+  la API key sigue siendo gratuita y local.
 
 ## En móvil
 

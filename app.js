@@ -14,7 +14,8 @@ const sendBtn = $("#send");
 const historyEl = $("#history");
 
 const STORAGE_KEY = "ritchie-ia-historial";
-const SETTINGS_KEY = "ritchie-ia-config-ia"; /* la key vive SOLO en este navegador */
+const SETTINGS_KEY =
+  "ritchie-ia-config-ia"; /* la key vive SOLO en este navegador */
 
 /* ---------- Proveedores gratuitos (llamada directa desde el navegador) ---------- */
 const PROVIDERS = {
@@ -23,8 +24,14 @@ const PROVIDERS = {
     defaultModel: "gemini-4-hydrogen",
     help: "Key gratis en aistudio.google.com/apikey. Estos dos modelos están en el plan gratuito; 3.8/3.6 Flash daban 503 y ya no se ofrecen.",
     models: [
-      { value: "gemini-4-hydrogen", label: "Gemini 4 Hydrogen (recomendado, gratis)" },
-      { value: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash-Lite (rápido, gratis)" },
+      {
+        value: "gemini-4-hydrogen",
+        label: "Gemini 4 Hydrogen (recomendado, gratis)",
+      },
+      {
+        value: "gemini-3.5-flash-lite",
+        label: "Gemini 3.5 Flash-Lite (rápido, gratis)",
+      },
     ],
   },
   openrouter: {
@@ -33,10 +40,22 @@ const PROVIDERS = {
     help: "Key gratis en openrouter.ai/keys. Lista de modelos :free vigente (nov 2026); 'openrouter/free' elige uno disponible.",
     models: [
       { value: "openrouter/free", label: "OpenRouter Free (recomendado)" },
-      { value: "nvidia/nemotron-3-ultra-550b-a55b:free", label: "Nemotron 3 Ultra" },
-      { value: "baidu/ernie-5.5-flash-preview:free", label: "ERNIE 5.5 Flash Preview" },
-      { value: "nvidia/nemotron-3.5-super-vl:free", label: "Nemotron 3.5 Super VL" },
-      { value: "nvidia/nemotron-3.5-lightning:free", label: "Nemotron 3.5 Lightning" },
+      {
+        value: "nvidia/nemotron-3-ultra-550b-a55b:free",
+        label: "Nemotron 3 Ultra",
+      },
+      {
+        value: "baidu/ernie-5.5-flash-preview:free",
+        label: "ERNIE 5.5 Flash Preview",
+      },
+      {
+        value: "nvidia/nemotron-3.5-super-vl:free",
+        label: "Nemotron 3.5 Super VL",
+      },
+      {
+        value: "nvidia/nemotron-3.5-lightning:free",
+        label: "Nemotron 3.5 Lightning",
+      },
       { value: "google/gemma-4-26b-a4b-it:free", label: "Gemma 4 26B" },
       { value: "inclusionai/ling-3.2-flash:free", label: "Ling 3.2 Flash" },
     ],
@@ -147,9 +166,9 @@ q1 = FollowUpItem("Ver el calendario de la cohorte")`,
       additionalRules: [
         "Responde en español neutro con detalle y claridad: desarrolla cada dato con contexto útil, no des solo una frase. Objetivo: 120 a 250 palabras cuando el tema lo permita.",
         "Escribe root = Card(...) como primera línea y define cada variable en su propia línea; toda variable definida debe aparecer dentro de otra componente (si no, no se renderiza). Usa argumentos posicionales, nunca 'clave: valor'.",
-        "Aprovecha todos los datos del documento y elige la vista que mejor los represente: Table o EntityList para datos sueltos, Steps o ListBlock para procesos, Tabs para alternativas, Callout para avisos y FollowUpBlock o Buttons con @ToAssistant(\"...\") para invitar a seguir preguntando. Usa Separator o InlineHeader para organizar bloques largos.",
-        "Cuando el usuario pida una encuesta, formulario, preferencias o una selección, usa Form como hijo de Card. Define cada FormControl en su propia línea con Input, TextArea, Select, Chips, OptionCards, RadioGroup, CheckBoxGroup o DatePicker, añade una pista breve como tercer argumento y pasa Buttons([Button(...)]) como segundo argumento de Form con @ToAssistant(\"Enviar\"). Nunca pidas datos personales.",
-        "StepsItem exige dos argumentos posicionales: título y detalles, por ejemplo StepsItem(\"Tema\", \"Introducción a los modelos de lenguaje\"). Nunca lo escribas con un solo argumento. No inventes cifras para charts: los documentos solo tienen fechas y texto.",
+        'Aprovecha todos los datos del documento y elige la vista que mejor los represente: Table o EntityList para datos sueltos, Steps o ListBlock para procesos, Tabs para alternativas, Callout para avisos y FollowUpBlock o Buttons con @ToAssistant("...") para invitar a seguir preguntando. Usa Separator o InlineHeader para organizar bloques largos.',
+        'Cuando el usuario pida una encuesta, formulario, preferencias o una selección, usa Form como hijo de Card. Define cada FormControl en su propia línea con Input, TextArea, Select, Chips, OptionCards, RadioGroup, CheckBoxGroup o DatePicker, añade una pista breve como tercer argumento y pasa Buttons([Button(...)]) como segundo argumento de Form con @ToAssistant("Enviar"). Nunca pidas datos personales.',
+        'StepsItem exige dos argumentos posicionales: título y detalles, por ejemplo StepsItem("Tema", "Introducción a los modelos de lenguaje"). Nunca lo escribas con un solo argumento. No inventes cifras para charts: los documentos solo tienen fechas y texto.',
         "Los datos enviados en un formulario te llegan como 'Datos del formulario: {...}' en el siguiente mensaje: úsalos para adaptar la respuesta, sin repetir datos personales.",
         "Nunca pidas datos personales ni los repitas en el programa.",
         "No uses Sources, CardSourceProvider ni ninguna lista de fuentes. No escribas la palabra 'Fuente' ni nombres de archivos PDF. Usa los datos sin citarlos.",
@@ -157,13 +176,25 @@ q1 = FollowUpItem("Ver el calendario de la cohorte")`,
       ],
     });
   }
-  return SYSTEM_PROMPT + "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes.";
+  return (
+    SYSTEM_PROMPT +
+    "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes."
+  );
 }
 
 const SOURCE_MAP = {
-  "calendario de la cohorte": { label: "Calendario de la cohorte", file: "calendario-cohorte-demo.pdf" },
-  "guia del proyecto": { label: "Guía del proyecto", file: "guia-proyecto-demo.pdf" },
-  "carpeta de materiales": { label: "Carpeta de materiales", file: "materiales-cohorte-demo.pdf" },
+  "calendario de la cohorte": {
+    label: "Calendario de la cohorte",
+    file: "calendario-cohorte-demo.pdf",
+  },
+  "guia del proyecto": {
+    label: "Guía del proyecto",
+    file: "guia-proyecto-demo.pdf",
+  },
+  "carpeta de materiales": {
+    label: "Carpeta de materiales",
+    file: "materiales-cohorte-demo.pdf",
+  },
 };
 
 /* Si el navegador bloquea localStorage (algunos file://), la key al menos dura la sesión */
@@ -171,9 +202,15 @@ let memorySettings = null;
 
 function normalizeSettings(s) {
   const provider = PROVIDERS[s && s.provider] ? s.provider : "gemini";
-  const model = typeof s?.model === "string" && s.model.trim()
-    ? s.model.trim() : PROVIDERS[provider].defaultModel;
-  return { provider, apiKey: typeof s?.apiKey === "string" ? s.apiKey.trim() : "", model };
+  const model =
+    typeof s?.model === "string" && s.model.trim()
+      ? s.model.trim()
+      : PROVIDERS[provider].defaultModel;
+  return {
+    provider,
+    apiKey: typeof s?.apiKey === "string" ? s.apiKey.trim() : "",
+    model,
+  };
 }
 function getSettings() {
   const fallback = normalizeSettings({});
@@ -181,81 +218,149 @@ function getSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     return raw ? normalizeSettings(JSON.parse(raw)) : fallback;
-  } catch (e) { return fallback; }
+  } catch (e) {
+    return fallback;
+  }
 }
 function saveSettings(s) {
   memorySettings = normalizeSettings(s);
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(memorySettings)); } catch (e) {}
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(memorySettings));
+  } catch (e) {}
 }
 function clearSettings() {
   memorySettings = null;
-  try { localStorage.removeItem(SETTINGS_KEY); } catch (e) {}
+  try {
+    localStorage.removeItem(SETTINGS_KEY);
+  } catch (e) {}
 }
 
 const icon = (name, cls = "") => `<span class="ic ${cls}">${name}</span>`;
 const LOGO_MINI = `<div class="logo-tile mini" aria-hidden="true"><span class="logo">cruelty_free</span></div>`;
 
 const facts = (rows) =>
-  `<ul class="facts">${rows.map(([ic, label, value]) =>
-    `<li><span class="fi">${icon(ic)}</span><span class="ft"><b>${label}</b><span>${value}</span></span></li>`).join("")}</ul>`;
+  `<ul class="facts">${rows
+    .map(
+      ([ic, label, value]) =>
+        `<li><span class="fi">${icon(ic)}</span><span class="ft"><b>${label}</b><span>${value}</span></span></li>`,
+    )
+    .join("")}</ul>`;
 
 /* ---------- PII: detección y redacción de datos personales ---------- */
 const PII_PATTERNS = [
-  { regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, label: "[correo oculto]" },
-  { regex: /\b(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g, label: "[teléfono oculto]" },
+  {
+    regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+    label: "[correo oculto]",
+  },
+  {
+    regex: /\b(\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g,
+    label: "[teléfono oculto]",
+  },
   { regex: /\b\d{6,10}\b/g, label: "[documento oculto]" },
 ];
 function redactPII(text) {
   let cleaned = text;
-  PII_PATTERNS.forEach(({ regex, label }) => { cleaned = cleaned.replace(new RegExp(regex.source, regex.flags), label); });
+  PII_PATTERNS.forEach(({ regex, label }) => {
+    cleaned = cleaned.replace(new RegExp(regex.source, regex.flags), label);
+  });
   return cleaned;
 }
 function containsPII(text) {
-  return PII_PATTERNS.some(({ regex }) => new RegExp(regex.source, regex.flags).test(text));
+  return PII_PATTERNS.some(({ regex }) =>
+    new RegExp(regex.source, regex.flags).test(text),
+  );
 }
 
 /* ---------- Base de conocimiento DEMO (datos ficticios) ---------- */
 const KNOWLEDGE = [
   {
     short: "Jueves 26 de noviembre, 6:00 p. m., virtual.",
-source: { label: "Calendario de la cohorte", file: "calendario-cohorte-demo.pdf" },
-keywords: ["sesion", "clase de ia", "proxima clase", "proxima sesion", "horario", "cuando es la clase"],
-    html: `<h3>Próxima sesión de IA</h3>` + facts([
-      ["calendar_month", "Fecha", "Jueves 26 de noviembre de 2026"],
-      ["schedule", "Hora", "6:00 p. m. (hora de Colombia)"],
-      ["monitor", "Modalidad", "Virtual"],
-      ["lightbulb", "Tema", "Introducción a los modelos de lenguaje"],
-    ]),
+    source: {
+      label: "Calendario de la cohorte",
+      file: "calendario-cohorte-demo.pdf",
+    },
+    keywords: [
+      "sesion",
+      "clase de ia",
+      "proxima clase",
+      "proxima sesion",
+      "horario",
+      "cuando es la clase",
+    ],
+    html:
+      `<h3>Próxima sesión de IA</h3>` +
+      facts([
+        ["calendar_month", "Fecha", "Jueves 26 de noviembre de 2026"],
+        ["schedule", "Hora", "6:00 p. m. (hora de Colombia)"],
+        ["monitor", "Modalidad", "Virtual"],
+        ["lightbulb", "Tema", "Introducción a los modelos de lenguaje"],
+      ]),
   },
   {
     short: "Hasta el viernes 4 de diciembre, 11:59 p. m.",
-source: { label: "Guía del proyecto", file: "guia-proyecto-demo.pdf" },
-keywords: ["proyecto", "entrega", "fecha de entrega", "fecha limite", "entregar", "deadline"],
-    html: `<h3>Entrega del proyecto</h3>` + facts([
-      ["flag", "Fecha límite", "Viernes 4 de diciembre de 2026"],
-      ["schedule", "Hora", "Hasta las 11:59 p. m."],
-      ["upload", "Cómo entregar", "Carga el enlace de tu repositorio en la plataforma de la cohorte"],
-    ]),
+    source: { label: "Guía del proyecto", file: "guia-proyecto-demo.pdf" },
+    keywords: [
+      "proyecto",
+      "entrega",
+      "fecha de entrega",
+      "fecha limite",
+      "entregar",
+      "deadline",
+    ],
+    html:
+      `<h3>Entrega del proyecto</h3>` +
+      facts([
+        ["flag", "Fecha límite", "Viernes 4 de diciembre de 2026"],
+        ["schedule", "Hora", "Hasta las 11:59 p. m."],
+        [
+          "upload",
+          "Cómo entregar",
+          "Carga el enlace de tu repositorio en la plataforma de la cohorte",
+        ],
+      ]),
   },
   {
     short: "Tienes 3 pendientes; la más próxima vence el 27 de noviembre.",
-source: { label: "Calendario de la cohorte", file: "calendario-cohorte-demo.pdf" },
-keywords: ["actividad", "pendiente", "tarea", "taller", "reto"],
-    html: `<h3>Actividades pendientes</h3>` + facts([
-      ["check_circle", "Taller de prompts", "Vence el 27 de noviembre"],
-      ["check_circle", "Reflexión de la sesión 8", "Vence el 29 de noviembre"],
-      ["check_circle", "Avance del proyecto", "Vence el 1 de diciembre"],
-    ]),
+    source: {
+      label: "Calendario de la cohorte",
+      file: "calendario-cohorte-demo.pdf",
+    },
+    keywords: ["actividad", "pendiente", "tarea", "taller", "reto"],
+    html:
+      `<h3>Actividades pendientes</h3>` +
+      facts([
+        ["check_circle", "Taller de prompts", "Vence el 27 de noviembre"],
+        [
+          "check_circle",
+          "Reflexión de la sesión 8",
+          "Vence el 29 de noviembre",
+        ],
+        ["check_circle", "Avance del proyecto", "Vence el 1 de diciembre"],
+      ]),
   },
   {
     short: "En la carpeta de la cohorte: presentaciones, grabaciones y guías.",
-source: { label: "Carpeta de materiales", file: "materiales-cohorte-demo.pdf" },
-keywords: ["material", "recurso", "estudio", "documento", "apuntes", "diapositiva", "grabacion", "donde encuentro"],
-    html: `<h3>Materiales de estudio</h3><p class="muted">Encuentras todo en la carpeta de la cohorte:</p>` + facts([
-      ["layers", "Presentaciones", "De cada sesión"],
-      ["videocam", "Grabaciones", "De las clases"],
-      ["description", "Guías y plantillas", "Para el proyecto"],
-    ]),
+    source: {
+      label: "Carpeta de materiales",
+      file: "materiales-cohorte-demo.pdf",
+    },
+    keywords: [
+      "material",
+      "recurso",
+      "estudio",
+      "documento",
+      "apuntes",
+      "diapositiva",
+      "grabacion",
+      "donde encuentro",
+    ],
+    html:
+      `<h3>Materiales de estudio</h3><p class="muted">Encuentras todo en la carpeta de la cohorte:</p>` +
+      facts([
+        ["layers", "Presentaciones", "De cada sesión"],
+        ["videocam", "Grabaciones", "De las clases"],
+        ["description", "Guías y plantillas", "Para el proyecto"],
+      ]),
   },
   {
     keywords: ["tl", "team leader", "contacto", "hablar con una persona"],
@@ -295,7 +400,8 @@ q1 = FollowUpItem("Ver el calendario de la cohorte")`;
 function formatFormValue(value) {
   if (Array.isArray(value)) return value.map(formatFormValue).join(", ");
   if (value && typeof value === "object") {
-    if (Object.prototype.hasOwnProperty.call(value, "value")) return formatFormValue(value.value);
+    if (Object.prototype.hasOwnProperty.call(value, "value"))
+      return formatFormValue(value.value);
     return Object.entries(value)
       .filter(([k]) => k !== "componentType")
       .map(([k, v]) => `${k}: ${formatFormValue(v)}`)
@@ -303,29 +409,81 @@ function formatFormValue(value) {
   }
   return String(value);
 }
-const FORM_LABELS = { tema: "Tema", ritmo: "Ritmo", formato: "Formato", comentario: "Comentario" };
+const FORM_LABELS = {
+  tema: "Tema",
+  ritmo: "Ritmo",
+  formato: "Formato",
+  comentario: "Comentario",
+};
 function formSubmissionAnswer(question) {
   let data = {};
   const match = question.match(/Datos del formulario:\s*(\{[\s\S]*\})/);
-  if (match) { try { data = JSON.parse(match[1]); } catch (e) { data = {}; } }
+  if (match) {
+    try {
+      data = JSON.parse(match[1]);
+    } catch (e) {
+      data = {};
+    }
+  }
   const rows = Object.entries(data)
-    .map(([k, v]) => [FORM_LABELS[k] || k.replace(/[_-]/g, " ").replace(/^./, (c) => c.toUpperCase()), formatFormValue(v)])
+    .map(([k, v]) => [
+      FORM_LABELS[k] ||
+        k.replace(/[_-]/g, " ").replace(/^./, (c) => c.toUpperCase()),
+      formatFormValue(v),
+    ])
     .filter(([, value]) => Boolean(value) && value !== "undefined")
-    .map(([label, value]) =>
-      `<li><span class="fi">${icon("check_circle")}</span><span class="ft"><b>${escapeHTML(label)}</b><span>${escapeHTML(value)}</span></span></li>`)
+    .map(
+      ([label, value]) =>
+        `<li><span class="fi">${icon("check_circle")}</span><span class="ft"><b>${escapeHTML(label)}</b><span>${escapeHTML(value)}</span></span></li>`,
+    )
     .join("");
-  return { type: "answer", short: "¡Listo! Recibí tus respuestas",
-    html: `<p>Con esto puedo adaptar las próximas respuestas a tus preferencias.</p>` +
-      (rows ? `<ul class="facts">${rows}</ul>` : `<p class="muted">No se recibieron datos.</p>`),
-    noSource: true };
+  return {
+    type: "answer",
+    short: "¡Listo! Recibí tus respuestas",
+    html:
+      `<p>Con esto puedo adaptar las próximas respuestas a tus preferencias.</p>` +
+      (rows
+        ? `<ul class="facts">${rows}</ul>`
+        : `<p class="muted">No se recibieron datos.</p>`),
+    noSource: true,
+  };
 }
 
 /* Temas sensibles: se derivan a una persona */
 const SENSITIVE = [
-  "salud", "enfermo", "enferma", "enfermedad", "medic", "depres", "ansiedad", "estres", "triste", "suicid",
-  "calificacion", "mis notas", "mi nota", "promedio", "aprobar", "reprob", "perder el curso",
-  "situacion personal", "problema personal", "asunto personal", "familia", "problema con mi", "acoso", "maltrato", "abuso", "violencia",
-  "expulsar", "sancionar", "despedir", "castigar", "mi compañero", "mi companero", "decidir sobre",
+  "salud",
+  "enfermo",
+  "enferma",
+  "enfermedad",
+  "medic",
+  "depres",
+  "ansiedad",
+  "estres",
+  "triste",
+  "suicid",
+  "calificacion",
+  "mis notas",
+  "mi nota",
+  "promedio",
+  "aprobar",
+  "reprob",
+  "perder el curso",
+  "situacion personal",
+  "problema personal",
+  "asunto personal",
+  "familia",
+  "problema con mi",
+  "acoso",
+  "maltrato",
+  "abuso",
+  "violencia",
+  "expulsar",
+  "sancionar",
+  "despedir",
+  "castigar",
+  "mi compañero",
+  "mi companero",
+  "decidir sobre",
 ];
 
 /* ---------- Estado ---------- */
@@ -335,24 +493,42 @@ let busy = false;
 let editingId = null;
 
 /* ---------- Utilidades ---------- */
-const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") + " ";
+const normalize = (s) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") + " ";
 const escapeHTML = (s) =>
-  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+const uid = () =>
+  Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const current = () => conversations.find((c) => c.id === currentId);
 
 /* ---------- Mensajes en árbol: cada mensaje puede tener ramas ---------- */
 const nodesOf = (conv) => (conv ? conv.nodes || (conv.nodes = []) : []);
-const nodeById = (id, conv = current()) => nodesOf(conv).find((n) => n.id === id);
-const childNodes = (id, conv = current()) => nodesOf(conv).filter((n) => n.parentId === id);
+const nodeById = (id, conv = current()) =>
+  nodesOf(conv).find((n) => n.id === id);
+const childNodes = (id, conv = current()) =>
+  nodesOf(conv).filter((n) => n.parentId === id);
 function branchSiblings(node, conv = current()) {
   if (!node) return [];
-  return nodesOf(conv).filter((n) => n.parentId === node.parentId && n.role === node.role);
+  return nodesOf(conv).filter(
+    (n) => n.parentId === node.parentId && n.role === node.role,
+  );
 }
 function lastLeaf(node, conv = current()) {
   let leaf = node;
   let kids = childNodes(leaf.id, conv);
-  while (kids.length) { leaf = kids[kids.length - 1]; kids = childNodes(leaf.id, conv); }
+  while (kids.length) {
+    leaf = kids[kids.length - 1];
+    kids = childNodes(leaf.id, conv);
+  }
   return leaf;
 }
 function activePath(conv = current()) {
@@ -360,12 +536,16 @@ function activePath(conv = current()) {
   const byId = new Map(nodesOf(conv).map((n) => [n.id, n]));
   const path = [];
   let node = byId.get(conv.activeLeafId);
-  while (node) { path.unshift(node); node = node.parentId ? byId.get(node.parentId) : null; }
+  while (node) {
+    path.unshift(node);
+    node = node.parentId ? byId.get(node.parentId) : null;
+  }
   return path;
 }
 function addNode(node, parentId = undefined) {
   const conv = current();
-  const parent = parentId === undefined ? conv?.activeLeafId ?? null : parentId;
+  const parent =
+    parentId === undefined ? (conv?.activeLeafId ?? null) : parentId;
   const n = { id: uid(), parentId: parent, ...node };
   nodesOf(conv).push(n);
   conv.activeLeafId = n.id;
@@ -412,7 +592,10 @@ function welcomePick() {
   }
   return conv
     ? welcomePicks.get(conv.id)
-    : { greeting: WELCOMES[randomIndex(WELCOMES.length)], actions: shuffled(QUICK_ACTIONS).slice(0, 4) };
+    : {
+        greeting: WELCOMES[randomIndex(WELCOMES.length)],
+        actions: shuffled(QUICK_ACTIONS).slice(0, 4),
+      };
 }
 function renderWelcome() {
   const pick = welcomePick();
@@ -420,16 +603,27 @@ function renderWelcome() {
   const suggestions = $("#suggestions");
   if (title) title.textContent = pick.greeting;
   if (suggestions) {
-    suggestions.innerHTML = pick.actions.map((a) =>
-      `<button class="chip" data-q="${escapeHTML(a.q)}"><span class="ico"><span class="ic lg">${a.icon}</span></span>${escapeHTML(a.q)}</button>`
-    ).join("");
+    suggestions.innerHTML = pick.actions
+      .map(
+        (a) =>
+          `<button class="chip" data-q="${escapeHTML(a.q)}"><span class="ico"><span class="ic lg">${a.icon}</span></span>${escapeHTML(a.q)}</button>`,
+      )
+      .join("");
   }
 }
 
-function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations)); } catch (e) {} }
+function save() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+  } catch (e) {}
+}
 function load() {
-  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) conversations = JSON.parse(raw); }
-  catch (e) { conversations = []; }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) conversations = JSON.parse(raw);
+  } catch (e) {
+    conversations = [];
+  }
   /* Los chats guardados antes de las ramas se convierten a una sola rama lineal */
   conversations.forEach((c) => {
     if (!Array.isArray(c.nodes) && Array.isArray(c.messages)) {
@@ -449,15 +643,35 @@ function load() {
 /* ---------- Motor de respuesta simulado ---------- */
 function resolveAnswer(question) {
   const q = normalize(question);
-  if (/datos del formulario/i.test(question)) return formSubmissionAnswer(question);
-  if (/(encuesta|formulario|preferencias|prefieres|elegir opciones|valorar|calificar)/.test(q)) {
+  if (/datos del formulario/i.test(question))
+    return formSubmissionAnswer(question);
+  if (
+    /(encuesta|formulario|preferencias|prefieres|elegir opciones|valorar|calificar)/.test(
+      q,
+    )
+  ) {
     return { type: "openui", response: DEMO_SURVEY };
   }
   if (SENSITIVE.some((k) => q.includes(k))) return { type: "safety" };
   // Gana el tema con la palabra clave más específica (más larga), no el primero de la lista.
-  let hit = null, best = 0;
-  KNOWLEDGE.forEach((k) => k.keywords.forEach((kw) => { if (q.includes(kw) && kw.length > best) { best = kw.length; hit = k; } }));
-  if (hit) return { type: "answer", html: hit.html, short: hit.short, source: hit.source, noSource: hit.noSource };
+  let hit = null,
+    best = 0;
+  KNOWLEDGE.forEach((k) =>
+    k.keywords.forEach((kw) => {
+      if (q.includes(kw) && kw.length > best) {
+        best = kw.length;
+        hit = k;
+      }
+    }),
+  );
+  if (hit)
+    return {
+      type: "answer",
+      html: hit.html,
+      short: hit.short,
+      source: hit.source,
+      noSource: hit.noSource,
+    };
   return { type: "error" };
 }
 
@@ -475,7 +689,9 @@ async function callGemini(question, settings, system) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p?.text || "").join("") || "";
+  const text =
+    data?.candidates?.[0]?.content?.parts?.map((p) => p?.text || "").join("") ||
+    "";
   if (!text.trim()) throw new Error("el modelo devolvió una respuesta vacía");
   return text;
 }
@@ -486,7 +702,9 @@ async function callOpenRouter(question, settings, system) {
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${settings.apiKey}`,
-      "HTTP-Referer": (typeof location !== "undefined" && location.origin) || "https://localhost",
+      "HTTP-Referer":
+        (typeof location !== "undefined" && location.origin) ||
+        "https://localhost",
       "X-Title": "Ritchie AI",
     },
     body: JSON.stringify({
@@ -526,41 +744,61 @@ function cleanResponse(raw) {
 
 function resultFromText(clean, question) {
   if (/^\s*NO_SE\s*$/i.test(clean)) {
-    return { type: "error", question,
-      message: "No tengo información suficiente en los documentos de la cohorte para responder eso. Prueba a reformular la pregunta." };
+    return {
+      type: "error",
+      question,
+      message:
+        "No tengo información suficiente en los documentos de la cohorte para responder eso. Prueba a reformular la pregunta.",
+    };
   }
   const isProgram = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
-  if (isProgram && window.__OpenUI && window.__OpenUI.Renderer && window.__OpenUI.createRoot) {
-    return { type: "openui", response: clean };
-  }
-  /* Sin CDN: respuesta legible en texto para no perder funcionalidad */
+  if (isProgram) return { type: "openui", response: clean };
+  /* Respuesta en texto: se muestra con el mismo estilo que el resto del chat */
   const sourceMatch = clean.match(/FUENTE:\s*(.+)$/im);
-  const bodyText = sourceMatch ? clean.slice(0, sourceMatch.index).trim() : clean;
-  const lines = bodyText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const bodyText = sourceMatch
+    ? clean.slice(0, sourceMatch.index).trim()
+    : clean;
+  const lines = bodyText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const short = lines[0] || "";
-  const detailHTML = lines.slice(1)
-    .map((l) => `<p>${escapeHTML(l.replace(/^[-•*]\s*/, ""))}</p>`).join("");
-  return { type: "answer", short, html: `<div class="api-answer">${detailHTML}</div>` };
+  const detailHTML = lines
+    .slice(1)
+    .map((l) => `<p>${escapeHTML(l.replace(/^[-•*]\s*/, ""))}</p>`)
+    .join("");
+  return {
+    type: "answer",
+    short,
+    html: `<div class="api-answer">${detailHTML}</div>`,
+  };
 }
 
 async function askAI(question, settings) {
   const system = buildSystemPrompt();
   const models = PROVIDERS[settings.provider].models.map((m) => m.value);
-  const ordered = [settings.model, ...models.filter((m) => m !== settings.model)].filter(Boolean);
+  const ordered = [
+    settings.model,
+    ...models.filter((m) => m !== settings.model),
+  ].filter(Boolean);
   let raw = "";
   let lastError = null;
 
   /* Si el modelo está saturado (503/429) probamos con el siguiente gratuito de la lista */
   for (const model of ordered) {
     try {
-      raw = settings.provider === "openrouter"
-        ? await callOpenRouter(question, { ...settings, model }, system)
-        : await callGemini(question, { ...settings, model }, system);
+      raw =
+        settings.provider === "openrouter"
+          ? await callOpenRouter(question, { ...settings, model }, system)
+          : await callGemini(question, { ...settings, model }, system);
       lastError = null;
       break;
     } catch (err) {
       lastError = err;
-      const retryable = /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(err.message || "");
+      const retryable =
+        /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(
+          err.message || "",
+        );
       if (!retryable) break;
     }
   }
@@ -585,7 +823,11 @@ async function readSSE(res, onData) {
       if (!trimmed.startsWith("data:")) continue;
       const payload = trimmed.slice(5).trim();
       if (!payload || payload === "[DONE]") continue;
-      try { onData(JSON.parse(payload)); } catch (e) { /* evento incompleto */ }
+      try {
+        onData(JSON.parse(payload));
+      } catch (e) {
+        /* evento incompleto */
+      }
     }
   }
 }
@@ -607,8 +849,14 @@ async function streamGemini(question, settings, system, onChunk) {
   }
   let text = "";
   await readSSE(res, (data) => {
-    const chunk = data?.candidates?.[0]?.content?.parts?.map((p) => p?.text || "").join("") || "";
-    if (chunk) { text += chunk; onChunk(text); }
+    const chunk =
+      data?.candidates?.[0]?.content?.parts
+        ?.map((p) => p?.text || "")
+        .join("") || "";
+    if (chunk) {
+      text += chunk;
+      onChunk(text);
+    }
   });
   return text;
 }
@@ -619,7 +867,9 @@ async function streamOpenRouter(question, settings, system, onChunk) {
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${settings.apiKey}`,
-      "HTTP-Referer": (typeof location !== "undefined" && location.origin) || "https://localhost",
+      "HTTP-Referer":
+        (typeof location !== "undefined" && location.origin) ||
+        "https://localhost",
       "X-Title": "Ritchie AI",
     },
     body: JSON.stringify({
@@ -640,7 +890,10 @@ async function streamOpenRouter(question, settings, system, onChunk) {
   let text = "";
   await readSSE(res, (data) => {
     const chunk = data?.choices?.[0]?.delta?.content || "";
-    if (chunk) { text += chunk; onChunk(text); }
+    if (chunk) {
+      text += chunk;
+      onChunk(text);
+    }
   });
   return text;
 }
@@ -648,18 +901,25 @@ async function streamOpenRouter(question, settings, system, onChunk) {
 async function streamAI(question, settings, onChunk) {
   const system = buildSystemPrompt();
   const models = PROVIDERS[settings.provider].models.map((m) => m.value);
-  const ordered = [settings.model, ...models.filter((m) => m !== settings.model)].filter(Boolean);
+  const ordered = [
+    settings.model,
+    ...models.filter((m) => m !== settings.model),
+  ].filter(Boolean);
   let lastError = null;
   for (const model of ordered) {
     try {
       const s = { ...settings, model };
-      const raw = settings.provider === "openrouter"
-        ? await streamOpenRouter(question, s, system, onChunk)
-        : await streamGemini(question, s, system, onChunk);
+      const raw =
+        settings.provider === "openrouter"
+          ? await streamOpenRouter(question, s, system, onChunk)
+          : await streamGemini(question, s, system, onChunk);
       if (raw) return raw;
     } catch (err) {
       lastError = err;
-      const retryable = /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(err.message || "");
+      const retryable =
+        /503|429|UNAVAILABLE|RESOURCE_EXHAUSTED|overload|high demand/i.test(
+          err.message || "",
+        );
       if (!retryable) break;
       onChunk(""); // descarta el partial del modelo caído
     }
@@ -668,78 +928,391 @@ async function streamAI(question, settings, onChunk) {
   return "";
 }
 
-/* ---------- Render de OpenUI (bundle oficial cargado por CDN) ---------- */
-const openUIRoots = new Map();
+/* ---------- Render propio del lenguaje de la IA (estética de la app) ----------
+   Interpretamos "nombre = Componente(...)" y dibujamos HTML con las clases de
+   la app: no dependemos del CSS ni del Renderer de OpenUI para mostrar messages. */
+let uiSeq = 0;
+const uiId = (prefix) => `${prefix}-${++uiSeq}`;
 
-/* Acciones de los formularios: el estado se devuelve a la IA como contexto */
+/* Acciones de los formularios: el estado se devuelve a la IA como contexto oculto */
 function handleOpenUIAction(action) {
   if (!action || action.type !== "continue_conversation") return;
   const state = action.formState;
-  const hasJSON = Boolean(state && typeof state === "object" && Object.keys(state).length);
-  const bits = [];
-  if (action.humanFriendlyMessage) bits.push(action.humanFriendlyMessage);
-  if (hasJSON) bits.push("Datos del formulario: " + JSON.stringify(state));
-  const message = bits.join(" · ") || "Continuar";
-  /* Si hay datos JSON se envían a la IA sin ensuciar el chat; si no, la acción se muestra como mensaje */
-  ask(message, hasJSON);
+  const hasJSON = Boolean(
+    state && typeof state === "object" && Object.keys(state).length,
+  );
+  /* El mensaje visible es solo la intención de la persona; los datos viajan aparte */
+  ask(action.humanFriendlyMessage || "Continuar", {
+    data: hasJSON ? state : null,
+  });
 }
 
-/* Texto legible si el modelo entrega un programa que OpenUI no puede dibujar */
+/* Texto legible si el modelo entrega un programa que no se puede dibujar */
 function programToText(program) {
   const strings = program.match(/"((?:\\.|[^"\\])*)"/g) || [];
   return strings.map((s) => s.slice(1, -1).replace(/\\"/g, '"')).join(" · ");
 }
 
-function mountOpenUI(wrap, response) {
-  const sdk = window.__OpenUI;
-  const mount = wrap && wrap.querySelector(".openui-mount");
-  if (!sdk || !mount || typeof response !== "string") return false;
-  try {
-    let failed = false;
-    const root = sdk.createRoot(mount);
-    root.render(sdk.React.createElement(sdk.Renderer, {
-      response,
-      library: sdk.openuiChatLibrary,
-      onAction: handleOpenUIAction,
-      onError: (errors) => { if (errors && errors.length) failed = true; },
-    }));
-    openUIRoots.set(mount, root);
-    /* Solo se valida el programa terminado: los fragmentos del stream no son OpenUI válido */
-    requestAnimationFrame(() => {
-      if (failed || !mount.textContent.trim()) {
-        unmountWrap(wrap);
-        mount.innerHTML = `<p class="openui-fallback">${escapeHTML(programToText(response))}</p>`;
-      }
+/* --- Intérprete mínimo del lenguaje de componentes --- */
+function splitArgs(src) {
+  const out = [];
+  let depth = 0,
+    quote = false,
+    esc = false,
+    start = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quote) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') quote = false;
+      continue;
+    }
+    if (c === '"') {
+      quote = true;
+      continue;
+    }
+    if ("[({".includes(c)) depth++;
+    else if (")]}".includes(c)) depth--;
+    else if (c === "," && depth === 0) {
+      out.push(src.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  const last = src.slice(start).trim();
+  if (last) out.push(last);
+  return out;
+}
+function closeIndex(src, open, close) {
+  let depth = 0,
+    quote = false,
+    esc = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quote) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') quote = false;
+      continue;
+    }
+    if (c === '"') {
+      quote = true;
+      continue;
+    }
+    if (c === open) depth++;
+    else if (c === close && --depth === 0) return i;
+  }
+  return -1;
+}
+function parseValue(src) {
+  const s = String(src).trim();
+  if (!s) return null;
+  if (s[0] === '"') {
+    try {
+      return JSON.parse(s);
+    } catch (e) {
+      return s.slice(1, -1);
+    }
+  }
+  if (s[0] === "[") {
+    const end = closeIndex(s, "[", "]");
+    return splitArgs(s.slice(1, end < 0 ? s.length : end)).map(parseValue);
+  }
+  if (s[0] === "{") {
+    const end = closeIndex(s, "{", "}");
+    const obj = {};
+    splitArgs(s.slice(1, end < 0 ? s.length : end)).forEach((pair) => {
+      const m = pair.match(
+        /^(?:"([^"]+)"|([A-Za-z_$][\w$]*))\s*:\s*([\s\S]+)$/,
+      );
+      if (m) obj[m[1] || m[2]] = parseValue(m[3]);
     });
+    return obj;
+  }
+  if (s[0] === "@") {
+    const m = s.slice(1).match(/^([A-Za-z_$][\w$]*)\s*\(([\s\S]*)\)$/);
+    return m
+      ? { __step: m[1], args: splitArgs(m[2]).map(parseValue) }
+      : { __step: s.slice(1), args: [] };
+  }
+  const call = s.match(/^([A-Za-z_$][\w$]*)\s*\(([\s\S]*)\)$/);
+  if (call)
+    return { __call: call[1], args: splitArgs(call[2]).map(parseValue) };
+  if (s === "true") return true;
+  if (s === "false") return false;
+  if (s === "null") return null;
+  if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
+  return { __ref: s };
+}
+function parseProgram(src) {
+  const env = {};
+  src.split(/\r?\n/).forEach((line) => {
+    const m = line.trim().match(/^([A-Za-z_$][\w$]*)\s*=\s*([\s\S]+)$/);
+    if (m) env[m[1]] = parseValue(m[2]);
+  });
+  return env;
+}
+function resolveValue(v, env, seen = new Set()) {
+  if (Array.isArray(v)) return v.map((x) => resolveValue(x, env, seen));
+  if (v && typeof v === "object") {
+    if (v.__ref) {
+      if (seen.has(v.__ref)) return null;
+      return resolveValue(env[v.__ref], env, new Set([...seen, v.__ref]));
+    }
+    if (v.__call)
+      return {
+        type: v.__call,
+        args: v.args.map((x) => resolveValue(x, env, seen)),
+      };
+    if (v.__step)
+      return {
+        step: v.__step,
+        args: v.args.map((x) => resolveValue(x, env, seen)),
+      };
+    const out = {};
+    Object.entries(v).forEach(([k, x]) => {
+      out[k] = resolveValue(x, env, seen);
+    });
+    return out;
+  }
+  return v;
+}
+const valText = (v) =>
+  v == null ? "" : typeof v === "object" ? "" : String(v);
+const asArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+function richText(v) {
+  return escapeHTML(valText(v))
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/\*([^*]+)\*/g, "<i>$1</i>")
+    .replace(/\r?\n/g, "<br>");
+}
+function actionText(v) {
+  if (!v) return "";
+  if (Array.isArray(v)) return actionText(v[0]);
+  return v.step === "ToAssistant" ? valText(v.args?.[0]) : "";
+}
+
+/* --- Dibujo de los componentes soportados --- */
+function renderButtons(node, inForm = false) {
+  const list =
+    node && node.type === "Buttons" ? asArray(node.args?.[0]) : asArray(node);
+  const vertical = node?.args?.[1] === "column";
+  const body = list
+    .map((b, i) => {
+      if (!b || b.type !== "Button") return renderNode(b);
+      const label = valText(b.args?.[0]);
+      const action = actionText(b.args?.[1]);
+      const variant = ["primary", "secondary", "tertiary"].includes(b.args?.[2])
+        ? b.args?.[2]
+        : "secondary";
+      const submit = inForm && i === 0 && action;
+      return `<button type="${submit ? "submit" : "button"}" class="ui-btn ui-btn-${variant}"${action ? ` data-toassistant="${escapeHTML(action)}"` : ""}>${escapeHTML(label)}</button>`;
+    })
+    .join("");
+  return `<div class="ui-buttons${vertical ? " ui-buttons-column" : ""}">${body}</div>`;
+}
+function renderNode(node) {
+  if (node == null || node === false) return "";
+  if (Array.isArray(node)) return node.map(renderNode).join("");
+  if (typeof node !== "object" || !node.type) return richText(node);
+  const a = node.args || [];
+  const kids = () => a.map(renderNode).join("");
+  switch (node.type) {
+    case "Card":
+      return `<div class="ui-card">${kids()}</div>`;
+    case "CardHeader":
+      return `<div class="ui-header"><b>${escapeHTML(valText(a[0]))}</b>${a[1] ? `<span>${escapeHTML(valText(a[1]))}</span>` : ""}</div>`;
+    case "InlineHeader":
+      return `<div class="ui-inline-header"><b>${escapeHTML(valText(a[0]))}</b>${a[1] ? `<span>${escapeHTML(valText(a[1]))}</span>` : ""}</div>`;
+    case "TextContent":
+    case "MarkDownRenderer":
+      return `<p class="ui-text ui-text-${["small", "large", "small-heavy", "large-heavy"].includes(a[1]) ? a[1] : "default"}">${richText(a[0])}</p>`;
+    case "Callout":
+    case "TextCallout": {
+      const variant = a[0] === "danger" ? "error" : a[0] || "neutral";
+      return `<div class="ui-callout ui-callout-${escapeHTML(variant)}"><b>${escapeHTML(valText(a[1]))}</b>${a[2] ? `<p>${richText(a[2])}</p>` : ""}</div>`;
+    }
+    case "Separator":
+      return `<hr class="ui-sep">`;
+    case "Steps":
+      return `<ol class="ui-steps">${asArray(a[0])
+        .map(
+          (s, i) =>
+            `<li><span class="ui-step-num">${i + 1}</span><div><b>${escapeHTML(valText(s?.args?.[0]))}</b><p>${richText(s?.args?.[1])}</p></div></li>`,
+        )
+        .join("")}</ol>`;
+    case "Table": {
+      const cols = asArray(a[0]).filter((c) => c?.type === "Col");
+      const rows = Math.max(0, ...cols.map((c) => asArray(c.args?.[1]).length));
+      return `<div class="ui-table-wrap"><table class="ui-table"><thead><tr>${cols.map((c) => `<th>${escapeHTML(valText(c.args?.[0]))}</th>`).join("")}</tr></thead><tbody>${Array.from(
+        { length: rows },
+        (_, r) =>
+          `<tr>${cols.map((c) => `<td>${escapeHTML(valText(asArray(c.args?.[1])[r]))}</td>`).join("")}</tr>`,
+      ).join("")}</tbody></table></div>`;
+    }
+    case "EntityList": {
+      const rows = asArray(a[0]).filter(
+        (row) => row && typeof row === "object",
+      );
+      return `<div class="ui-entity">${rows
+        .map(
+          (row) =>
+            `<div><span>${escapeHTML(valText(row.left))}</span><b class="${row.rightVariant === "number" ? "ui-num" : ""}">${escapeHTML(valText(row.right))}</b></div>`,
+        )
+        .join("")}</div>`;
+    }
+    case "ListBlock":
+      return `<div class="ui-list">${asArray(a[0])
+        .map((it, i) => {
+          const action = actionText(it?.args?.[4]);
+          const label = valText(it?.args?.[3]);
+          return `<div class="ui-list-item"><span class="ui-list-num">${a[1] === "image" ? icon("image", "sm") : i + 1}</span><div><b>${escapeHTML(valText(it?.args?.[0]))}</b>${it?.args?.[1] ? `<p>${escapeHTML(valText(it.args[1]))}</p>` : ""}</div>${
+            action
+              ? `<button type="button" class="ui-list-action" data-toassistant="${escapeHTML(action)}" aria-label="${escapeHTML(label || action)}">${icon("chevron_right", "sm")}</button>`
+              : ""
+          }</div>`;
+        })
+        .join("")}</div>`;
+    case "TagBlock":
+      return `<div class="ui-tags">${asArray(a[0])
+        .map((t) =>
+          t?.type === "Tag"
+            ? `<span class="ui-tag">${escapeHTML(valText(t.args?.[0]))}</span>`
+            : `<span class="ui-tag">${escapeHTML(valText(t))}</span>`,
+        )
+        .join("")}</div>`;
+    case "Tag":
+      return `<span class="ui-tag">${escapeHTML(valText(a[0]))}</span>`;
+    case "Form":
+      return `<form class="ui-form" data-ui-form="${escapeHTML(valText(a[0]))}">${asArray(a[2]).map(renderNode).join("")}${renderButtons(a[1], true)}</form>`;
+    case "FormControl": {
+      const id = uiId("ui-field");
+      const input = renderNode(a[1])
+        .replace("<input ", `<input id="${id}" `)
+        .replace("<textarea ", `<textarea id="${id}" `)
+        .replace("<select ", `<select id="${id}" `);
+      return `<div class="ui-field"><label class="ui-label" for="${id}">${escapeHTML(valText(a[0]))}</label>${input}${a[2] ? `<span class="ui-hint">${escapeHTML(valText(a[2]))}</span>` : ""}</div>`;
+    }
+    case "Input": {
+      const rules = a[3] && typeof a[3] === "object" ? a[3] : {};
+      return `<input class="ui-input" type="${escapeHTML(valText(a[2]) || "text")}" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}"${rules.required ? " required" : ""}>`;
+    }
+    case "TextArea": {
+      const rules = a[3] && typeof a[3] === "object" ? a[3] : {};
+      return `<textarea class="ui-input ui-textarea" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}" rows="${Number(a[2]) || 3}"${rules.required ? " required" : ""}></textarea>`;
+    }
+    case "Select":
+      return `<select class="ui-select" name="${escapeHTML(valText(a[0]))}"><option value="" disabled selected>${escapeHTML(valText(a[2]) || "Elige una opción")}</option>${asArray(
+        a[1],
+      )
+        .map(
+          (it) =>
+            `<option value="${escapeHTML(valText(it?.args?.[0]))}">${escapeHTML(valText(it?.args?.[1]))}</option>`,
+        )
+        .join("")}</select>`;
+    case "Chips": {
+      const type = a[1] === "multiple" ? "checkbox" : "radio";
+      const name = escapeHTML(valText(a[0]));
+      return `<div class="ui-chips">${asArray(a[2])
+        .map(
+          (it) =>
+            `<label class="ui-chip"><input type="${type}" name="${name}" value="${escapeHTML(valText(it?.args?.[0]))}"><span>${escapeHTML(valText(it?.args?.[1]))}</span></label>`,
+        )
+        .join("")}</div>`;
+    }
+    case "OptionCards": {
+      const type = a[1] === "multiple" ? "checkbox" : "radio";
+      const name = escapeHTML(valText(a[0]));
+      return `<div class="ui-option-cards">${asArray(a[2])
+        .map(
+          (it) =>
+            `<label class="ui-option-card"><input type="${type}" name="${name}" value="${escapeHTML(valText(it?.args?.[0]))}"><span><b>${escapeHTML(valText(it?.args?.[1]))}</b>${it?.args?.[2] ? `<small>${escapeHTML(valText(it.args[2]))}</small>` : ""}</span></label>`,
+        )
+        .join("")}</div>`;
+    }
+    case "CheckBoxGroup":
+    case "SwitchGroup":
+      return `<div class="ui-checks">${asArray(a[1])
+        .map(
+          (it) =>
+            `<label class="ui-check"><input type="checkbox" name="${escapeHTML(valText(a[0]))}" value="${escapeHTML(valText(it?.args?.[2] || valText(it?.args?.[0])))}"><span><b>${escapeHTML(valText(it?.args?.[0]))}</b>${it?.args?.[1] ? `<small>${escapeHTML(valText(it.args[1]))}</small>` : ""}</span></label>`,
+        )
+        .join("")}</div>`;
+    case "RadioGroup":
+      return `<div class="ui-checks">${asArray(a[1])
+        .map(
+          (it) =>
+            `<label class="ui-check"><input type="radio" name="${escapeHTML(valText(a[0]))}" value="${escapeHTML(valText(it?.args?.[2]))}"><span><b>${escapeHTML(valText(it?.args?.[0]))}</b>${it?.args?.[1] ? `<small>${escapeHTML(valText(it.args[1]))}</small>` : ""}</span></label>`,
+        )
+        .join("")}</div>`;
+    case "Buttons":
+      return renderButtons(node);
+    case "Button":
+      return renderButtons(node);
+    case "FollowUpBlock":
+      return `<div class="ui-follow"><span>${"Preguntas relacionadas"}</span>${asArray(
+        a[0],
+      )
+        .map(
+          (it) =>
+            `<button type="button" class="ui-follow-item" data-toassistant="${escapeHTML(valText(it?.args?.[0]))}">${escapeHTML(valText(it?.args?.[0]))}</button>`,
+        )
+        .join("")}</div>`;
+    case "Tabs": {
+      const gid = uiId("ui-tabs");
+      const items = asArray(a[0]);
+      return `<div class="ui-tabs"><div class="ui-tablist" role="tablist">${items
+        .map(
+          (it, i) =>
+            `<button type="button" role="tab" class="ui-tab${i === 0 ? " active" : ""}" data-ui-tab="${gid}-${i}">${escapeHTML(valText(it?.args?.[1]))}</button>`,
+        )
+        .join("")}</div>${items
+        .map(
+          (it, i) =>
+            `<div class="ui-tabpanel" role="tabpanel" data-panel="${gid}-${i}"${i ? " hidden" : ""}>${asArray(it?.args?.[2]).map(renderNode).join("")}</div>`,
+        )
+        .join("")}</div>`;
+    }
+    case "SectionBlock":
+    case "Accordion":
+      return `<div class="ui-accordion">${asArray(a[0])
+        .map(
+          (it) =>
+            `<details class="ui-accordion-item"><summary>${escapeHTML(valText(it?.args?.[1]))}</summary><div>${asArray(it?.args?.[2]).map(renderNode).join("")}</div></details>`,
+        )
+        .join("")}</div>`;
+    case "CodeBlock":
+      return `<pre class="ui-code"><code>${escapeHTML(valText(a[1]))}</code></pre>`;
+    default: {
+      const child = a.find((x) => Array.isArray(x));
+      return child ? child.map(renderNode).join("") : richText(a[0]);
+    }
+  }
+}
+function renderProgramInto(mount, program) {
+  if (!mount || typeof program !== "string") return false;
+  try {
+    const env = parseProgram(program);
+    const root = resolveValue(env.root, env);
+    if (!root || root.type !== "Card") throw new Error("sin root");
+    mount.innerHTML = renderNode(root);
     return true;
   } catch (err) {
-    mount.textContent = "No se pudo dibujar la interfaz generada.";
+    mount.innerHTML = `<p class="ui-fallback">${escapeHTML(programToText(program) || "No se pudo mostrar la interfaz.")}</p>`;
     return false;
   }
 }
 
-function unmountWrap(wrap) {
-  const mount = wrap && wrap.querySelector(".openui-mount");
-  const root = mount && openUIRoots.get(mount);
-  if (root) {
-    try { root.unmount(); } catch (e) {}
-    openUIRoots.delete(mount);
-  }
-}
-
-function unmountOpenUI() {
-  openUIRoots.forEach((root) => { try { root.unmount(); } catch (e) {} });
-  openUIRoots.clear();
-}
-
 /* ---------- Plantillas ---------- */
 function cardHTML(msg) {
-  const preamble = msg.preamble ? `<div class="preamble">${msg.preamble}</div>` : "";
+  const preamble = msg.preamble
+    ? `<div class="preamble">${msg.preamble}</div>`
+    : "";
   if (msg.pending) {
     return `${preamble}<div class="card card-pending"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Ritchie AI está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span></div></div>`;
   }
   if (msg.type === "openui") {
-    return `${preamble}<div class="card card-openui"><div class="openui-mount"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Preparando interfaz<span class="thinking-ring" aria-hidden="true"></span></span></div></div></div>`;
+    return `${preamble}<div class="card card-ui"><div class="ui-render"></div></div>`;
   }
   if (msg.type === "answer") {
     return `${preamble}<div class="card">${msg.short ? `<p class="short">${msg.short}</p>` : ""}${msg.html || ""}</div>`;
@@ -815,16 +1388,20 @@ function appendMessage(msg, animate = true) {
   wrap.dataset.id = msg.id || "";
   if (msg.role === "user") {
     wrap.className = "msg user";
-    wrap.innerHTML = msg.id === editingId
-      ? `<div class="msg-body">${editFormHTML(msg.text)}</div>`
-      : `<div class="msg-body"><div class="user-bubble">${escapeHTML(msg.text)}</div>${msgActionsHTML(msg)}${branchBarHTML(msg)}</div>`;
+    wrap.innerHTML =
+      msg.id === editingId
+        ? `<div class="msg-body">${editFormHTML(msg.text)}</div>`
+        : `<div class="msg-body"><div class="user-bubble">${escapeHTML(msg.text)}</div>${msgActionsHTML(msg)}${branchBarHTML(msg)}</div>`;
   } else {
     wrap.className = "msg bot";
-    wrap.innerHTML = LOGO_MINI + `<div class="msg-stack">${cardHTML(msg)}${msgActionsHTML(msg)}${branchBarHTML(msg)}</div>`;
+    wrap.innerHTML =
+      LOGO_MINI +
+      `<div class="msg-stack">${cardHTML(msg)}${msgActionsHTML(msg)}${branchBarHTML(msg)}</div>`;
   }
   if (!animate) wrap.style.animation = "none";
   messagesEl.appendChild(wrap);
-  if (msg.type === "openui") mountOpenUI(wrap, msg.response);
+  if (msg.type === "openui")
+    renderProgramInto(wrap.querySelector(".ui-render"), msg.response);
   scrollDown();
   return wrap;
 }
@@ -833,23 +1410,37 @@ function showThinking() {
   const wrap = document.createElement("div");
   wrap.className = "msg bot is-thinking";
   wrap.id = "thinking";
-  wrap.innerHTML = LOGO_MINI + `<div class="thinking">
+  wrap.innerHTML =
+    LOGO_MINI +
+    `<div class="thinking">
     <span class="dots"><i></i><i></i><i></i></span>
     <span class="thinking-label">Ritchie AI está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span>
   </div>`;
   messagesEl.appendChild(wrap);
   scrollDown();
 }
-const hideThinking = () => { const t = $("#thinking"); if (t) t.remove(); };
-const scrollDown = () => requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
+const hideThinking = () => {
+  const t = $("#thinking");
+  if (t) t.remove();
+};
+const scrollDown = () =>
+  requestAnimationFrame(() => (chat.scrollTop = chat.scrollHeight));
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
 
 /* El fragmento que está llegando termina con un círculo que late */
 function renderStream(partial, card) {
-  const lines = cleanResponse(partial).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const marked = lines.map((l, i) => escapeHTML(l) + (i === lines.length - 1 ? STREAM_TAIL : ""));
-  card.innerHTML = `<p class="short">${marked[0] || `Escribiendo${STREAM_TAIL}`}</p><div class="api-answer">${marked.slice(1).map((l) => `<p>${l}</p>`).join("")}</div>`;
+  const lines = cleanResponse(partial)
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const marked = lines.map(
+    (l, i) => escapeHTML(l) + (i === lines.length - 1 ? STREAM_TAIL : ""),
+  );
+  card.innerHTML = `<p class="short">${marked[0] || `Escribiendo${STREAM_TAIL}`}</p><div class="api-answer">${marked
+    .slice(1)
+    .map((l) => `<p>${l}</p>`)
+    .join("")}</div>`;
 }
 
 /* ---------- Render ---------- */
@@ -874,7 +1465,6 @@ function renderHistory() {
 }
 
 function renderChat() {
-  unmountOpenUI();
   messagesEl.innerHTML = "";
   const conv = current();
   const path = activePath(conv);
@@ -882,16 +1472,25 @@ function renderChat() {
   welcome.hidden = !empty;
   main.classList.toggle("is-empty", empty);
   if (!empty) path.forEach((m) => appendMessage(m, false));
-  else { chat.scrollTop = 0; renderWelcome(); }
+  else {
+    chat.scrollTop = 0;
+    renderWelcome();
+  }
 }
 
 /* ---------- Flujo principal ---------- */
-function ask(question, hidden = false) {
-  question = question.trim();
+/* `data` viaja a la IA como contexto oculto; el chat muestra solo el mensaje de la persona */
+function ask(question, options = {}) {
+  const opts =
+    typeof options === "object" && options !== null
+      ? options
+      : { hidden: Boolean(options) };
+  const hidden = Boolean(opts.hidden);
+  const data = opts.data || null;
+  question = String(question).trim();
   if (!question || busy) return;
-  const hideMessage = hidden || /Datos del formulario:\s*\{/.test(question);
   if (!current()) {
-    const title = hideMessage ? "Encuesta respondida" : question.slice(0, 40);
+    const title = hidden ? "Encuesta respondida" : question.slice(0, 40);
     const conv = { id: uid(), title, nodes: [], activeLeafId: null };
     conversations.push(conv);
     currentId = conv.id;
@@ -899,23 +1498,30 @@ function ask(question, hidden = false) {
   const conv = current();
   welcome.hidden = true;
   main.classList.remove("is-empty");
-  // Redactar datos personales del input del usuario antes de mostrar
+  /* Redactar datos personales del input del usuario antes de mostrar */
   const safeQuestion = redactPII(question);
   let parentId = conv.activeLeafId ?? null;
-  if (!hideMessage) {
+  if (!hidden) {
     const userNode = addNode({ role: "user", text: safeQuestion }, parentId);
     parentId = userNode.id;
     appendMessage(userNode);
   }
   renderHistory();
-  const preamble = !hideMessage && containsPII(question) ? piiWarningHTML() : "";
-  respond(safeQuestion, { parentId, preamble });
+  const preamble = !hidden && containsPII(question) ? piiWarningHTML() : "";
+  const fullQuestion = data
+    ? `${safeQuestion} · Datos del formulario: ${JSON.stringify(data)}`
+    : safeQuestion;
+  respond(fullQuestion, { parentId, preamble });
 }
 
-function finishResponse(result, { node = null, parentId = null, preamble = "", question = "" } = {}) {
+function finishResponse(
+  result,
+  { node = null, parentId = null, preamble = "", question = "" } = {},
+) {
   if (typeof result.short === "string") result.short = redactPII(result.short);
   if (typeof result.html === "string") result.html = redactPII(result.html);
-  const botNode = node || addNode({ role: "bot", ...result, preamble, question }, parentId);
+  const botNode =
+    node || addNode({ role: "bot", ...result, preamble, question }, parentId);
   if (node) Object.assign(botNode, result, { role: "bot", preamble, question });
   delete botNode.pending;
   const conv = current();
@@ -927,7 +1533,10 @@ function finishResponse(result, { node = null, parentId = null, preamble = "", q
   input.focus();
 }
 
-async function respond(question, { parentId = null, preamble = "", node = null } = {}) {
+async function respond(
+  question,
+  { parentId = null, preamble = "", node = null } = {},
+) {
   busy = true;
   updateSend();
   if (node) {
@@ -946,27 +1555,41 @@ async function respond(question, { parentId = null, preamble = "", node = null }
       result = { type: "safety" };
     } else if (settings.apiKey) {
       hideThinking();
-      const useOpenUI = !!(window.__OpenUI && window.__OpenUI.Renderer && window.__OpenUI.createRoot);
-      streamingNode = node || addNode({ role: "bot", type: useOpenUI ? "openui" : "answer",
-        response: "", short: "", html: "", preamble, question }, parentId);
+      streamingNode =
+        node ||
+        addNode(
+          {
+            role: "bot",
+            type: "answer",
+            response: "",
+            short: "",
+            html: "",
+            preamble,
+            question,
+          },
+          parentId,
+        );
       const wrap = node
         ? messagesEl.querySelector(`.msg[data-id="${streamingNode.id}"]`)
         : appendMessage(streamingNode);
       if (wrap) wrap.classList.add("is-streaming");
       try {
-        /* Los fragmentos van dibujando el texto; el círculo marca la última palabra */
+        /* Los fragmentos van dibujando el texto; al terminar se convierte en UI propia */
         const text = await streamAI(question, settings, (partial) => {
-          if (useOpenUI) return;
           const card = wrap.querySelector(".card");
           if (card) renderStream(partial, card);
         });
         result = resultFromText(cleanResponse(text), question);
       } catch (err) {
         /* Si el proveedor no soporta streaming, usamos la llamada normal */
-        try { result = await askAI(question, settings); }
-        catch (e2) {
-          result = { type: "error", question,
-            message: `No se pudo conectar con ${PROVIDERS[settings.provider].label}: ${e2.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.` };
+        try {
+          result = await askAI(question, settings);
+        } catch (e2) {
+          result = {
+            type: "error",
+            question,
+            message: `No se pudo conectar con ${PROVIDERS[settings.provider].label}: ${e2.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.`,
+          };
         }
       }
     } else {
@@ -975,11 +1598,19 @@ async function respond(question, { parentId = null, preamble = "", node = null }
       result = resolveAnswer(question);
     }
   } catch (err) {
-    result = { type: "error", question,
-      message: `No se pudo conectar con ${PROVIDERS[getSettings().provider].label}: ${err.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.` };
+    result = {
+      type: "error",
+      question,
+      message: `No se pudo conectar con ${PROVIDERS[getSettings().provider].label}: ${err.message || "error desconocido"}. Revisa la key y el modelo en Configurar IA.`,
+    };
   }
   hideThinking();
-  finishResponse(result, { node: node || streamingNode, parentId, preamble, question });
+  finishResponse(result, {
+    node: node || streamingNode,
+    parentId,
+    preamble,
+    question,
+  });
 }
 
 /* ---------- Acciones de mensajes: copiar, editar, rehacer y ramas ---------- */
@@ -989,19 +1620,30 @@ function nodeText(node) {
   const card = wrap && wrap.querySelector(".card");
   if (!card) return node.short || node.message || "";
   const clone = card.cloneNode(true);
-  clone.querySelectorAll(".source, .actions, .actions *").forEach((el) => el.remove());
+  clone
+    .querySelectorAll(".source, .actions, .actions *")
+    .forEach((el) => el.remove());
   return clone.innerText.trim() || node.short || "";
 }
 
 async function copyText(text) {
   const modern = async () => {
-    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") return false;
-    try { await navigator.clipboard.writeText(text); return true; }
-    catch (e) { return false; }
+    if (
+      !navigator.clipboard ||
+      typeof navigator.clipboard.writeText !== "function"
+    )
+      return false;
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      return false;
+    }
   };
   /* En algunos navegadores la API espera permiso: si no responde, usamos el método clásico */
-  try { if (await Promise.race([modern(), pause(600)])) return true; }
-  catch (e) {}
+  try {
+    if (await Promise.race([modern(), pause(600)])) return true;
+  } catch (e) {}
   const area = document.createElement("textarea");
   area.value = text;
   area.style.position = "fixed";
@@ -1009,7 +1651,9 @@ async function copyText(text) {
   document.body.appendChild(area);
   area.select();
   let ok = false;
-  try { ok = document.execCommand("copy"); } catch (err) {}
+  try {
+    ok = document.execCommand("copy");
+  } catch (err) {}
   area.remove();
   return ok;
 }
@@ -1035,9 +1679,24 @@ function regenerate(botId) {
   if (!bot || bot.role !== "bot") return;
   const parent = bot.parentId ? nodeById(bot.parentId) : null;
   const question = bot.question || parent?.text || "";
-  const newNode = addNode({ role: "bot", type: "answer", response: "", short: "", html: "",
-    preamble: bot.preamble || "", question, pending: true }, bot.parentId);
-  respond(question, { parentId: bot.parentId, preamble: bot.preamble || "", node: newNode });
+  const newNode = addNode(
+    {
+      role: "bot",
+      type: "answer",
+      response: "",
+      short: "",
+      html: "",
+      preamble: bot.preamble || "",
+      question,
+      pending: true,
+    },
+    bot.parentId,
+  );
+  respond(question, {
+    parentId: bot.parentId,
+    preamble: bot.preamble || "",
+    node: newNode,
+  });
 }
 
 function switchBranch(id, delta) {
@@ -1062,21 +1721,30 @@ function saveEdit(id, text) {
   save();
   renderChat();
   renderHistory();
-  respond(safe, { parentId: newNode.id, preamble: containsPII(text) ? piiWarningHTML() : "" });
+  respond(safe, {
+    parentId: newNode.id,
+    preamble: containsPII(text) ? piiWarningHTML() : "",
+  });
 }
 
 async function handleMsgAction(btn) {
   const action = btn.dataset.action;
   const node = nodeById(btn.dataset.msgId || btn.closest(".msg")?.dataset.id);
   if (!node) return;
-  if (action === "copy") { flashCopied(btn, await copyText(nodeText(node))); return; }
+  if (action === "copy") {
+    flashCopied(btn, await copyText(nodeText(node)));
+    return;
+  }
   if (busy) return;
   if (action === "edit") {
     editingId = node.id;
     renderChat();
     requestAnimationFrame(() => {
       const area = messagesEl.querySelector(".edit-form textarea");
-      if (area) { area.focus(); area.setSelectionRange(area.value.length, area.value.length); }
+      if (area) {
+        area.focus();
+        area.setSelectionRange(area.value.length, area.value.length);
+      }
     });
   }
   if (action === "redo") regenerate(node.id);
@@ -1084,7 +1752,9 @@ async function handleMsgAction(btn) {
   if (action === "branch-next") switchBranch(node.id, 1);
 }
 
-function updateSend() { sendBtn.disabled = busy || !input.value.trim(); }
+function updateSend() {
+  sendBtn.disabled = busy || !input.value.trim();
+}
 
 /* ---------- Estado de conexión con la IA (según la key guardada) ---------- */
 function refreshAIStatus() {
@@ -1113,10 +1783,12 @@ function autoGrow() {
 function openModal(id) {
   const m = document.getElementById(id);
   m.hidden = false;
-  const btn = m.querySelector(".btn-filled");
+  const btn = m.querySelector(".btn-filled, .ui-btn-primary");
   if (btn) btn.focus();
 }
-function closeModals() { document.querySelectorAll(".modal").forEach((m) => (m.hidden = true)); }
+function closeModals() {
+  document.querySelectorAll(".modal").forEach((m) => (m.hidden = true));
+}
 const menuQuery = window.matchMedia("(max-width: 900px)");
 const menuToggle = $("#menuToggle");
 
@@ -1130,7 +1802,9 @@ function setMenu(open) {
 }
 
 /* En escritorio el panel permanece; en móvil se cierra el desplegable superior. */
-function closeMenu() { if (menuQuery.matches) setMenu(false); }
+function closeMenu() {
+  if (menuQuery.matches) setMenu(false);
+}
 
 /* ---------- Eventos ---------- */
 form.addEventListener("submit", (e) => {
@@ -1141,9 +1815,15 @@ form.addEventListener("submit", (e) => {
   updateSend();
   ask(q);
 });
-input.addEventListener("input", () => { autoGrow(); updateSend(); });
+input.addEventListener("input", () => {
+  autoGrow();
+  updateSend();
+});
 input.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    form.requestSubmit();
+  }
 });
 
 $("#suggestions").addEventListener("click", (e) => {
@@ -1151,12 +1831,48 @@ $("#suggestions").addEventListener("click", (e) => {
   if (chip) ask(chip.dataset.q);
 });
 
-const MSG_ACTIONS = ["copy", "edit", "redo", "branch-prev", "branch-next", "cancel-edit"];
+const MSG_ACTIONS = [
+  "copy",
+  "edit",
+  "redo",
+  "branch-prev",
+  "branch-next",
+  "cancel-edit",
+];
 messagesEl.addEventListener("click", (e) => {
+  /* Pestañas de las respuestas generadas */
+  const tab = e.target.closest("[data-ui-tab]");
+  if (tab) {
+    const group = tab.closest(".ui-tabs");
+    group
+      .querySelectorAll(".ui-tab")
+      .forEach((b) => b.classList.toggle("active", b === tab));
+    group.querySelectorAll(".ui-tabpanel").forEach((p) => {
+      p.hidden = p.dataset.panel !== tab.dataset.uiTab;
+    });
+    return;
+  }
+  /* Botones y sugerencias de las respuestas generadas */
+  const uiAction = e.target.closest("[data-toassistant]");
+  if (uiAction) {
+    const form = uiAction.closest("form[data-ui-form]");
+    if (form && uiAction.type === "submit")
+      return; /* lo recoge el evento submit */
+    e.preventDefault();
+    handleOpenUIAction({
+      type: "continue_conversation",
+      humanFriendlyMessage: uiAction.dataset.toassistant,
+    });
+    return;
+  }
   const act = e.target.closest("[data-action]");
   if (act && MSG_ACTIONS.includes(act.dataset.action)) {
     e.preventDefault();
-    if (act.dataset.action === "cancel-edit") { editingId = null; renderChat(); return; }
+    if (act.dataset.action === "cancel-edit") {
+      editingId = null;
+      renderChat();
+      return;
+    }
     handleMsgAction(act);
     return;
   }
@@ -1171,21 +1887,47 @@ messagesEl.addEventListener("click", (e) => {
   if (act.dataset.action === "tl") openSettings("tl");
   if (act.dataset.action === "rephrase") {
     input.value = act.dataset.q;
-    autoGrow(); updateSend();
+    autoGrow();
+    updateSend();
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   }
 });
 
 messagesEl.addEventListener("submit", (e) => {
-  if (!e.target.matches("[data-edit-form]")) return;
+  if (e.target.matches("[data-edit-form]")) {
+    e.preventDefault();
+    const text = e.target.querySelector("textarea").value.trim();
+    saveEdit(e.target.closest(".msg").dataset.id, text);
+    return;
+  }
+  if (!e.target.matches("form[data-ui-form]")) return;
   e.preventDefault();
-  const text = e.target.querySelector("textarea").value.trim();
-  saveEdit(e.target.closest(".msg").dataset.id, text);
+  const form = e.target;
+  const button = form.querySelector('button[type="submit"]');
+  const message = button?.dataset.toassistant || "Enviar respuestas";
+  const state = {};
+  new FormData(form).forEach((value, key) => {
+    if (!String(value).trim()) return;
+    if (state[key] === undefined) state[key] = value;
+    else if (Array.isArray(state[key])) state[key].push(value);
+    else state[key] = [state[key], value];
+  });
+  handleOpenUIAction({
+    type: "continue_conversation",
+    humanFriendlyMessage: message,
+    formState: state,
+  });
 });
 
-$("#tlBtnSide").addEventListener("click", () => { closeMenu(); openSettings("tl"); });
-$("#helpBtn").addEventListener("click", () => { closeMenu(); openSettings("help"); });
+$("#tlBtnSide").addEventListener("click", () => {
+  closeMenu();
+  openSettings("tl");
+});
+$("#helpBtn").addEventListener("click", () => {
+  closeMenu();
+  openSettings("help");
+});
 
 /* ---------- Configuración de la IA gratuita ---------- */
 const providerSel = $("#aiProvider");
@@ -1198,19 +1940,23 @@ const helpText = $("#aiHelp");
 /* Llena el desplegable con los modelos gratuitos del proveedor elegido */
 function populateModels(provider, selected) {
   const p = PROVIDERS[provider] || PROVIDERS.gemini;
-  modelSelect.innerHTML = p.models
-    .map((m) => `<option value="${escapeHTML(m.value)}">${escapeHTML(m.label)}</option>`)
-    .join("") + `<option value="__custom__">Otro (escribir ID)</option>`;
+  modelSelect.innerHTML =
+    p.models
+      .map(
+        (m) =>
+          `<option value="${escapeHTML(m.value)}">${escapeHTML(m.label)}</option>`,
+      )
+      .join("") + `<option value="__custom__">Otro (escribir ID)</option>`;
   const known = p.models.some((m) => m.value === selected);
   modelSelect.value = known ? selected : "__custom__";
-  customInput.value = known ? "" : (selected || "");
+  customInput.value = known ? "" : selected || "";
   customField.hidden = known;
 }
 
 function readModel() {
   const provider = PROVIDERS[providerSel.value] ? providerSel.value : "gemini";
   return modelSelect.value === "__custom__"
-    ? (customInput.value.trim() || PROVIDERS[provider].defaultModel)
+    ? customInput.value.trim() || PROVIDERS[provider].defaultModel
     : modelSelect.value;
 }
 
@@ -1227,8 +1973,12 @@ function activateSettingsTab(name) {
 function updateHistoryStats() {
   const el = $("#historyStats");
   if (!el) return;
-  const total = conversations.reduce((n, c) => n + (c.nodes ? c.nodes.length : 0), 0);
-  el.innerHTML = `<div class="stat"><b>${conversations.length}</b><span>Conversaciones</span></div>` +
+  const total = conversations.reduce(
+    (n, c) => n + (c.nodes ? c.nodes.length : 0),
+    0,
+  );
+  el.innerHTML =
+    `<div class="stat"><b>${conversations.length}</b><span>Conversaciones</span></div>` +
     `<div class="stat"><b>${total}</b><span>Mensajes</span></div>`;
   $("#deleteCurrent").disabled = !current();
 }
@@ -1244,7 +1994,10 @@ function openSettings(tab = "ia") {
   openModal("settingsModal");
 }
 /* El perfil del usuario es la entrada a la configuración local de la IA */
-$("#profileBtn").addEventListener("click", () => { closeMenu(); openSettings(); });
+$("#profileBtn").addEventListener("click", () => {
+  closeMenu();
+  openSettings();
+});
 
 providerSel.addEventListener("change", () => {
   const provider = PROVIDERS[providerSel.value] ? providerSel.value : "gemini";
@@ -1291,7 +2044,8 @@ $("#aiTest").addEventListener("click", async () => {
   helpText.textContent = "Probando conexión…";
   try {
     await askAI("¿Cuándo es la próxima sesión de IA?", settings);
-    helpText.textContent = "✔ Conexión correcta. Guarda para usarla en este navegador.";
+    helpText.textContent =
+      "✔ Conexión correcta. Guarda para usarla en este navegador.";
   } catch (err) {
     helpText.textContent = `✘ ${err.message || "No se pudo conectar"}`;
   } finally {
@@ -1304,7 +2058,11 @@ const settingsTabs = document.querySelector(".settings-tabs");
 const tabsQuery = window.matchMedia("(max-width: 600px)");
 /* En móvil las pestañas forman una barra horizontal; en escritorio, una columna */
 function syncTabsOrientation() {
-  if (settingsTabs) settingsTabs.setAttribute("aria-orientation", tabsQuery.matches ? "horizontal" : "vertical");
+  if (settingsTabs)
+    settingsTabs.setAttribute(
+      "aria-orientation",
+      tabsQuery.matches ? "horizontal" : "vertical",
+    );
 }
 tabsQuery.addEventListener("change", syncTabsOrientation);
 syncTabsOrientation();
@@ -1313,11 +2071,15 @@ document.querySelectorAll(".settings-tab").forEach((tab) => {
   tab.addEventListener("click", () => activateSettingsTab(tab.dataset.tab));
 });
 document.querySelectorAll("[data-settings-tab]").forEach((btn) => {
-  btn.addEventListener("click", () => activateSettingsTab(btn.dataset.settingsTab));
+  btn.addEventListener("click", () =>
+    activateSettingsTab(btn.dataset.settingsTab),
+  );
 });
 
 $("#exportHistory").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify(conversations, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(conversations, null, 2)], {
+    type: "application/json",
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -1332,20 +2094,39 @@ $("#deleteCurrent").addEventListener("click", () => {
   if (!current() || !confirm("¿Borrar la conversación actual?")) return;
   conversations = conversations.filter((c) => c.id !== currentId);
   currentId = null;
-  save(); renderHistory(); renderChat(); updateHistoryStats();
+  save();
+  renderHistory();
+  renderChat();
+  updateHistoryStats();
 });
 
 $("#clearHistory").addEventListener("click", () => {
-  if (!conversations.length || !confirm("¿Borrar todas las conversaciones? Esta acción no se puede deshacer.")) return;
+  if (
+    !conversations.length ||
+    !confirm(
+      "¿Borrar todas las conversaciones? Esta acción no se puede deshacer.",
+    )
+  )
+    return;
   conversations = [];
   currentId = null;
-  save(); renderHistory(); renderChat(); updateHistoryStats();
+  save();
+  renderHistory();
+  renderChat();
+  updateHistoryStats();
 });
 
 document.querySelectorAll(".modal").forEach((m) =>
-  m.addEventListener("click", (e) => { if (e.target === m || e.target.closest("[data-close]")) closeModals(); })
+  m.addEventListener("click", (e) => {
+    if (e.target === m || e.target.closest("[data-close]")) closeModals();
+  }),
 );
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeModals(); closeMenu(); } });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeModals();
+    closeMenu();
+  }
+});
 
 function startNewChat() {
   if (busy) return;
@@ -1366,27 +2147,44 @@ historyEl.addEventListener("click", (e) => {
     if (busy) return;
     conversations = conversations.filter((c) => c.id !== del.dataset.del);
     if (currentId === del.dataset.del) currentId = null;
-    save(); renderChat(); renderHistory();
+    save();
+    renderChat();
+    renderHistory();
     return;
   }
   const item = e.target.closest(".history-item");
   if (item && !busy) {
     currentId = item.dataset.id;
     editingId = null;
-    renderChat(); renderHistory(); closeMenu();
+    renderChat();
+    renderHistory();
+    closeMenu();
   }
 });
 historyEl.addEventListener("keydown", (e) => {
-  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("history-item")) {
+  if (
+    (e.key === "Enter" || e.key === " ") &&
+    e.target.classList.contains("history-item")
+  ) {
     e.preventDefault();
     e.target.click();
   }
 });
 
-menuToggle.addEventListener("click", () => setMenu(app.dataset.menu !== "open"));
-$("#mobileMenuBtn").addEventListener("click", () => setMenu(app.dataset.menu !== "open"));
-$("#mobileProfileBtn").addEventListener("click", () => { closeMenu(); openSettings(); });
-$("#aiOffConfigBtn").addEventListener("click", () => { closeMenu(); openSettings(); });
+menuToggle.addEventListener("click", () =>
+  setMenu(app.dataset.menu !== "open"),
+);
+$("#mobileMenuBtn").addEventListener("click", () =>
+  setMenu(app.dataset.menu !== "open"),
+);
+$("#mobileProfileBtn").addEventListener("click", () => {
+  closeMenu();
+  openSettings();
+});
+$("#aiOffConfigBtn").addEventListener("click", () => {
+  closeMenu();
+  openSettings();
+});
 $("#scrim").addEventListener("click", () => setMenu(false));
 menuQuery.addEventListener("change", (e) => setMenu(!e.matches));
 
