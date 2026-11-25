@@ -179,6 +179,26 @@ actividades para `mod/.../view.php` y enlace con token para `pluginfile.php`). `
 también permite abrir por nombre o `cmid` ya descubierto. Si tras los 12 pasos el modelo sigue
 pidiendo herramientas, se devuelve `MOODLE_NOT_FOUND` para no mostrar el protocolo ni inventar datos.
 
+Al probar «¿Cuándo es la próxima sesión de IA?» el modelo seguía respondiendo la fecha del PDF de
+demostración: `SYSTEM_PROMPT` seguía presente con el calendario ficticio y los ejemplos repetían esa
+respuesta. Con Moodle conectado ahora se usa `buildMoodlePrompt()`: no hay documentos demo, hay un
+ejemplo neutro construido con un material real y la fecha actual del navegador. `loadMoodleCalendar()`
+consulta el calendario del usuario (formatos plano y `events[0][...]`, con respaldo de
+`core_calendar_get_action_events_by_timesort`) y mete los eventos en el contexto; `MOODLE_OPEN` también
+resuelve `calendar/view.php`. `sanitizeMoodleParams()` completa el `userid` en funciones de calendario.
+Además, `askAI()` devuelve texto crudo —antes devolvía un objeto y el bucle de herramientas no podía
+leer las llamadas de los pasos siguientes— y `MOODLE_DEMO_LEAK` descarta cualquier respuesta que
+repite fechas o tareas de demostración.
+
+También se añadió `DEVICE_INFO({"keys":[...]})` para que la IA consulte fecha, hora, zona horaria y
+datos del dispositivo sin backend. `deviceInfoSnapshot()` lee `Date`, `Intl`, `navigator` y `window`
+en el momento: idioma, plataforma, tipo de equipo, pantalla, ventana, densidad de píxeles, conexión,
+batería (con tiempo de espera corto), memoria, núcleos y preferencias de tema/movimiento. El bucle
+acepta esta herramienta aunque Moodle no esté conectado —antes solo entraba si había `moodleContext`—
+y el streaming muestra «Consultando fecha, hora y dispositivo». `resolveAnswer()` pasó a ser
+asíncrona para que, sin key de IA, las preguntas de fecha/hora/equipo se respondan con esos mismos
+datos reales en vez de con el calendario de ejemplo.
+
 ### 3.9 Mapa rápido del código
 
 | Bloque | Líneas de [static/app.js](static/app.js) | Responsabilidad |

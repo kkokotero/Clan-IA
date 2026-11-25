@@ -70,8 +70,20 @@ directamente a `moodle.riwi.io`.
   respuesta y se las devuelve para que siga avanzando **hasta 12 pasos** antes de dibujar la interfaz.
   Si algo no existe en tu cuenta, lo dice en lugar de inventarlo. Es un bucle de herramientas en
   texto, compatible con Gemini y OpenRouter.
-- Sin API key, el motor local despliega los materiales en acordeones. Si no hay conexión, una
-  pregunta sobre Moodle explica cómo ingresar.
+- **Calendario real:** al conectar se consulta `core_calendar_get_calendar_events` (con respaldo de
+  `core_calendar_get_action_events_by_timesort`) y sus eventos, con fechas y URLs, se incluyen en el
+  contexto. Con Moodle conectado el prompt ya **no incluye los documentos de demostración** ni sus
+  ejemplos con fechas inventadas: si la fecha no está en Moodle, el modelo responde
+  `MOODLE_NOT_FOUND`. Hay una red de seguridad que descarta respuestas con datos del calendario demo.
+- **Fecha, hora y dispositivo:** el modelo consulta el equipo con
+  `DEVICE_INFO({"keys":["date","time","timezone","battery"]})`. Campos disponibles: `datetime`,
+  `date`, `time`, `timezone`, `language`, `platform`, `device`, `screen`, `viewport`, `pixelratio`,
+  `online`, `network`, `battery`, `memory`, `cpu` y `preferences` (sin `keys` consulta todos). Todo se
+  lee del navegador al momento; no hay backend ni permisos especiales. Se puede combinar con
+  `MOODLE_OPEN` y `MOODLE_TOOL` en la misma respuesta.
+- Sin API key, el motor local responde solo con datos reales del dispositivo o con los cursos,
+  materiales, tareas y eventos leídos de Moodle; nunca cae en los datos ficticios. Si no hay conexión,
+  una pregunta sobre Moodle explica cómo ingresar.
 
 > No se automatiza el formulario de `https://moodle.riwi.io/login/index.php`: sus cookies no son
 > legibles desde otro origen. Usamos el mismo usuario y contraseña, pero enviados al endpoint oficial

@@ -31,6 +31,7 @@ let moodleCMIds = [];
    en los datos de Moodle para llegar al contenido concreto. */
 let moodleContents = {};
 let moodleURLs = [];
+let moodleEvents = [];
 
 /* El usuario ingresa con usuario y contraseña; Moodle devuelve un token que se
    guarda en este navegador ( igual que la key de la IA ) para no volver a pedir
@@ -70,6 +71,7 @@ function clearMoodle() {
   moodleCMIds = [];
   moodleContents = {};
   moodleURLs = [];
+  moodleEvents = [];
   try {
     localStorage.removeItem(MOODLE_KEY);
   } catch (e) {}
@@ -162,6 +164,10 @@ const MOODLE_MAX_LOG_ENTRIES = 8;
 const MOODLE_MAX_CONTEXT = 24000;
 /* Lista todos los cursos del sitio y falla si alguno no es accesible */
 const MOODLE_BLOCKED = new Set(["core_course_get_courses"]);
+/* Red de seguridad: si el modelo repite el calendario de demostración aunque el
+   prompt diga lo contrario, descartamos la respuesta en vez de mostrarla. */
+const MOODLE_DEMO_LEAK =
+  /Jueves 26 de noviembre de 2026|Taller de prompts|Reflexión de la sesión 8|Avance del proyecto|Viernes 4 de diciembre de 2026/i;
 /* Cualquier plugin (core, mod, block, local, report, badges...) puede exponer
    funciones get: basta con que el nombre tenga el segmento "_get". */
 const MOODLE_READ_NAME = /^[a-z][a-z0-9_]*_get(?:_[a-z0-9_]+)?$/i;
@@ -217,13 +223,35 @@ function moodleScalar(value) {
     ? value.slice(0, 800) + "…"
     : value;
 }
+/* Funciones que siempre deben usar el id del usuario conectado, aunque el
+   modelo omita el parámetro (lo hacía con core_enrol_get_users_courses). */
+const MOODLE_SELF_USER_FNS = new Set([
+  "core_enrol_get_users_courses",
+  "core_calendar_get_calendar_events",
+  "core_calendar_get_action_events_by_timesort",
+  "core_calendar_get_action_events_by_course",
+]);
 function sanitizeMoodleParams(fn, rawObj) {
-  const raw =
+  const source =
     rawObj && typeof rawObj === "object"
       ? rawObj.params && typeof rawObj.params === "object"
         ? rawObj.params
         : rawObj
       : {};
+  /* El calendario documented events[0][userid]; lo aceptamos también escrito
+     así y lo dejamos como parámetros anidados de URLSearchParams. */
+  const raw = {};
+  Object.entries(source).forEach(([key, value]) => {
+    const nested = /^events\[(\d+)\]\[([A-Za-z][A-Za-z0-9_]*)\]$/.exec(key);
+    if (!nested) {
+      raw[key] = value;
+      return;
+    }
+    const i = Number(nested[1]);
+    if (!Array.isArray(raw.events)) raw.events = [];
+    while (raw.events.length <= i) raw.events.push(null);
+    raw.events[i] = { ...(raw.events[i] || {}), [nested[2]]: value };
+  });
   const courseIds = moodleAllowedCourseIds();
   const ownId = moodleUserId ? [moodleUserId] : null;
   const params = {};
@@ -269,6 +297,18 @@ function sanitizeMoodleParams(fn, rawObj) {
       }
       return;
     }
+    if (key === "events" && Array.isArray(value)) {
+      value
+        .slice(0, 10)
+        .map((item) => sanitizeMoodleParams(fn, item))
+        .filter((event) => Object.keys(event).length)
+        .forEach((event, i) =>
+          Object.entries(event).forEach(
+            ([k, v]) => (params[`events[${i}][${k}]`] = v),
+          ),
+        );
+      return;
+    }
     if (MOODLE_ARRAY_PARAMS.has(key) && Array.isArray(value)) {
       const ids = value
         .map((v) => moodleId(v, null))
@@ -279,14 +319,18 @@ function sanitizeMoodleParams(fn, rawObj) {
     }
     params[key] = moodleScalar(value);
   });
-  /* Esta función exige userid: si el modelo lo omitió, usamos el de la sesión. */
-  if (fn === "core_enrol_get_users_courses" && params.userid === undefined && moodleUserId)
+  /* Estas funciones exigen userid: si el modelo lo omitió, usamos el de la sesión. */
+  if (
+    params.userid === undefined &&
+    moodleUserId &&
+    MOODLE_SELF_USER_FNS.has(fn)
+  )
     params.userid = moodleUserId;
   return params;
 }
 
-/* Escáner con paréntesis balanceados: sirve para MOODLE_TOOL y MOODLE_OPEN,
-   incluso si el modelo escribe varias llamadas en una misma respuesta. */
+/* Escáner con paréntesis balanceados: sirve para MOODLE_TOOL, MOODLE_OPEN y
+   DEVICE_INFO, incluso si el modelo escribe varias llamadas en una respuesta. */
 function extractProtocolCalls(text, marker = "MOODLE_TOOL") {
   const src = String(text || "");
   const calls = [];
@@ -315,7 +359,7 @@ function extractProtocolCalls(text, marker = "MOODLE_TOOL") {
     re.lastIndex = i;
     let obj;
     try {
-      obj = JSON.parse(raw);
+      obj = JSON.parse(raw || "{}");
     } catch (e) {
       continue;
     }
@@ -371,6 +415,179 @@ function compactMoodleResult(data) {
   let text = JSON.stringify(compactMoodleValue(data));
   if (text && text.length > 8000) text = text.slice(0, 8000) + "… (recortado)";
   return text;
+}
+
+/* ---------- Herramienta local: fecha, hora y datos del dispositivo ----------
+   La IA pide solo los campos que necesita con DEVICE_INFO({"keys":[...]}).
+   Todo se lee del navegador en el momento: nunca se asume una fecha ni un equipo. */
+const DEVICE_INFO_FIELDS = [
+  "datetime",
+  "date",
+  "time",
+  "timezone",
+  "language",
+  "platform",
+  "device",
+  "screen",
+  "viewport",
+  "pixelratio",
+  "online",
+  "network",
+  "battery",
+  "memory",
+  "cpu",
+  "preferences",
+];
+const DEVICE_FIELD_SET = new Set(DEVICE_INFO_FIELDS);
+const DEVICE_LABELS = {
+  datetime: "Fecha y hora ISO",
+  date: "Fecha local",
+  time: "Hora local",
+  timezone: "Zona horaria",
+  language: "Idioma del navegador",
+  platform: "Plataforma",
+  device: "Tipo de dispositivo",
+  screen: "Pantalla",
+  viewport: "Ventana visible",
+  pixelratio: "Densidad de píxeles",
+  online: "Conectado a internet",
+  network: "Tipo de conexión",
+  battery: "Batería",
+  memory: "Memoria aproximada",
+  cpu: "Procesador",
+  preferences: "Preferencias visuales",
+};
+const DEVICE_ICONS = {
+  datetime: "calendar_month",
+  date: "event",
+  time: "schedule",
+  timezone: "public",
+  language: "translate",
+  platform: "computer",
+  device: "smartphone",
+  screen: "monitor",
+  viewport: "crop_free",
+  pixelratio: "gradient",
+  online: "wifi",
+  network: "network_check",
+  battery: "battery_full",
+  memory: "memory",
+  cpu: "developer_board",
+  preferences: "visibility",
+};
+const extractDeviceCalls = (text) => extractProtocolCalls(text, "DEVICE_INFO");
+function deviceRequestedKeys(order) {
+  const raw =
+    order && (order.keys || order.fields || order.key || order.field);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const keys = list
+    .map((k) => String(k).trim().toLowerCase())
+    .filter((k) => DEVICE_FIELD_SET.has(k));
+  return keys.length ? [...new Set(keys)] : [...DEVICE_INFO_FIELDS];
+}
+const twoDigits = (n) => String(n).padStart(2, "0");
+function deviceClock() {
+  const d = new Date();
+  return {
+    datetime: d.toISOString(),
+    date: d.toLocaleDateString("es-CO", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+    time: d.toLocaleTimeString("es-CO", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    }),
+  };
+}
+function withTimeout(promise, ms) {
+  return Promise.race([
+    Promise.resolve(promise).catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+async function deviceInfoSnapshot(keys = DEVICE_INFO_FIELDS) {
+  const want = new Set(keys);
+  const out = {};
+  const nav = typeof navigator !== "undefined" ? navigator : {};
+  const win = typeof window !== "undefined" ? window : {};
+  const clock = deviceClock();
+  ["datetime", "date", "time"].forEach((k) => {
+    if (want.has(k)) out[k] = clock[k];
+  });
+  if (want.has("timezone")) {
+    let zone = "";
+    try {
+      zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    } catch (e) {}
+    const minutes = -new Date().getTimezoneOffset();
+    const sign = minutes >= 0 ? "+" : "-";
+    const offset = `${sign}${twoDigits(Math.floor(Math.abs(minutes) / 60))}:${twoDigits(Math.abs(minutes) % 60)}`;
+    out.timezone = `${zone || "zona local"} (UTC${offset})`;
+  }
+  if (want.has("language")) out.language = nav.language || "no disponible";
+  const ua = nav.userAgent || "";
+  const rawPlatform =
+    (nav.userAgentData && nav.userAgentData.platform) || nav.platform || "";
+  if (want.has("platform")) out.platform = rawPlatform || "no disponible";
+  if (want.has("device")) {
+    const touch = nav.maxTouchPoints || 0;
+    out.device = /iPad|Tablet/i.test(ua)
+      ? "tableta"
+      : /Android|iPhone|iPod|Mobile/i.test(ua) || (touch > 1 && /Mac/i.test(rawPlatform))
+        ? "móvil"
+        : "computador";
+  }
+  const screen = win.screen || {};
+  if (want.has("screen"))
+    out.screen =
+      screen.width && screen.height
+        ? `${screen.width} x ${screen.height} px`
+        : "no disponible";
+  if (want.has("viewport"))
+    out.viewport = `${win.innerWidth || 0} x ${win.innerHeight || 0} px`;
+  if (want.has("pixelratio")) out.pixelratio = win.devicePixelRatio || 1;
+  if (want.has("online"))
+    out.online =
+      typeof nav.onLine === "boolean" ? nav.onLine : "no disponible";
+  if (want.has("network")) {
+    const conn = nav.connection || nav.mozConnection || nav.webkitConnection || {};
+    out.network = conn.effectiveType || conn.type || "no disponible";
+  }
+  if (want.has("battery")) {
+    const battery =
+      typeof nav.getBattery === "function"
+        ? await withTimeout(nav.getBattery(), 500)
+        : null;
+    out.battery = battery
+      ? `${Math.round((Number(battery.level) || 0) * 100)}% · ${battery.charging ? "cargando" : "sin cargar"}`
+      : "no disponible";
+  }
+  if (want.has("memory"))
+    out.memory = nav.deviceMemory
+      ? `${nav.deviceMemory} GB (aprox.)`
+      : "no disponible";
+  if (want.has("cpu"))
+    out.cpu = nav.hardwareConcurrency
+      ? `${nav.hardwareConcurrency} núcleos`
+      : "no disponible";
+  if (want.has("preferences")) {
+    const matches = (query) =>
+      typeof win.matchMedia === "function" && win.matchMedia(query).matches;
+    out.preferences = `${matches("(prefers-color-scheme: dark)") ? "tema oscuro" : "tema claro"} · ${matches("(prefers-reduced-motion: reduce)") ? "movimiento reducido" : "movimiento normal"}`;
+  }
+  return out;
+}
+async function applyDeviceInfo(order) {
+  const data = await deviceInfoSnapshot(deviceRequestedKeys(order));
+  return (
+    `Datos reales del dispositivo consultados ahora: ${JSON.stringify(data)}. ` +
+    "Usa estos valores literales; no asumas otra fecha, hora ni equipo."
+  );
 }
 
 /* ---------- Navegación por las URLs que aparecen en Moodle ----------
@@ -480,7 +697,7 @@ async function moodleOpenURL(raw) {
     return `El enlace ${safe} no pertenece a tu Moodle; no lo seguimos.`;
 
   const ids = {};
-  ["id", "courseid", "cmid", "c", "a", "b"].forEach((k) => {
+  ["id", "courseid", "cmid", "eventid", "eid", "c", "a", "b"].forEach((k) => {
     if (u.searchParams.has(k)) ids[k] = u.searchParams.get(k);
   });
   let detail = "";
@@ -504,6 +721,18 @@ async function moodleOpenURL(raw) {
       if (link) detail += `\nEnlace directo: ${link}`;
     } else if (/\/pluginfile\.php/i.test(u.pathname)) {
       detail = `Archivo: ${moodleDirectURL(safe)}`;
+    } else if (/\/calendar\//i.test(u.pathname)) {
+      const key = ids.eventid || ids.eid || ids.id;
+      const wantedName = u.searchParams.get("name") || "";
+      const event = moodleEvents.find(
+        (e) =>
+          String(e.id) === String(key) ||
+          (wantedName &&
+            normalize(String(e.name || "")).includes(normalize(wantedName))),
+      );
+      detail = event
+        ? `Evento del calendario: ${moodleEventSummary(event)}`
+        : "No hay un evento con ese id en el calendario consultado de Moodle.";
     } else {
       detail = `Página de Moodle ${u.pathname}${ids.id ? ` (id ${ids.id})` : ""}`;
     }
@@ -528,6 +757,89 @@ async function applyMoodleOpen(order) {
     if (!raw) return "No encontré esa actividad ni ese enlace entre tus materiales de Moodle.";
   }
   return moodleOpenURL(raw);
+}
+
+/* Calendario real: sin esto las preguntas de fecha caían en el PDF de demostración. */
+function moodleEventDate(event) {
+  const seconds = Number(event && (event.timestart ?? event.timeStart));
+  if (!Number.isFinite(seconds) || seconds <= 0) return "sin fecha";
+  return new Date(seconds * 1000).toLocaleString("es-CO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+function moodleEventSummary(event) {
+  const name =
+    (event && (event.name || event.title || event.eventname)) || "Evento";
+  const course = event && event.coursefullname ? ` · ${event.coursefullname}` : "";
+  const url = moodleDirectURL(
+    (event && (event.url || event.viewurl || event.eventurl)) || "",
+  );
+  return `- ${name} · ${moodleEventDate(event)}${course}${url ? ` · ${url}` : ""}`;
+}
+async function loadMoodleCalendar() {
+  moodleEvents = [];
+  const now = Math.floor(Date.now() / 1000);
+  const canTry = (fn) => !moodleFunctions.length || moodleToolAllowed(fn);
+  const attempts = [];
+  if (canTry("core_calendar_get_calendar_events")) {
+    attempts.push([
+      "core_calendar_get_calendar_events",
+      { userid: moodleUserId, days: 60 },
+    ]);
+    attempts.push([
+      "core_calendar_get_calendar_events",
+      {
+        "events[0][userid]": moodleUserId,
+        "events[0][days]": 60,
+      },
+    ]);
+  }
+  if (canTry("core_calendar_get_action_events_by_timesort"))
+    attempts.push([
+      "core_calendar_get_action_events_by_timesort",
+      {
+        userid: moodleUserId,
+        timesortfrom: now,
+        timesortto: now + 60 * 24 * 3600,
+        limitnum: 20,
+      },
+    ]);
+  const seen = new Set();
+  for (const [fn, params] of attempts) {
+    try {
+      const data = await moodleRequest(fn, params);
+      const list = Array.isArray(data)
+        ? data
+        : (data && (data.events || data.items)) || [];
+      list.forEach((event) => {
+        if (!event || typeof event !== "object") return;
+        const key = `${event.id || ""}|${event.name || ""}|${event.timestart || ""}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        moodleEvents.push(event);
+      });
+      if (moodleEvents.length) break;
+    } catch (err) {
+      /* Este sitio puede no exponer el calendario al token: lo intenta el otro */
+    }
+  }
+  moodleEvents.sort(
+    (a, b) => Number(a.timestart || 0) - Number(b.timestart || 0),
+  );
+  moodleEvents = moodleEvents.slice(0, 30);
+  collectMoodleURLs(moodleEvents);
+  return moodleEvents.length
+    ? moodleEvents.slice(0, 15).map(moodleEventSummary)
+    : [
+        "- No se pudieron consultar eventos con este token. Si preguntan por fechas, usa MOODLE_TOOL({\"fn\":\"core_calendar_get_calendar_events\",\"params\":{\"userid\":" +
+          moodleUserId +
+          ",\"days\":60}}) antes de responder.",
+      ];
 }
 
 /* Descarga cursos y materiales reales y prepara el contexto de la IA */
@@ -630,10 +942,15 @@ async function moodleConnect(token, base) {
     );
   });
   moodleMaterials = materials;
+  const calendarLines = await loadMoodleCalendar();
 
   const lines = [
     `Sitio Moodle: ${info.sitename || base}`,
     `Usuario: ${moodleUser}`,
+    `Fecha al conectar (para la hora actual usa DEVICE_INFO): ${new Date().toLocaleString("es-CO", { dateStyle: "full", timeStyle: "short" })}`,
+    "",
+    "Calendario real del usuario (eventos próximos):",
+    ...calendarLines,
     "",
     "Cursos del usuario:",
     ...moodleCourses.map((c) => `- ${c.fullname}`),
@@ -732,8 +1049,9 @@ const PROVIDERS = {
 };
 
 const SYSTEM_PROMPT = `Eres Ritchie AI, el asistente educativo de la cohorte Ritchie en Riwi.
-Responde SOLO con información de los siguientes documentos de la cohorte.
-Si la respuesta no está en estos documentos, responde exactamente con la palabra: NO_SE
+Responde SOLO con información de los documentos de la cohorte y de las herramientas del dispositivo.
+Los documentos son de ejemplo: para la fecha o hora de hoy usa la herramienta, no los documentos.
+Si la respuesta no está en esas fuentes, responde exactamente con la palabra: NO_SE
 
 FORMATO DE RESPUESTA (OpenUI Lang):
 1. Responde SOLO con un programa válido de OpenUI Lang: sentencias "nombre = Componente(...)",
@@ -757,6 +1075,10 @@ REGLAS DE ÉTICA Y PRIVACIDAD (obligatorias):
 10. AUTONOMÍA: Tu rol es INFORMAR, nunca decidir por el usuario. No añadas notas sobre quién decide.
 11. ENLACES: Solo incluye un enlace si su URL aparece literalmente en los documentos; nunca inventes ni completes una URL. Escríbelo como componente Link("texto del enlace", "https://...") o dentro de un texto como [texto](https://...). Los enlaces se abren en una pestaña nueva. No los presentes como "Fuente" ni los uses en lugar de la respuesta desarrollada.
 
+HERRAMIENTAS DEL DISPOSITIVO (fecha, hora y equipo):
+- Para fecha de hoy, hora, zona horaria, idioma, plataforma, pantalla, conexión, batería u otros datos del equipo, responde SOLO con DEVICE_INFO({"keys":["date","time","timezone"]}), sin texto adicional ni bloques de código.
+- Campos disponibles: datetime, date, time, timezone, language, platform, device, screen, viewport, pixelratio, online, network, battery, memory, cpu, preferences. Sin "keys" se consultan todos. Usa los valores devueltos; nunca asumas la fecha ni el dispositivo.
+
 DOCUMENTOS DE LA COHORTE:
 
 --- Calendario de la cohorte ---
@@ -774,9 +1096,69 @@ Cómo entregar: cargar el enlace del repositorio en la plataforma de la cohorte.
 Contenido disponible: presentaciones de cada sesión, grabaciones de las clases, guías y plantillas para el proyecto.
 Acceso: carpeta compartida de la cohorte.`;
 
+/* Con Moodle conectado se usa un prompt distinto: ni los documentos de
+   demostración ni sus ejemplos (tenían una fecha inventada) entran en juego. */
+function buildMoodlePrompt() {
+  const functionList = moodleFunctions.length
+    ? moodleFunctions.join(", ")
+    : "core_webservice_get_site_info, core_enrol_get_users_courses, core_course_get_contents, core_calendar_get_calendar_events";
+  const sample =
+    moodleMaterials[0]?.title ||
+    moodleCourses[0]?.fullname ||
+    "un material de tus cursos";
+  const example = `root = Card([head, summary, next])
+head = CardHeader("Mis datos de Moodle", "Información real de tu cuenta")
+summary = TextContent(${JSON.stringify(sample)}, "default")
+next = FollowUpBlock([q1])
+q1 = FollowUpItem("Ver mis materiales de Moodle")`;
+  const preamble = `Eres Ritchie AI, el asistente educativo de la cohorte Ritchie en Riwi.
+
+FUENTE ÚNICA: el Moodle real del usuario y los resultados de las herramientas de abajo. Los documentos de demostración NO existen para esta conversación. Nunca reutilices fechas, tareas ni ejemplos del material de demostración; nunca respondas de memoria.
+
+DATOS REALES DE MOODLE (obtenidos con el token del usuario):
+${moodleContext}
+
+HERRAMIENTAS DEL DISPOSITIVO (fecha, hora y equipo):
+- Para saber la fecha de hoy, la hora, la zona horaria o cualquier dato del dispositivo, responde SOLO con una o más líneas DEVICE_INFO({"keys":["date","time","timezone"]}), sin texto adicional ni bloques de código.
+- Campos disponibles: datetime, date, time, timezone, language, platform, device, screen, viewport, pixelratio, online, network, battery, memory, cpu, preferences. Si omites "keys" se consultan todos.
+- Puedes combinar DEVICE_INFO con MOODLE_OPEN y MOODLE_TOOL en la misma respuesta. Los valores devueltos son reales: úsalos tal cual.
+
+REGLAS DE VERDAD:
+- Para "próxima sesión", "próxima clase", "calendario", "cuándo" o cualquier fecha, mira SOLO el bloque "Calendario real del usuario". Si allí no está, consulta MOODLE_TOOL({"fn":"core_calendar_get_calendar_events","params":{"userid":${moodleUserId || 0},"days":60}}).
+- La fecha del bloque de Moodle es la del momento de conexión. Para la fecha y hora actuales usa DEVICE_INFO; calcula el próximo evento comparando con esa fecha. No des por válida una fecha que no aparezca en Moodle ni en el dispositivo.
+- Si algo no está en los datos de Moodle ni en las consultas, responde exactamente con la palabra: MOODLE_NOT_FOUND. Nunca lo inventes ni lo completes con ejemplos.
+- Usa solo URLs literales de los datos o de las consultas en Link("Etiqueta","URL") o [Etiqueta](URL). Nunca inventes una URL ni un curso.
+
+NAVEGACIÓN POR MOODLE:
+- Para abrir un enlace real responde SOLO con una o más líneas MOODLE_OPEN({"url":"https://..."}), sin texto adicional ni bloques de código. También vale MOODLE_OPEN({"name":"Tarea 1"}) o MOODLE_OPEN({"cmid":101}) para lo ya descubierto.
+- course/view.php?id=X trae el contenido del curso; mod/.../view.php?id=X resuelve la actividad; pluginfile.php da el enlace al archivo; calendar/view.php muestra el evento. Así recorres curso → sección → actividad → archivo.
+- Para cualquier otro dato usa MOODLE_TOOL({"fn":"...","params":{...}}). Funciones de solo lectura disponibles: ${functionList}.
+- Puedes combinar varias líneas MOODLE_OPEN y MOODLE_TOOL en una respuesta. Tienes hasta ${MOODLE_MAX_STEPS} pasos y puedes reintentar si algo falla.
+- "userid" es siempre ${moodleUserId || "el de la sesión"}; "courseid"/"courseids" solo tus cursos; "cmid"/"cmids" solo actividades descubiertas. Nunca uses core_course_get_courses ni funciones de escritura.
+- Cuando ya tengas datos reales suficientes, devuelve SOLO el programa OpenUI Lang final con root = Card(...) como primera línea. No mezcles herramientas con el programa final.
+
+FORMATO OpenUI Lang: una sentencia "nombre = Componente(...)" por línea; desarrolla la respuesta con detalle usando CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock o Buttons con @ToAssistant("..."). StepsItem lleva dos argumentos. Toda variable definida debe usarse. Sin markdown, sin fuentes y sin datos personales.`;
+  const lib = window.__OpenUI && window.__OpenUI.openuiChatLibrary;
+  if (lib && typeof lib.prompt === "function") {
+    return lib.prompt({
+      preamble,
+      examples: [example],
+      additionalRules: [
+        "Responde en español neutro, con detalle claro (120-250 palabras cuando el tema lo permita), pero SOLO con datos que estén en Moodle, en el dispositivo o en las consultas.",
+        "Escribe root = Card(...) como primera línea y una sentencia por línea; usa argumentos posicionales, nunca 'clave: valor'.",
+        'Si preguntan por fechas o sesiones, copia la fecha y hora exactas del calendario de Moodle; si no aparece, responde exactamente MOODLE_NOT_FOUND. No escribas "Calendario de la cohorte" ni fechas de ejemplo.',
+        'Los enlaces solo pueden ser URLs literales de Moodle; usa Link("Etiqueta","URL") o [Etiqueta](URL). No escribas "Fuente" ni nombres de PDF.',
+        "Nunca pidas ni repitas datos personales. No incluyas bloques de código markdown.",
+      ],
+    });
+  }
+  return preamble;
+}
+
 /* El bundle de OpenUI genera la especificación completa del lenguaje a partir de su librería.
    Si el CDN no cargó, usamos una versión mínima para que la app siga funcionando. */
 function buildSystemPrompt() {
+  if (moodleContext || getMoodle().token) return buildMoodlePrompt();
   /* Si el usuario conectó Moodle, sus materiales reales pasan a ser la fuente
      principal; los documentos de demostración quedan como respaldo. */
   const moodleFunctionList = moodleFunctions.length
@@ -860,6 +1242,7 @@ follow = FollowUpBlock([q1])
 q1 = FollowUpItem("Ver el calendario de la cohorte")`,
       ],
       additionalRules: [
+        'Para fecha de hoy, hora o datos del dispositivo usa DEVICE_INFO({"keys":[...]}) y responde con los valores reales; los documentos solo tienen fechas de ejemplo.',
         "Responde en español neutro con detalle y claridad: desarrolla cada dato con contexto útil, no des solo una frase. Objetivo: 120 a 250 palabras cuando el tema lo permita.",
         "Escribe root = Card(...) como primera línea y define cada variable en su propia línea; toda variable definida debe aparecer dentro de otra componente (si no, no se renderiza). Usa argumentos posicionales, nunca 'clave: valor'.",
         'Aprovecha todos los datos del documento y elige la vista que mejor los represente: Table o EntityList para datos sueltos, Steps o ListBlock para procesos, Tabs para alternativas, Callout para avisos y FollowUpBlock o Buttons con @ToAssistant("...") para invitar a seguir preguntando. Usa Separator o InlineHeader para organizar bloques largos.',
@@ -875,7 +1258,7 @@ q1 = FollowUpItem("Ver el calendario de la cohorte")`,
   }
   return (
     preamble +
-    "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes. Para enlaces usa Link(\"Etiqueta\", \"https://...\") o [Etiqueta](https://...) solo con URLs presentes en los documentos; se abren en pestaña nueva."
+    "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes. Para fecha, hora o datos del equipo usa DEVICE_INFO({\"keys\":[...]}) con los campos reales devueltos. Para enlaces usa Link(\"Etiqueta\", \"https://...\") o [Etiqueta](https://...) solo con URLs presentes en los documentos; se abren en pestaña nueva."
   );
 }
 
@@ -1257,7 +1640,17 @@ const WELCOMES = [
   "¡Hola! Cuéntame qué necesitas y lo busco en los materiales de la cohorte.",
   "Listo para ayudarte: tengo a mano el calendario, las actividades y las guías del proyecto.",
 ];
+const MOODLE_QUICK_ACTIONS = [
+  { q: "¿Qué hora es y en qué zona horaria estoy?", icon: "schedule" },
+  { q: "¿Qué dispositivo estoy usando?", icon: "smartphone" },
+  { q: "¿Qué eventos tengo en el calendario de Moodle?", icon: "calendar_month" },
+  { q: "¿Cuál es mi próxima actividad en Moodle?", icon: "schedule" },
+  { q: "¿Qué tareas tengo pendientes en Moodle?", icon: "assignment" },
+  { q: "Ver mis materiales de Moodle", icon: "school" },
+];
 const QUICK_ACTIONS = [
+  { q: "¿Qué hora es y en qué zona horaria estoy?", icon: "schedule" },
+  { q: "¿Qué dispositivo estoy usando?", icon: "smartphone" },
   { q: "¿Cuándo es la próxima sesión de IA?", icon: "calendar_month" },
   { q: "¿Cuándo es la próxima clase de IA?", icon: "schedule" },
   { q: "¿Cuándo se entrega el proyecto?", icon: "flag" },
@@ -1298,11 +1691,12 @@ function renderWelcome() {
   const pick = welcomePick();
   const title = $("#welcomeTitle");
   const suggestions = $("#suggestions");
-  if (title) title.textContent = pick.greeting;
+  if (title)
+    title.textContent = moodleContext
+      ? "¡Hola! Pregúntame por tus cursos, materiales o fechas en Moodle."
+      : pick.greeting;
   if (suggestions) {
-    const actions = moodleContext
-      ? [{ q: "Ver mis materiales de Moodle", icon: "school" }, ...pick.actions]
-      : pick.actions;
+    const actions = moodleContext ? MOODLE_QUICK_ACTIONS : pick.actions;
     suggestions.innerHTML = actions
       .map(
         (a) =>
@@ -1340,26 +1734,115 @@ function load() {
   });
 }
 
-/* ---------- Motor de respuesta simulado ---------- */
-function resolveAnswer(question) {
+const DEVICE_QUESTION =
+  /hora|fecha (actual|de hoy)|qu[eé] (fecha|d[ií]a)|zona horaria|dispositivo|equipo|pantalla|bater[ií]a|conexi[oó]n|sistema operativo|idioma del navegador|memoria|procesador/i;
+async function resolveDeviceAnswer(question) {
+  const data = await deviceInfoSnapshot(DEVICE_INFO_FIELDS);
+  const rows = DEVICE_INFO_FIELDS.filter((k) => data[k] !== undefined).map(
+    (k) => [DEVICE_ICONS[k] || "info", DEVICE_LABELS[k] || k, String(data[k])],
+  );
+  return {
+    type: "answer",
+    short: `Hoy es ${data.date} · ${data.time}`,
+    html: `<h3>Fecha, hora y dispositivo</h3>${facts(rows)}`,
+    noSource: true,
+  };
+}
+
+/* Sin key de IA tampoco se inventa: solo se muestran datos leídos de Moodle. */
+function resolveMoodleAnswer(question) {
   const q = normalize(question);
-  if (/(moodle|mis materiales|material academico|mis cursos|acceso directo)/.test(q)) {
-    if (moodleContext)
-      return {
-        type: "answer",
-        html: moodleDemoHTML(),
-        short: `Tienes ${moodleCourses.length} cursos y ${moodleMaterials.length} materiales en Moodle.`,
-        noSource: true,
-      };
+  const error = (message) => ({ type: "error", question, message });
+  if (/calendario|sesion|clase|proxima|fecha|cuando|horario|agenda|evento/.test(q)) {
+    const now = Date.now() / 1000;
+    const ordered = moodleEvents
+      .filter((e) => Number(e.timestart || 0) > 0)
+      .sort((a, b) => Number(a.timestart) - Number(b.timestart));
+    const upcoming = ordered.filter((e) => Number(e.timestart) >= now - 86400);
+    let chosen = (upcoming.length ? upcoming : ordered).slice(0, 6);
+    const ia = chosen.filter((e) =>
+      /\bIA\b|inteligencia artificial/i.test(String(e.name || "")),
+    );
+    if (ia.length) chosen = [ia[0], ...chosen.filter((e) => e !== ia[0])].slice(0, 6);
+    if (!chosen.length)
+      return error(
+        "No hay eventos de calendario en tu Moodle con los permisos de tu cuenta. No puedo dar una fecha sin leerla de Moodle.",
+      );
+    const rows = chosen.map((e) => [
+      "calendar_month",
+      moodleCleanText(e.name || "Evento", 70),
+      moodleEventDate(e),
+    ]);
+    const links = chosen
+      .map((e) => moodleDirectURL(e.url || e.viewurl || ""))
+      .filter(Boolean)
+      .map(
+        (url) =>
+          `<p><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">Abrir evento en Moodle</a></p>`,
+      )
+      .join("");
+    return {
+      type: "answer",
+      short: `${chosen[0].name} · ${moodleEventDate(chosen[0])}`,
+      html: `<h3>Eventos reales de tu Moodle</h3>${facts(rows)}${links}`,
+      noSource: true,
+    };
+  }
+  if (/tarea|actividad|pendiente|entrega|vence/.test(q)) {
+    const mods = moodleAllModules()
+      .filter((m) => /assign|quiz|choice|workshop/.test(String(m.modname || "")))
+      .slice(0, 8);
+    if (!mods.length)
+      return error(
+        "No encontré tareas o actividades en los cursos que pude leer de Moodle.",
+      );
+    const rows = mods.map((m) => [
+      "assignment",
+      moodleCleanText(m.name || "Actividad", 70),
+      moodleCourseName(m.courseid) +
+        (m.deadline ? ` · vence ${moodleEventDate({ timestart: m.deadline })}` : ""),
+    ]);
+    return {
+      type: "answer",
+      short: `Tienes ${mods.length} actividades visibles en Moodle.`,
+      html: `<h3>Actividades reales de tu Moodle</h3>${facts(rows)}`,
+      noSource: true,
+    };
+  }
+  if (
+    /moodle|material|recurso|estudio|documento|apunte|diapositiva|grabacion|mis cursos/.test(
+      q,
+    )
+  ) {
+    if (!moodleMaterials.length)
+      return error("No hay materiales visibles en tu cuenta de Moodle.");
+    return {
+      type: "answer",
+      html: moodleDemoHTML(),
+      short: `Tienes ${moodleCourses.length} cursos y ${moodleMaterials.length} materiales en Moodle.`,
+      noSource: true,
+    };
+  }
+  return error(
+    "No encontré esa información en los datos reales de Moodle. Prueba con otro nombre o pregunta por cursos, materiales o fechas.",
+  );
+}
+
+/* ---------- Motor de respuesta simulado ---------- */
+async function resolveAnswer(question) {
+  const q = normalize(question);
+  if (/datos del formulario/i.test(question))
+    return formSubmissionAnswer(question);
+  if (SENSITIVE.some((k) => q.includes(k))) return { type: "safety" };
+  if (DEVICE_QUESTION.test(question)) return resolveDeviceAnswer(question);
+  if (moodleContext || getMoodle().token) return resolveMoodleAnswer(question);
+  if (/(moodle|mis materiales|material academico|mis cursos|acceso directo)/.test(q))
     return {
       type: "error",
       question,
       message:
         'Ingresa con tu usuario y contraseña de Moodle desde el botón «Mi Moodle» de la barra lateral para ver tus materiales reales. Tu contraseña viaja directamente a Moodle y no se guarda.',
     };
-  }
-  if (/datos del formulario/i.test(question))
-    return formSubmissionAnswer(question);
   if (
     /(encuesta|formulario|preferencias|prefieres|elegir opciones|valorar|calificar)/.test(
       q,
@@ -1367,7 +1850,6 @@ function resolveAnswer(question) {
   ) {
     return { type: "openui", response: DEMO_SURVEY };
   }
-  if (SENSITIVE.some((k) => q.includes(k))) return { type: "safety" };
   // Gana el tema con la palabra clave más específica (más larga), no el primero de la lista.
   let hit = null,
     best = 0;
@@ -1458,20 +1940,27 @@ function cleanResponse(raw) {
 }
 
 function resultFromText(clean, question) {
+  const notFoundMoodle =
+    "No encontré eso en tu Moodle con los permisos de tu cuenta. Prueba a pedirlo con otro nombre o pide que siga los enlaces disponibles.";
   if (/^\s*NO_SE\s*$/i.test(clean)) {
     return {
       type: "error",
       question,
-      message:
-        "No tengo información suficiente en los documentos de la cohorte para responder eso. Prueba a reformular la pregunta.",
+      message: moodleContext || getMoodle().token
+        ? notFoundMoodle
+        : "No tengo información suficiente en los documentos de la cohorte para responder eso. Prueba a reformular la pregunta.",
     };
   }
-  if (/^\s*MOODLE_NOT_FOUND\s*$/i.test(clean)) {
+  if (
+    /^\s*MOODLE_NOT_FOUND\s*$/i.test(clean) ||
+    ((moodleContext || getMoodle().token) && MOODLE_DEMO_LEAK.test(clean))
+  ) {
     return {
       type: "error",
       question,
-      message:
-        "No encontré eso en tu Moodle con los permisos de tu cuenta. Prueba a pedirlo con otro nombre o pide que siga los enlaces disponibles.",
+      message: moodleContext || getMoodle().token
+        ? notFoundMoodle
+        : "No encontré esa información. Prueba a reformular la pregunta.",
     };
   }
   const isProgram = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
@@ -1527,7 +2016,9 @@ async function askAI(question, settings, context = "") {
     }
   }
   if (lastError) throw lastError;
-  return resultFromText(cleanResponse(raw), question);
+  /* Devuelve texto crudo: el bucle de herramientas lo inspecciona y el
+     llamado final lo convierte con resultFromText(). */
+  return cleanResponse(raw);
 }
 
 /* ---------- Respuesta en tiempo real (SSE) ---------- */
@@ -1655,6 +2146,7 @@ async function streamAI(question, settings, onChunk, context = "") {
 
 /* El historial de navegación se limita para no agotar la ventana del modelo */
 function buildMoodleToolLog(entries, step) {
+  if (!entries.length) return "";
   const blocks = entries.map(
     (e, i) =>
       `--- Navegación Moodle (${i + 1}) ---\n` +
@@ -1673,51 +2165,72 @@ function buildMoodleToolLog(entries, step) {
   return log;
 }
 
-/* Bucle de herramientas: la IA abre enlaces reales de Moodle con MOODLE_OPEN y
-   consulta funciones REST con MOODLE_TOOL, varias veces por turno. */
+/* Bucle de herramientas: la IA puede consultar fecha/hora/dispositivo con
+   DEVICE_INFO, abrir enlaces con MOODLE_OPEN y consultar REST con MOODLE_TOOL. */
 async function runAIWithTools(question, settings, onChunk, useStream = true) {
   const emit = typeof onChunk === "function" ? onChunk : () => {};
   const entries = [];
-  const urlNotes = [];
+  const toolNotes = [];
   let text = useStream
     ? await streamAI(question, settings, emit, "")
     : await askAI(question, settings, "");
-  for (let step = 1; step <= MOODLE_MAX_STEPS && moodleContext; step++) {
+  for (let step = 1; step <= MOODLE_MAX_STEPS; step++) {
     const clean = cleanResponse(text);
+    const deviceCalls = extractDeviceCalls(clean);
     const openCalls = extractOpenCalls(clean);
     const calls = extractMoodleCalls(clean);
-    if (!openCalls.length && !calls.length) break;
+    if (!deviceCalls.length && !openCalls.length && !calls.length) break;
     emit("");
-    for (const order of openCalls) urlNotes.push(await applyMoodleOpen(order));
-    for (const call of calls) {
-      let data;
-      if (!moodleToolAllowed(call.fn)) {
-        data = { error: `Función no disponible o no permitida: ${call.fn}` };
-      } else {
-        try {
-          data = await moodleRequest(call.fn, call.params);
-          if (call.fn === "core_course_get_contents") collectMoodleCMIds(data);
-          collectMoodleURLs(data);
-        } catch (err) {
-          data = { error: err.message || String(err) };
+    for (const order of deviceCalls)
+      toolNotes.push(await applyDeviceInfo(order));
+    if (moodleContext || getMoodle().token) {
+      for (const order of openCalls)
+        toolNotes.push(await applyMoodleOpen(order));
+      for (const call of calls) {
+        let data;
+        if (!moodleToolAllowed(call.fn)) {
+          data = { error: `Función no disponible o no permitida: ${call.fn}` };
+        } else {
+          try {
+            data = await moodleRequest(call.fn, call.params);
+            if (call.fn === "core_course_get_contents") collectMoodleCMIds(data);
+            collectMoodleURLs(data);
+          } catch (err) {
+            data = { error: err.message || String(err) };
+          }
         }
+        entries.push({ fn: call.fn, params: call.params, data });
+        if (call.fn === "core_course_get_contents" && Array.isArray(data))
+          moodleContents[call.params.courseid] = data;
       }
-      entries.push({ fn: call.fn, params: call.params, data });
-      if (call.fn === "core_course_get_contents" && Array.isArray(data))
-        moodleContents[call.params.courseid] = data;
+    } else {
+      if (openCalls.length || calls.length)
+        toolNotes.push(
+          "Moodle no está conectado: esa información solo está disponible si el usuario ingresa desde «Mi Moodle».",
+        );
     }
     if (entries.length > MOODLE_MAX_LOG_ENTRIES)
       entries.splice(0, entries.length - MOODLE_MAX_LOG_ENTRIES);
-    const urlLog = urlNotes.length
-      ? "\n\n--- Enlaces de Moodle seguidos ---\n" +
-        urlNotes.slice(-4).join("\n\n") +
-        "\nPuedes seguir otro enlace con MOODLE_OPEN o consultar datos con MOODLE_TOOL."
+    const toolLog = toolNotes.length
+      ? "\n\n--- Herramientas ejecutadas (paso " +
+        step +
+        "/" +
+        MOODLE_MAX_STEPS +
+        ") ---\n" +
+        toolNotes.slice(-6).join("\n\n") +
+        "\nCon estos datos puedes seguir consultando o devolver SOLO el programa OpenUI Lang final."
       : "";
-    text = await askAI(question, settings, buildMoodleToolLog(entries, step) + urlLog);
+    text = await askAI(question, settings, buildMoodleToolLog(entries, step) + toolLog);
   }
   const finalClean = cleanResponse(text);
-  /* Si el modelo se queda pidiendo herramientas, nunca mostramos el protocolo. */
-  if (extractOpenCalls(finalClean).length || extractMoodleCalls(finalClean).length)
+  /* Si el modelo se queda pidiendo herramientas, nunca mostramos el protocolo;
+     y si se le cuela el calendario de demostración, tampoco lo mostramos. */
+  if (
+    extractDeviceCalls(finalClean).length ||
+    extractOpenCalls(finalClean).length ||
+    extractMoodleCalls(finalClean).length ||
+    ((moodleContext || getMoodle().token) && MOODLE_DEMO_LEAK.test(finalClean))
+  )
     return "MOODLE_NOT_FOUND";
   return text;
 }
@@ -2335,6 +2848,7 @@ const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
    mostramos el texto como siempre. Nunca se ve el código fuente del programa. */
 const PARTIAL_PROGRAM = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*\S/;
 const PARTIAL_TOOL = /MOODLE_(?:TOOL|OPEN)\s*\(/i;
+const PARTIAL_DEVICE = /DEVICE_INFO\s*\(/i;
 
 /* El fragmento que está llegando termina con un círculo que late */
 function renderStream(partial, card) {
@@ -2345,8 +2859,16 @@ function renderStream(partial, card) {
     card.innerHTML = `<div class="ui-render"></div>`;
     mount = card.querySelector(".ui-render");
   }
+  if (PARTIAL_DEVICE.test(clean)) {
+    mount.innerHTML = `<p class="stream-placeholder">Consultando fecha, hora y dispositivo${STREAM_TAIL}</p>`;
+    return;
+  }
   if (PARTIAL_TOOL.test(clean)) {
     mount.innerHTML = `<p class="stream-placeholder">Recorriendo Moodle${STREAM_TAIL}</p>`;
+    return;
+  }
+  if ((moodleContext || getMoodle().token) && MOODLE_DEMO_LEAK.test(clean)) {
+    mount.innerHTML = `<p class="stream-placeholder">Verificando en Moodle${STREAM_TAIL}</p>`;
     return;
   }
   if (PARTIAL_PROGRAM.test(clean)) {
@@ -2524,9 +3046,9 @@ async function respond(
         }
       }
     } else {
-      // Sin key: el asistente responde con el motor local de demostración
+      // Sin key: el asistente responde con datos reales del dispositivo o de Moodle
       await pause(650);
-      result = resolveAnswer(question);
+      result = await resolveAnswer(question);
     }
   } catch (err) {
     result = {
@@ -3047,7 +3569,7 @@ $("#aiTest").addEventListener("click", async () => {
   btn.disabled = true;
   helpText.textContent = "Probando conexión…";
   try {
-    await askAI("¿Cuándo es la próxima sesión de IA?", settings);
+    await askAI("Saluda en una frase.", settings);
     helpText.textContent =
       "✔ Conexión correcta. Guarda para usarla en este navegador.";
   } catch (err) {
