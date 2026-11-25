@@ -58,12 +58,15 @@ directamente a `moodle.riwi.io`.
   y Moodle lanza «Curso o actividad no accesible» si tu cuenta no tiene acceso a alguno (por ejemplo
   el curso 2). Ese contenido se añade al system prompt y se muestra en **Acceso directo a tus
   materiales** con enlaces `pluginfile.php?...&token=...` que abren en pestaña nueva.
-- **Navegación por la IA:** si le falta información, el modelo puede pedir una consulta escribiendo
-  `MOODLE_TOOL({"fn":"core_course_get_contents","courseid":7})`. La app ejecuta solo funciones de
-  lectura permitidas (tus cursos, ver contenidos, recursos, carpetas, páginas y URLs), valida los
-  parámetros —incluido que el `userid` sea el tuyo—, devuelve el resultado al modelo y repite hasta
-  4 pasos antes de dibujar la respuesta final. Es un bucle de herramientas en texto, compatible con
-  Gemini y OpenRouter.
+- **Navegación por la IA:** el modelo puede pedir una o varias consultas por turno, por ejemplo
+  `MOODLE_TOOL({"fn":"core_course_get_contents","params":{"courseid":7}})`. El catálogo se lee del
+  propio Moodle (`core_webservice_get_site_info`) y se filtra a funciones de **solo lectura** —no
+  solo cursos y materiales, también tareas, calificaciones, foros y demás módulos que el sitio
+  exponga—. La app valida los parámetros (`userid` siempre el tuyo, cursos y actividades descubiertas
+  solo los tuyos), ejecuta todas las consultas de la respuesta y devuelve los resultados al modelo
+  para que siga avanzando **hasta 12 pasos** antes de dibujar la interfaz final. Si una consulta
+  falla, el modelo puede cambiar de función y reintentar. Es un bucle de herramientas en texto,
+  compatible con Gemini y OpenRouter.
 - Sin API key, el motor local despliega los materiales en acordeones. Si no hay conexión, una
   pregunta sobre Moodle explica cómo ingresar.
 

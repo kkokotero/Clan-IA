@@ -25,6 +25,8 @@ let moodleUserId = 0;
 let moodleCourses = [];
 let moodleMaterials = [];
 let moodleContext = "";
+let moodleFunctions = [];
+let moodleCMIds = [];
 
 /* El usuario ingresa con usuario y contraseña; Moodle devuelve un token que se
    guarda en este navegador ( igual que la key de la IA ) para no volver a pedir
@@ -60,6 +62,8 @@ function clearMoodle() {
   moodleCourses = [];
   moodleMaterials = [];
   moodleContext = "";
+  moodleFunctions = [];
+  moodleCMIds = [];
   try {
     localStorage.removeItem(MOODLE_KEY);
   } catch (e) {}
@@ -144,54 +148,215 @@ function moodleDirectURL(raw) {
 const moodleIdsParam = (ids, name) =>
   ids.reduce((acc, id, i) => ({ ...acc, [`${name}[${i}]`]: id }), {});
 
-/* La IA puede "navegar" Moodle pidiendo una herramienta por turno. Solo se
-   exponen funciones de lectura, con parámetros validados. */
-const MOODLE_MAX_STEPS = 4;
-const MOODLE_TOOLS = {
-  core_webservice_get_site_info: "none",
-  core_enrol_get_users_courses: "userid",
-  core_course_get_contents: "courseid",
-  mod_resource_get_resources_by_courses: "courseids",
-  mod_folder_get_folders_by_courses: "courseids",
-  mod_page_get_pages_by_courses: "courseids",
-  mod_url_get_urls_by_courses: "courseids",
-};
-function parseMoodleTool(text) {
-  const m = String(text || "")
-    .trim()
-    .match(/^MOODLE_TOOL\s*\(?\s*(\{[\s\S]*\})\s*\)?$/i);
-  if (!m) return null;
-  let obj;
-  try {
-    obj = JSON.parse(m[1]);
-  } catch (e) {
-    return null;
+/* Bucle de herramientas: la IA puede recorrer Moodle con varias consultas de
+   lectura por turno. El catálogo real se toma de core_webservice_get_site_info
+   y se filtra para excluir cualquier función que pueda escribir. */
+const MOODLE_MAX_STEPS = 12;
+const MOODLE_MAX_LOG_ENTRIES = 8;
+const MOODLE_MAX_CONTEXT = 24000;
+/* Lista todos los cursos del sitio y falla si alguno no es accesible */
+const MOODLE_BLOCKED = new Set(["core_course_get_courses"]);
+/* Cualquier plugin (core, mod, block, local, report, badges...) puede exponer
+   funciones get: basta con que el nombre tenga el segmento "_get". */
+const MOODLE_READ_NAME = /^[a-z][a-z0-9_]*_get(?:_[a-z0-9_]+)?$/i;
+const MOODLE_WRITE_VERB =
+  /\b(create|update|delete|submit|set|save|edit|mark|send|post|add|remove|move|copy|import|upload|enrol|unenrol|grade|complete|subscribe|unsubscribe|hide|show|lock|unlock|reset|restore|backup|evaluate|invite)\b/i;
+const MOODLE_ARRAY_PARAMS = new Set([
+  "courseids",
+  "userids",
+  "cmids",
+  "ids",
+  "activityids",
+  "groupids",
+]);
+
+function safeMoodleFunctions(list) {
+  const names = (Array.isArray(list) ? list : [])
+    .map((f) => (typeof f === "string" ? f : f && f.name))
+    .filter(
+      (n) =>
+        typeof n === "string" &&
+        MOODLE_READ_NAME.test(n) &&
+        !MOODLE_WRITE_VERB.test(n) &&
+        !MOODLE_BLOCKED.has(n),
+    );
+  return [...new Set(names)].sort().slice(0, 120);
+}
+function moodleToolAllowed(fn) {
+  if (!fn || MOODLE_BLOCKED.has(fn)) return false;
+  if (moodleFunctions.length) return moodleFunctions.includes(fn);
+  return MOODLE_READ_NAME.test(fn) && !MOODLE_WRITE_VERB.test(fn);
+}
+function moodleAllowedCourseIds() {
+  return moodleCourses.map((c) => c.id);
+}
+function moodleId(value, allowed) {
+  const id = Number(value);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  if (allowed && allowed.length && !allowed.includes(id)) return null;
+  return id;
+}
+function moodleScalar(value) {
+  if (Array.isArray(value)) return value.slice(0, 20).map(moodleScalar);
+  if (value && typeof value === "object") {
+    const out = {};
+    Object.entries(value)
+      .slice(0, 20)
+      .forEach(([k, v]) => {
+        if (/^[A-Za-z][A-Za-z0-9_]*$/.test(k)) out[k] = moodleScalar(v);
+      });
+    return out;
   }
-  const fn = obj.fn || obj.function;
-  const kind = MOODLE_TOOLS[fn];
-  if (!kind) return null;
+  return typeof value === "string" && value.length > 800
+    ? value.slice(0, 800) + "…"
+    : value;
+}
+function sanitizeMoodleParams(fn, rawObj) {
+  const raw =
+    rawObj && typeof rawObj === "object"
+      ? rawObj.params && typeof rawObj.params === "object"
+        ? rawObj.params
+        : rawObj
+      : {};
+  const courseIds = moodleAllowedCourseIds();
+  const ownId = moodleUserId ? [moodleUserId] : null;
   const params = {};
-  if (kind === "courseid") {
-    const id = Number(obj.courseid ?? obj.params?.courseid);
-    if (!Number.isFinite(id)) return null;
-    params.courseid = id;
-  } else if (kind === "userid") {
-    /* Solo el propio usuario; nunca consultamos a otras personas */
-    const raw = obj.userid ?? obj.params?.userid;
-    const id = raw === undefined ? moodleUserId : Number(raw);
-    if (!Number.isFinite(id) || id <= 0 || (moodleUserId && id !== moodleUserId))
-      return null;
-    params.userid = id;
-  } else if (kind === "courseids") {
-    const raw = obj.courseids ?? obj.params?.courseids;
-    const ids = (Array.isArray(raw) ? raw : [])
-      .map(Number)
-      .filter(Number.isFinite)
-      .slice(0, 10);
-    if (!ids.length) return null;
-    Object.assign(params, moodleIdsParam(ids, "courseids"));
+  Object.entries(raw).forEach(([key, value]) => {
+    if (["fn", "function", "name", "tool", "params"].includes(key)) return;
+    if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(key)) return;
+    if (/userid/i.test(key)) {
+      if (Array.isArray(value) || key.endsWith("s")) {
+        const ids = (Array.isArray(value) ? value : [value])
+          .map((v) => moodleId(v, ownId))
+          .filter((v) => v != null)
+          .slice(0, 20);
+        if (ids.length) Object.assign(params, moodleIdsParam(ids, key));
+      } else {
+        const id = moodleId(value, ownId);
+        if (id != null) params[key] = id;
+      }
+      return;
+    }
+    if (/courseid/i.test(key)) {
+      if (Array.isArray(value) || key.endsWith("s")) {
+        const ids = (Array.isArray(value) ? value : [value])
+          .map((v) => moodleId(v, courseIds))
+          .filter((v) => v != null)
+          .slice(0, 20);
+        if (ids.length) Object.assign(params, moodleIdsParam(ids, key));
+      } else {
+        const id = moodleId(value, courseIds);
+        if (id != null) params[key] = id;
+      }
+      return;
+    }
+    if (/cmid|activityid/i.test(key)) {
+      if (Array.isArray(value) || key.endsWith("s")) {
+        const ids = (Array.isArray(value) ? value : [value])
+          .map((v) => moodleId(v, moodleCMIds))
+          .filter((v) => v != null)
+          .slice(0, 20);
+        if (ids.length) Object.assign(params, moodleIdsParam(ids, key));
+      } else {
+        const id = moodleId(value, moodleCMIds);
+        if (id != null) params[key] = id;
+      }
+      return;
+    }
+    if (MOODLE_ARRAY_PARAMS.has(key) && Array.isArray(value)) {
+      const ids = value
+        .map((v) => moodleId(v, null))
+        .filter((v) => v != null)
+        .slice(0, 20);
+      if (ids.length) Object.assign(params, moodleIdsParam(ids, key));
+      return;
+    }
+    params[key] = moodleScalar(value);
+  });
+  /* Esta función exige userid: si el modelo lo omitió, usamos el de la sesión. */
+  if (fn === "core_enrol_get_users_courses" && params.userid === undefined && moodleUserId)
+    params.userid = moodleUserId;
+  return params;
+}
+
+/* Extrae todas las llamadas MOODLE_TOOL(...) de una respuesta, aunque vengan
+   varias en líneas distintas o con texto alrededor. */
+function extractMoodleCalls(text) {
+  const src = String(text || "");
+  const calls = [];
+  const re = /MOODLE_TOOL\s*\(/gi;
+  let match;
+  while ((match = re.exec(src))) {
+    let i = re.lastIndex;
+    let depth = 1;
+    let quote = false;
+    let esc = false;
+    const start = i;
+    for (; i < src.length && depth > 0; i++) {
+      const c = src[i];
+      if (quote) {
+        if (esc) esc = false;
+        else if (c === "\\") esc = true;
+        else if (c === '"') quote = false;
+        continue;
+      }
+      if (c === '"') quote = true;
+      else if (c === "(") depth++;
+      else if (c === ")") depth--;
+    }
+    if (depth !== 0) break;
+    const raw = src.slice(start, i - 1).trim();
+    re.lastIndex = i;
+    let obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch (e) {
+      continue;
+    }
+    const fn = obj && (obj.fn || obj.function || obj.name);
+    if (!fn) continue;
+    calls.push({ fn, raw: obj, params: sanitizeMoodleParams(fn, obj) });
   }
-  return { fn, params };
+  return calls;
+}
+/* Se conserva por compatibilidad con el formato de una sola herramienta */
+function parseMoodleTool(text) {
+  return extractMoodleCalls(text)[0] || null;
+}
+function collectMoodleCMIds(data) {
+  if (!Array.isArray(data)) return;
+  data.forEach((section) =>
+    (section && section.modules ? section.modules : []).forEach((mod) => {
+      const id = mod && Number(mod.id);
+      if (Number.isFinite(id) && id > 0 && !moodleCMIds.includes(id))
+        moodleCMIds.push(id);
+    }),
+  );
+}
+function compactMoodleValue(value, depth = 0) {
+  if (typeof value === "string")
+    return value.length > 700 ? value.slice(0, 700) + "…" : value;
+  if (Array.isArray(value)) {
+    const head = value.slice(0, 20).map((v) => compactMoodleValue(v, depth + 1));
+    return value.length > 20
+      ? [...head, `… (+${value.length - 20} elementos)`]
+      : head;
+  }
+  if (value && typeof value === "object" && depth < 8) {
+    const out = {};
+    Object.entries(value)
+      .slice(0, 40)
+      .forEach(([k, v]) => {
+        out[k] = compactMoodleValue(v, depth + 1);
+      });
+    return out;
+  }
+  return value;
+}
+function compactMoodleResult(data) {
+  let text = JSON.stringify(compactMoodleValue(data));
+  if (text && text.length > 8000) text = text.slice(0, 8000) + "… (recortado)";
+  return text;
 }
 
 /* Descarga cursos y materiales reales y prepara el contexto de la IA */
@@ -200,6 +365,8 @@ async function moodleConnect(token, base) {
   const info = await moodleRequest("core_webservice_get_site_info");
   moodleUser = info.fullname || info.username || "Estudiante";
   moodleUserId = Number(info.userid) || 0;
+  moodleFunctions = safeMoodleFunctions(info.functions);
+  moodleCMIds = [];
 
   /* core_course_get_courses valida TODOS los cursos del sitio y falla si la
      cuenta no tiene acceso a alguno (p. ej. "course id: 2"). Pedimos solo los
@@ -275,12 +442,13 @@ async function moodleConnect(token, base) {
 
   /* Si el sitio no expone esos módulos, al menos tomamos las actividades. */
   const contents = await Promise.allSettled(
-    moodleCourses
-      .slice(0, 6)
-      .map((c) => moodleRequest("core_course_get_contents", { courseid: c.id })),
+    moodleCourses.map((c) =>
+      moodleRequest("core_course_get_contents", { courseid: c.id }),
+    ),
   );
   contents.forEach((r, i) => {
     if (r.status !== "fulfilled" || !Array.isArray(r.value)) return;
+    collectMoodleCMIds(r.value);
     r.value.forEach((section) =>
       (section.modules || []).forEach((m) => {
         if (m.name && !materials.some((x) => x.title === m.name))
@@ -304,6 +472,11 @@ async function moodleConnect(token, base) {
         (m) =>
           `- ${m.title} [${m.kind}] · ${m.course}${m.url ? ` · ${m.url}` : ""}`,
       ),
+    "",
+    "Funciones REST de solo lectura disponibles en este sitio:",
+    ...(moodleFunctions.length
+      ? moodleFunctions.map((f) => `- ${f}`)
+      : ["- core_webservice_get_site_info", "- core_enrol_get_users_courses", "- core_course_get_contents"]),
   ];
   moodleContext = lines.join("\n").slice(0, 14000);
   updateMoodleUI();
@@ -431,8 +604,27 @@ Acceso: carpeta compartida de la cohorte.`;
 function buildSystemPrompt() {
   /* Si el usuario conectó Moodle, sus materiales reales pasan a ser la fuente
      principal; los documentos de demostración quedan como respaldo. */
+  const moodleFunctionList = moodleFunctions.length
+    ? moodleFunctions.join(", ")
+    : "core_webservice_get_site_info, core_enrol_get_users_courses, core_course_get_contents";
   const moodleSection = moodleContext
-    ? `\n\n--- MATERIAL ACADÉMICO REAL DE MOODLE (conectado por el usuario) ---\n${moodleContext}\n\nEste bloque prevalece sobre los documentos de demostración cuando el usuario pregunte por sus cursos o materiales. Sus URLs están autorizadas: puedes usarlas tal cual en Link("Etiqueta", "URL") o [Etiqueta](URL). Nunca inventes otras URLs de Moodle ni cursos que no aparezcan aquí.\n\nNAVEGACIÓN POR MOODLE: si necesitas explorar más, responde EXACTAMENTE con una línea (nada más):\nMOODLE_TOOL({"fn":"core_course_get_contents","courseid":7})\nFunciones permitidas: core_webservice_get_site_info (sin parámetros); core_enrol_get_users_courses (userid, usa el tuyo, nunca el de otra persona); core_course_get_contents (courseid numérico de tus cursos); mod_resource_get_resources_by_courses, mod_folder_get_folders_by_courses, mod_page_get_pages_by_courses y mod_url_get_urls_by_courses (courseids: [id]). NO uses core_course_get_courses: lista todos los cursos del sitio y falla si tu cuenta no tiene acceso a alguno. Después del resultado puedes pedir otra consulta o devolver el programa OpenUI Lang final. Máximo ${MOODLE_MAX_STEPS} consultas. No mezcles MOODLE_TOOL con un programa OpenUI en la misma respuesta.`
+    ? `
+
+--- MATERIAL ACADÉMICO REAL DE MOODLE (conectado por el usuario) ---
+${moodleContext}
+
+Este bloque prevalece sobre los documentos de demostración cuando el usuario pregunte por sus cursos o materiales. Sus URLs están autorizadas: puedes usarlas tal cual en Link("Etiqueta", "URL") o [Etiqueta](URL). Nunca inventes otras URLs de Moodle ni cursos que no aparezcan aquí.
+
+NAVEGACIÓN POR MOODLE (bucle de herramientas):
+- Si te falta información, responde SOLO con una o más líneas MOODLE_TOOL({"fn":"...","params":{...}}), sin texto adicional ni bloques de código.
+- Puedes pedir varias consultas en la misma respuesta: una por línea. Se ejecutan todas y se te devuelven juntas.
+- Después puedes pedir más consultas. Tienes hasta ${MOODLE_MAX_STEPS} pasos; úsalos para recorrer cursos → secciones → actividades → archivos, calificaciones o lo que haga falta.
+- Funciones disponibles (solo lectura): ${moodleFunctionList}.
+- Parámetros: "userid" siempre ${moodleUserId || "el de tu sesión"}; "courseid"/"courseids" solo tus cursos; "cmid"/"cmids" solo actividades que hayas descubierto; los arrays llevan hasta 20 ids.
+- Nunca uses core_course_get_courses (falla con cursos ajenos) ni funciones de escritura (create, update, delete, submit, enrol, set, save, send...).
+- Si una consulta falla, cambia de función o de parámetros y sigue intentando.
+- Cuando ya tengas suficiente información, devuelve SOLO el programa OpenUI Lang final. No mezcles MOODLE_TOOL con el programa final en la misma respuesta.
+`
     : "";
   const preamble = SYSTEM_PROMPT + moodleSection;
   const lib = window.__OpenUI && window.__OpenUI.openuiChatLibrary;
@@ -1277,30 +1469,55 @@ async function streamAI(question, settings, onChunk, context = "") {
   return "";
 }
 
-/* Bucle de herramientas: la IA pide una consulta a Moodle, la ejecutamos y le
-   devolvemos el resultado para que siga navegando o dibuje la respuesta final. */
+/* El historial de navegación se limita para no agotar la ventana del modelo */
+function buildMoodleToolLog(entries, step) {
+  const blocks = entries.map(
+    (e, i) =>
+      `--- Navegación Moodle (${i + 1}) ---\n` +
+      `Consulta: ${e.fn}${Object.keys(e.params).length ? ` ${JSON.stringify(e.params)}` : ""}\n` +
+      `Resultado: ${compactMoodleResult(e.data)}`,
+  );
+  let log = "";
+  while (blocks.length) {
+    log =
+      "\n\n" +
+      blocks.join("\n\n") +
+      `\n\nPuedes seguir consultando (paso ${step}/${MOODLE_MAX_STEPS}) o devolver SOLO el programa OpenUI Lang final. Si una consulta falló, prueba otra función o corrige los parámetros.`;
+    if (log.length <= MOODLE_MAX_CONTEXT) break;
+    blocks.shift();
+  }
+  return log;
+}
+
+/* Bucle de herramientas: la IA pide una o varias consultas, las ejecutamos y le
+   devolvemos los resultados para que siga recorriendo Moodle o dibuje la UI. */
 async function runAIWithTools(question, settings, onChunk, useStream = true) {
   const emit = typeof onChunk === "function" ? onChunk : () => {};
-  let log = "";
+  const entries = [];
   let text = useStream
-    ? await streamAI(question, settings, emit, log)
-    : await askAI(question, settings, log);
-  for (let step = 0; step < MOODLE_MAX_STEPS && moodleContext; step++) {
-    const call = parseMoodleTool(cleanResponse(text));
-    if (!call) break;
+    ? await streamAI(question, settings, emit, "")
+    : await askAI(question, settings, "");
+  for (let step = 1; step <= MOODLE_MAX_STEPS && moodleContext; step++) {
+    const calls = extractMoodleCalls(cleanResponse(text));
+    if (!calls.length) break;
     emit("");
-    let data;
-    try {
-      data = await moodleRequest(call.fn, call.params);
-    } catch (err) {
-      data = { error: err.message || String(err) };
+    for (const call of calls) {
+      let data;
+      if (!moodleToolAllowed(call.fn)) {
+        data = { error: `Función no disponible o no permitida: ${call.fn}` };
+      } else {
+        try {
+          data = await moodleRequest(call.fn, call.params);
+          if (call.fn === "core_course_get_contents") collectMoodleCMIds(data);
+        } catch (err) {
+          data = { error: err.message || String(err) };
+        }
+      }
+      entries.push({ fn: call.fn, params: call.params, data });
     }
-    log +=
-      `\n\n--- Navegación Moodle (${step + 1}/${MOODLE_MAX_STEPS}) ---\n` +
-      `Consulta: ${JSON.stringify(call)}\n` +
-      `Resultado: ${JSON.stringify(data).slice(0, 6000)}\n` +
-      `Con este resultado, haz otra consulta si hace falta o devuelve SOLO el programa OpenUI Lang final.`;
-    text = await askAI(question, settings, log);
+    if (entries.length > MOODLE_MAX_LOG_ENTRIES)
+      entries.splice(0, entries.length - MOODLE_MAX_LOG_ENTRIES);
+    text = await askAI(question, settings, buildMoodleToolLog(entries, step));
   }
   return text;
 }

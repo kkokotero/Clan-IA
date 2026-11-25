@@ -154,8 +154,20 @@ contexto de **todos** los cursos del sitio y falla si la cuenta no tiene acceso 
 ahora usa `core_enrol_get_users_courses` con el `userid` devuelto por
 `core_webservice_get_site_info`, es decir, solo los cursos matriculados; el listado global queda
 como respaldo silenciado. La misma restricción se aplicó a la navegación de la IA: el tool
-`core_course_get_courses` se sustituyó por `core_enrol_get_users_courses` y `parseMoodleTool()` solo
-acepta el `userid` propio.
+`core_course_get_courses` se sustituyó por `core_enrol_get_users_courses` y el `userid` siempre se
+fija al de la sesión.
+
+El bucle de herramientas se amplió después de que el modelo se quedara corto al pedir más datos.
+Ahora `core_webservice_get_site_info` aporta el catálogo real de funciones del sitio;
+`safeMoodleFunctions()` solo admite nombres con el segmento `_get` (de cualquier plugin: `core`,
+`mod`, `block`, `badges`, `report`…) y descarta los verbos de escritura, mientras
+`moodleToolAllowed()` bloquea `core_course_get_courses`. Eso permite consultar también tareas,
+calificaciones, foros y demás módulos que el servicio habilite, sin abrir funciones que modifiquen
+Moodle. `extractMoodleCalls()` acepta **varias** líneas `MOODLE_TOOL(...)` por respuesta y
+`sanitizeMoodleParams()` limita `userid`, `courseid`, `cmid` y los arrays a valores ya descubiertos;
+si el modelo omite el `userid` de `core_enrol_get_users_courses`, se completa con el de la sesión.
+El modelo tiene hasta 12 pasos, puede reintentar si una consulta falla y recibe un historial
+compactado (máximo 8 entradas y 24.000 caracteres) para no agotar su ventana de contexto.
 
 ### 3.9 Mapa rápido del código
 
