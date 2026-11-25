@@ -851,6 +851,19 @@ body.ai-off {
   gap: 14px;
   overflow-wrap: anywhere;
 }
+/* La UI se va dibujando fragmento a fragmento; mientras tanto no es interactiva */
+.card-ui.is-streaming .ui-render {
+  pointer-events: none;
+  opacity: 0.88;
+}
+.stream-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--on-surface-variant);
+  font-size: 0.95rem;
+}
 .ui-fallback {
   color: var(--on-surface-variant);
   font-size: 1rem;
@@ -2030,6 +2043,46 @@ a.ui-btn {
 /* Pestañas y sección de chats del modal de configuración */
 #settingsModal .modal-card {
   max-width: 800px;
+}
+
+/* Conexión con Moodle (pestaña de Configuración) */
+.moodle-courses {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+.moodle-courses h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.moodle-material {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-md);
+  background: var(--surface-low);
+  color: var(--on-surface);
+  text-decoration: none;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s;
+}
+.moodle-material:hover {
+  background: var(--primary-container);
+  border-color: var(--primary);
+}
+.moodle-material > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.moodle-material small {
+  color: var(--on-surface-variant);
+}
+.moodle-courses > .ui-btn {
+  justify-self: start;
 }
 .settings-layout {
   display: flex;

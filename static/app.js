@@ -16,6 +16,327 @@ const historyEl = $("#history");
 const STORAGE_KEY = "ritchie-ia-historial";
 const SETTINGS_KEY =
   "ritchie-ia-config-ia"; /* la key vive SOLO en este navegador */
+const MOODLE_KEY = "ritchie-ia-moodle"; /* sesión de Moodle, SOLO en este navegador */
+const MOODLE_DEFAULT_BASE = "https://moodle.riwi.io";
+const MOODLE_SERVICE = "moodle_mobile_app";
+let moodleMemory = null;
+let moodleUser = "";
+let moodleUserId = 0;
+let moodleCourses = [];
+let moodleMaterials = [];
+let moodleContext = "";
+
+/* El usuario ingresa con usuario y contraseña; Moodle devuelve un token que se
+   guarda en este navegador ( igual que la key de la IA ) para no volver a pedir
+   la contraseña. La contraseña nunca se almacena. */
+function normalizeMoodle(s) {
+  const rawBase = typeof s?.base === "string" ? s.base.trim() : "";
+  return {
+    token: typeof s?.token === "string" ? s.token.trim() : "",
+    base: /^https:\/\//i.test(rawBase)
+      ? rawBase.replace(/\/+$/, "")
+      : MOODLE_DEFAULT_BASE,
+  };
+}
+function getMoodle() {
+  if (moodleMemory) return normalizeMoodle(moodleMemory);
+  try {
+    const raw = localStorage.getItem(MOODLE_KEY);
+    return normalizeMoodle(raw ? JSON.parse(raw) : null);
+  } catch (e) {
+    return normalizeMoodle(null);
+  }
+}
+function saveMoodle(s) {
+  moodleMemory = normalizeMoodle(s);
+  try {
+    localStorage.setItem(MOODLE_KEY, JSON.stringify(moodleMemory));
+  } catch (e) {}
+}
+function clearMoodle() {
+  moodleMemory = null;
+  moodleUser = "";
+  moodleUserId = 0;
+  moodleCourses = [];
+  moodleMaterials = [];
+  moodleContext = "";
+  try {
+    localStorage.removeItem(MOODLE_KEY);
+  } catch (e) {}
+}
+
+/* Web services REST de Moodle. El endpoint responde con CORS abierto, así que
+   el navegador puede llamarlo directamente: no hace falta servidor propio. */
+async function moodleRequest(fn, params = {}) {
+  const { token, base } = getMoodle();
+  if (!token) throw new Error("Ingresa a Moodle desde «Mi Moodle»");
+  const body = new URLSearchParams({
+    wstoken: token,
+    wsfunction: fn,
+    moodlewsrestformat: "json",
+    ...params,
+  });
+  const res = await fetch(`${base}/webservice/rest/server.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+    credentials: "omit",
+  });
+  if (!res.ok) throw new Error(`Moodle respondió HTTP ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (data && data.exception)
+    throw new Error(data.message || String(data.exception));
+  return data;
+}
+
+/* Único ingreso: usuario y contraseña. Moodle canjea las credenciales por un
+   token en /login/token.php. La contraseña NO se guarda: se descarta en cuanto
+   llega el token. */
+async function moodleLogin(
+  username,
+  password,
+  service = MOODLE_SERVICE,
+  base = MOODLE_DEFAULT_BASE,
+) {
+  const target = normalizeMoodle({ base }).base;
+  const body = new URLSearchParams({
+    username: String(username || ""),
+    password: String(password || ""),
+    service: String(service || MOODLE_SERVICE),
+  });
+  const res = await fetch(`${target}/login/token.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+    credentials: "omit",
+  });
+  if (!res.ok) throw new Error(`Moodle respondió HTTP ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (data.error || data.exception)
+    throw new Error(data.error || data.message || String(data.exception));
+  if (!data.token) throw new Error("Moodle no devolvió un token");
+  return data.token;
+}
+
+const moodleSafeURL = (raw) => {
+  try {
+    const u = new URL(String(raw || ""));
+    return /^https?:$/.test(u.protocol) ? u.href : null;
+  } catch (e) {
+    return null;
+  }
+};
+/* Los archivos de Moodle se abren con el token para no depender de la sesión */
+function moodleDirectURL(raw) {
+  const safe = moodleSafeURL(raw);
+  if (!safe) return null;
+  const { token, base } = getMoodle();
+  if (!token || !safe.startsWith(base)) return safe;
+  try {
+    const u = new URL(safe);
+    if (/\/pluginfile\.php(?:\/|$)/i.test(u.pathname))
+      u.searchParams.set("token", token);
+    return u.href;
+  } catch (e) {
+    return safe;
+  }
+}
+const moodleIdsParam = (ids, name) =>
+  ids.reduce((acc, id, i) => ({ ...acc, [`${name}[${i}]`]: id }), {});
+
+/* La IA puede "navegar" Moodle pidiendo una herramienta por turno. Solo se
+   exponen funciones de lectura, con parámetros validados. */
+const MOODLE_MAX_STEPS = 4;
+const MOODLE_TOOLS = {
+  core_webservice_get_site_info: "none",
+  core_enrol_get_users_courses: "userid",
+  core_course_get_contents: "courseid",
+  mod_resource_get_resources_by_courses: "courseids",
+  mod_folder_get_folders_by_courses: "courseids",
+  mod_page_get_pages_by_courses: "courseids",
+  mod_url_get_urls_by_courses: "courseids",
+};
+function parseMoodleTool(text) {
+  const m = String(text || "")
+    .trim()
+    .match(/^MOODLE_TOOL\s*\(?\s*(\{[\s\S]*\})\s*\)?$/i);
+  if (!m) return null;
+  let obj;
+  try {
+    obj = JSON.parse(m[1]);
+  } catch (e) {
+    return null;
+  }
+  const fn = obj.fn || obj.function;
+  const kind = MOODLE_TOOLS[fn];
+  if (!kind) return null;
+  const params = {};
+  if (kind === "courseid") {
+    const id = Number(obj.courseid ?? obj.params?.courseid);
+    if (!Number.isFinite(id)) return null;
+    params.courseid = id;
+  } else if (kind === "userid") {
+    /* Solo el propio usuario; nunca consultamos a otras personas */
+    const raw = obj.userid ?? obj.params?.userid;
+    const id = raw === undefined ? moodleUserId : Number(raw);
+    if (!Number.isFinite(id) || id <= 0 || (moodleUserId && id !== moodleUserId))
+      return null;
+    params.userid = id;
+  } else if (kind === "courseids") {
+    const raw = obj.courseids ?? obj.params?.courseids;
+    const ids = (Array.isArray(raw) ? raw : [])
+      .map(Number)
+      .filter(Number.isFinite)
+      .slice(0, 10);
+    if (!ids.length) return null;
+    Object.assign(params, moodleIdsParam(ids, "courseids"));
+  }
+  return { fn, params };
+}
+
+/* Descarga cursos y materiales reales y prepara el contexto de la IA */
+async function moodleConnect(token, base) {
+  saveMoodle({ token, base });
+  const info = await moodleRequest("core_webservice_get_site_info");
+  moodleUser = info.fullname || info.username || "Estudiante";
+  moodleUserId = Number(info.userid) || 0;
+
+  /* core_course_get_courses valida TODOS los cursos del sitio y falla si la
+     cuenta no tiene acceso a alguno (p. ej. "course id: 2"). Pedimos solo los
+     cursos en los que el usuario está matriculado. */
+  let courses = [];
+  if (moodleUserId) {
+    try {
+      const enrolled = await moodleRequest("core_enrol_get_users_courses", {
+        userid: moodleUserId,
+      });
+      if (Array.isArray(enrolled)) courses = enrolled;
+    } catch (err) {
+      /* Si el servicio no está habilitado, seguimos con el token y sin cursos */
+    }
+  }
+  if (!courses.length) {
+    try {
+      const all = await moodleRequest("core_course_get_courses");
+      if (Array.isArray(all)) courses = all;
+    } catch (err) {
+      /* Algunos sitios lanzan "Curso o actividad no accesible" al listar todos */
+    }
+  }
+  moodleCourses = courses
+    .filter(
+      (c) =>
+        c &&
+        c.id &&
+        (c.visible ?? 1) &&
+        !/^site$/i.test(c.shortname || "") &&
+        String(c.format || "").toLowerCase() !== "site",
+    )
+    .slice(0, 20);
+  const ids = moodleCourses.map((c) => c.id);
+  const courseName = (id) =>
+    moodleCourses.find((c) => c.id === id)?.fullname || "Curso";
+  const materials = [];
+  const addMaterial = (kind, item, courseId) => {
+    if (!item || !item.name) return;
+    const content = Array.isArray(item.content) ? item.content : [];
+    const file = content.find((f) => f && f.fileurl) || {};
+    materials.push({
+      kind,
+      title: String(item.name),
+      courseId,
+      course: courseName(courseId),
+      filename: file.filename || "",
+      url: moodleDirectURL(file.fileurl || item.url || item.externalurl || ""),
+    });
+  };
+
+  if (ids.length) {
+    const params = moodleIdsParam(ids, "courseids");
+    const results = await Promise.allSettled([
+      moodleRequest("mod_resource_get_resources_by_courses", params),
+      moodleRequest("mod_folder_get_folders_by_courses", params),
+      moodleRequest("mod_page_get_pages_by_courses", params),
+      moodleRequest("mod_url_get_urls_by_courses", params),
+    ]);
+    [
+      ["archivo", "resources"],
+      ["carpeta", "folders"],
+      ["página", "pages"],
+      ["enlace", "urls"],
+    ].forEach(([kind, key], i) => {
+      const r = results[i];
+      if (r.status !== "fulfilled") return;
+      (r.value?.[key] || []).forEach((item) =>
+        addMaterial(kind, item, item.course),
+      );
+    });
+  }
+
+  /* Si el sitio no expone esos módulos, al menos tomamos las actividades. */
+  const contents = await Promise.allSettled(
+    moodleCourses
+      .slice(0, 6)
+      .map((c) => moodleRequest("core_course_get_contents", { courseid: c.id })),
+  );
+  contents.forEach((r, i) => {
+    if (r.status !== "fulfilled" || !Array.isArray(r.value)) return;
+    r.value.forEach((section) =>
+      (section.modules || []).forEach((m) => {
+        if (m.name && !materials.some((x) => x.title === m.name))
+          addMaterial("actividad", m, moodleCourses[i].id);
+      }),
+    );
+  });
+  moodleMaterials = materials;
+
+  const lines = [
+    `Sitio Moodle: ${info.sitename || base}`,
+    `Usuario: ${moodleUser}`,
+    "",
+    "Cursos del usuario:",
+    ...moodleCourses.map((c) => `- ${c.fullname}`),
+    "",
+    "Materiales académicos reales (URLs literales):",
+    ...moodleMaterials
+      .slice(0, 80)
+      .map(
+        (m) =>
+          `- ${m.title} [${m.kind}] · ${m.course}${m.url ? ` · ${m.url}` : ""}`,
+      ),
+  ];
+  moodleContext = lines.join("\n").slice(0, 14000);
+  updateMoodleUI();
+  return info;
+}
+
+function moodleDemoHTML() {
+  if (!moodleContext) return "";
+  const byCourse = new Map();
+  moodleMaterials.forEach((m) => {
+    if (!byCourse.has(m.courseId)) byCourse.set(m.courseId, []);
+    byCourse.get(m.courseId).push(m);
+  });
+  const accordions = moodleCourses
+    .slice(0, 8)
+    .map((c) => {
+      const items = (byCourse.get(c.id) || [])
+        .slice(0, 10)
+        .map((m) =>
+          m.url
+            ? `<li><a class="ui-link" href="${escapeHTML(m.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(m.title)}</a></li>`
+            : `<li>${escapeHTML(m.title)}</li>`,
+        )
+        .join("");
+      return `<details class="ui-accordion-item" open><summary>${escapeHTML(c.fullname)}</summary><div><ul class="ui-list">${items || "<li>Sin materiales expuestos por la API</li>"}</ul></div></details>`;
+    })
+    .join("");
+  return (
+    `<h3>Mis materiales de Moodle</h3>` +
+    `<p>Conectado como <b>${escapeHTML(moodleUser)}</b>: ${moodleCourses.length} cursos y ${moodleMaterials.length} materiales disponibles.</p>` +
+    `<div class="ui-accordion">${accordions}</div>`
+  );
+}
 
 /* ---------- Proveedores gratuitos (llamada directa desde el navegador) ---------- */
 const PROVIDERS = {
@@ -108,10 +429,16 @@ Acceso: carpeta compartida de la cohorte.`;
 /* El bundle de OpenUI genera la especificación completa del lenguaje a partir de su librería.
    Si el CDN no cargó, usamos una versión mínima para que la app siga funcionando. */
 function buildSystemPrompt() {
+  /* Si el usuario conectó Moodle, sus materiales reales pasan a ser la fuente
+     principal; los documentos de demostración quedan como respaldo. */
+  const moodleSection = moodleContext
+    ? `\n\n--- MATERIAL ACADÉMICO REAL DE MOODLE (conectado por el usuario) ---\n${moodleContext}\n\nEste bloque prevalece sobre los documentos de demostración cuando el usuario pregunte por sus cursos o materiales. Sus URLs están autorizadas: puedes usarlas tal cual en Link("Etiqueta", "URL") o [Etiqueta](URL). Nunca inventes otras URLs de Moodle ni cursos que no aparezcan aquí.\n\nNAVEGACIÓN POR MOODLE: si necesitas explorar más, responde EXACTAMENTE con una línea (nada más):\nMOODLE_TOOL({"fn":"core_course_get_contents","courseid":7})\nFunciones permitidas: core_webservice_get_site_info (sin parámetros); core_enrol_get_users_courses (userid, usa el tuyo, nunca el de otra persona); core_course_get_contents (courseid numérico de tus cursos); mod_resource_get_resources_by_courses, mod_folder_get_folders_by_courses, mod_page_get_pages_by_courses y mod_url_get_urls_by_courses (courseids: [id]). NO uses core_course_get_courses: lista todos los cursos del sitio y falla si tu cuenta no tiene acceso a alguno. Después del resultado puedes pedir otra consulta o devolver el programa OpenUI Lang final. Máximo ${MOODLE_MAX_STEPS} consultas. No mezcles MOODLE_TOOL con un programa OpenUI en la misma respuesta.`
+    : "";
+  const preamble = SYSTEM_PROMPT + moodleSection;
   const lib = window.__OpenUI && window.__OpenUI.openuiChatLibrary;
   if (lib && typeof lib.prompt === "function") {
     return lib.prompt({
-      preamble: SYSTEM_PROMPT,
+      preamble,
       examples: [
         `root = Card([head, summary, note, sep, agenda, next])
 head = CardHeader("Próxima sesión de IA", "Jueves 26 de noviembre de 2026")
@@ -179,7 +506,7 @@ q1 = FollowUpItem("Ver el calendario de la cohorte")`,
     });
   }
   return (
-    SYSTEM_PROMPT +
+    preamble +
     "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes. Para enlaces usa Link(\"Etiqueta\", \"https://...\") o [Etiqueta](https://...) solo con URLs presentes en los documentos; se abren en pestaña nueva."
   );
 }
@@ -605,7 +932,10 @@ function renderWelcome() {
   const suggestions = $("#suggestions");
   if (title) title.textContent = pick.greeting;
   if (suggestions) {
-    suggestions.innerHTML = pick.actions
+    const actions = moodleContext
+      ? [{ q: "Ver mis materiales de Moodle", icon: "school" }, ...pick.actions]
+      : pick.actions;
+    suggestions.innerHTML = actions
       .map(
         (a) =>
           `<button class="chip" data-q="${escapeHTML(a.q)}"><span class="ico"><span class="ic lg">${a.icon}</span></span>${escapeHTML(a.q)}</button>`,
@@ -645,6 +975,21 @@ function load() {
 /* ---------- Motor de respuesta simulado ---------- */
 function resolveAnswer(question) {
   const q = normalize(question);
+  if (/(moodle|mis materiales|material academico|mis cursos|acceso directo)/.test(q)) {
+    if (moodleContext)
+      return {
+        type: "answer",
+        html: moodleDemoHTML(),
+        short: `Tienes ${moodleCourses.length} cursos y ${moodleMaterials.length} materiales en Moodle.`,
+        noSource: true,
+      };
+    return {
+      type: "error",
+      question,
+      message:
+        'Ingresa con tu usuario y contraseña de Moodle desde el botón «Mi Moodle» de la barra lateral para ver tus materiales reales. Tu contraseña viaja directamente a Moodle y no se guarda.',
+    };
+  }
   if (/datos del formulario/i.test(question))
     return formSubmissionAnswer(question);
   if (
@@ -776,8 +1121,9 @@ function resultFromText(clean, question) {
   };
 }
 
-async function askAI(question, settings) {
+async function askAI(question, settings, context = "") {
   const system = buildSystemPrompt();
+  const q = question + context;
   const models = PROVIDERS[settings.provider].models.map((m) => m.value);
   const ordered = [
     settings.model,
@@ -791,8 +1137,8 @@ async function askAI(question, settings) {
     try {
       raw =
         settings.provider === "openrouter"
-          ? await callOpenRouter(question, { ...settings, model }, system)
-          : await callGemini(question, { ...settings, model }, system);
+          ? await callOpenRouter(q, { ...settings, model }, system)
+          : await callGemini(q, { ...settings, model }, system);
       lastError = null;
       break;
     } catch (err) {
@@ -900,8 +1246,9 @@ async function streamOpenRouter(question, settings, system, onChunk) {
   return text;
 }
 
-async function streamAI(question, settings, onChunk) {
+async function streamAI(question, settings, onChunk, context = "") {
   const system = buildSystemPrompt();
+  const q = question + context;
   const models = PROVIDERS[settings.provider].models.map((m) => m.value);
   const ordered = [
     settings.model,
@@ -913,8 +1260,8 @@ async function streamAI(question, settings, onChunk) {
       const s = { ...settings, model };
       const raw =
         settings.provider === "openrouter"
-          ? await streamOpenRouter(question, s, system, onChunk)
-          : await streamGemini(question, s, system, onChunk);
+          ? await streamOpenRouter(q, s, system, onChunk)
+          : await streamGemini(q, s, system, onChunk);
       if (raw) return raw;
     } catch (err) {
       lastError = err;
@@ -928,6 +1275,34 @@ async function streamAI(question, settings, onChunk) {
   }
   if (lastError) throw lastError;
   return "";
+}
+
+/* Bucle de herramientas: la IA pide una consulta a Moodle, la ejecutamos y le
+   devolvemos el resultado para que siga navegando o dibuje la respuesta final. */
+async function runAIWithTools(question, settings, onChunk, useStream = true) {
+  const emit = typeof onChunk === "function" ? onChunk : () => {};
+  let log = "";
+  let text = useStream
+    ? await streamAI(question, settings, emit, log)
+    : await askAI(question, settings, log);
+  for (let step = 0; step < MOODLE_MAX_STEPS && moodleContext; step++) {
+    const call = parseMoodleTool(cleanResponse(text));
+    if (!call) break;
+    emit("");
+    let data;
+    try {
+      data = await moodleRequest(call.fn, call.params);
+    } catch (err) {
+      data = { error: err.message || String(err) };
+    }
+    log +=
+      `\n\n--- Navegación Moodle (${step + 1}/${MOODLE_MAX_STEPS}) ---\n` +
+      `Consulta: ${JSON.stringify(call)}\n` +
+      `Resultado: ${JSON.stringify(data).slice(0, 6000)}\n` +
+      `Con este resultado, haz otra consulta si hace falta o devuelve SOLO el programa OpenUI Lang final.`;
+    text = await askAI(question, settings, log);
+  }
+  return text;
 }
 
 /* ---------- Render propio del lenguaje de la IA (estética de la app) ----------
@@ -1350,6 +1725,69 @@ function renderProgramInto(mount, program) {
   }
 }
 
+/* Durante el streaming el programa está a medio escribir. Cerramos comillas y
+   paréntesis abiertos solo para previsualizarlo: nunca se guarda ni se usa como
+   respuesta definitiva. Así se dibujan componentes reales desde el primer
+   fragmento, sin mostrar el código fuente del lenguaje. */
+function repairProgram(src) {
+  let quote = false,
+    esc = false;
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (quote) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') quote = false;
+      continue;
+    }
+    if (c === '"') {
+      quote = true;
+      continue;
+    }
+    if ("[({".includes(c)) stack.push(c);
+    else if (")]}".includes(c)) {
+      const top = stack[stack.length - 1];
+      const expected = top === "(" ? ")" : top === "[" ? "]" : "}";
+      if (top && c === expected) stack.pop();
+    }
+  }
+  let out = src;
+  if (quote) out += '"';
+  while (stack.length) {
+    const c = stack.pop();
+    out += c === "(" ? ")" : c === "[" ? "]" : "}";
+  }
+  return out;
+}
+function renderPartialProgram(mount, program) {
+  if (!mount || typeof program !== "string") return false;
+  try {
+    const env = parseProgram(repairProgram(program));
+    let root = resolveValue(env.root, env);
+    if (Array.isArray(root) && root.length)
+      root = { type: "Card", args: root };
+    if (!root || !root.type) {
+      for (const key of Object.keys(env)) {
+        if (key === "root") continue;
+        const candidate = resolveValue(env[key], env);
+        if (candidate && candidate.type) {
+          root = candidate;
+          break;
+        }
+      }
+    }
+    if (!root || !root.type) return false;
+    const card = root.type === "Card" ? root : { type: "Card", args: [root] };
+    const html = renderNode(card);
+    if (!html) return false;
+    mount.innerHTML = html;
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
 /* ---------- Plantillas ---------- */
 function cardHTML(msg) {
   const preamble = msg.preamble
@@ -1475,9 +1913,32 @@ const scrollDown = () =>
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
 
+/* Mientras llega el texto decidimos si es un programa OpenUI o prosa. En el
+   primer caso dibujamos componentes reales con lo que ya viene; en el segundo,
+   mostramos el texto como siempre. Nunca se ve el código fuente del programa. */
+const PARTIAL_PROGRAM = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*\S/;
+const PARTIAL_TOOL = /MOODLE_TOOL\s*\(/i;
+
 /* El fragmento que está llegando termina con un círculo que late */
 function renderStream(partial, card) {
-  const lines = cleanResponse(partial)
+  const clean = cleanResponse(partial);
+  card.classList.add("card-ui");
+  let mount = card.querySelector(".ui-render");
+  if (!mount) {
+    card.innerHTML = `<div class="ui-render"></div>`;
+    mount = card.querySelector(".ui-render");
+  }
+  if (PARTIAL_TOOL.test(clean)) {
+    mount.innerHTML = `<p class="stream-placeholder">Consultando Moodle${STREAM_TAIL}</p>`;
+    return;
+  }
+  if (PARTIAL_PROGRAM.test(clean)) {
+    if (renderPartialProgram(mount, clean)) return;
+    mount.innerHTML = `<p class="stream-placeholder">Diseñando la respuesta${STREAM_TAIL}</p>`;
+    return;
+  }
+  card.classList.remove("card-ui");
+  const lines = clean
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
@@ -1625,8 +2086,9 @@ async function respond(
         : appendMessage(streamingNode);
       if (wrap) wrap.classList.add("is-streaming");
       try {
-        /* Los fragmentos van dibujando el texto; al terminar se convierte en UI propia */
-        const text = await streamAI(question, settings, (partial) => {
+        /* Los fragmentos van dibujando el texto; si la IA pide consultar Moodle,
+           ejecutamos la herramienta y le devolvemos el resultado antes de pintar. */
+        const text = await runAIWithTools(question, settings, (partial) => {
           const card = wrap.querySelector(".card");
           if (card) renderStream(partial, card);
         });
@@ -1634,7 +2096,8 @@ async function respond(
       } catch (err) {
         /* Si el proveedor no soporta streaming, usamos la llamada normal */
         try {
-          result = await askAI(question, settings);
+          const text = await runAIWithTools(question, settings, () => {}, false);
+          result = resultFromText(cleanResponse(text), question);
         } catch (e2) {
           result = {
             type: "error",
@@ -1980,6 +2443,79 @@ $("#helpBtn").addEventListener("click", () => {
   openSettings("help");
 });
 
+/* ---------- Conexión con Moodle (solo usuario y contraseña) ---------- */
+function updateMoodleUI() {
+  const status = $("#moodleStatus");
+  const panel = $("#moodleCourses");
+  const cfg = getMoodle();
+  if (status) {
+    status.textContent = moodleContext
+      ? `Conectado como ${moodleUser} · ${moodleCourses.length} cursos · ${moodleMaterials.length} materiales.`
+      : "Sin conectar. Ingresa con tu usuario y contraseña de Moodle.";
+  }
+  if (!panel) return;
+  panel.hidden = !moodleContext;
+  if (!moodleContext) {
+    panel.innerHTML = "";
+    return;
+  }
+  const items = moodleMaterials
+    .filter((m) => m.url)
+    .slice(0, 12)
+    .map(
+      (m) =>
+        `<a class="moodle-material" href="${escapeHTML(m.url)}" target="_blank" rel="noopener noreferrer"><span class="ic sm">description</span><span><b>${escapeHTML(m.title)}</b><small>${escapeHTML(m.course)} · ${escapeHTML(m.kind)}</small></span></a>`,
+    )
+    .join("");
+  panel.innerHTML =
+    `<h3>Acceso directo a tus materiales</h3>` +
+    `<p class="ui-hint">Se abren sin recorrer Moodle.</p>` +
+    (items || `<p class="ui-hint">El sitio no expone archivos descargables para tu cuenta.</p>`) +
+    `<a class="ui-btn ui-btn-secondary" href="${escapeHTML(cfg.base)}/my/" target="_blank" rel="noopener noreferrer">Abrir mi Moodle</a>`;
+}
+
+$("#moodleBtnSide")?.addEventListener("click", () => {
+  closeMenu();
+  $("#moodlePassword").value = "";
+  updateMoodleUI();
+  openSettings("moodle");
+});
+$("#moodleForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const status = $("#moodleStatus");
+  const btn = e.target.querySelector('[type="submit"]');
+  const base = getMoodle().base;
+  status.textContent = "Ingresando a Moodle…";
+  btn.disabled = true;
+  try {
+    const token = await moodleLogin(
+      $("#moodleUsername").value.trim(),
+      $("#moodlePassword").value,
+    );
+    /* La contraseña se descarta en cuanto obtuvimos el token */
+    $("#moodlePassword").value = "";
+    const info = await moodleConnect(token, base);
+    status.textContent = `Conectado como ${info.fullname || moodleUser}.`;
+    renderWelcome();
+  } catch (err) {
+    const msg = String(err.message || err);
+    const detail = /invalidlogin|acceso inválido|contraseña|usuario/i.test(msg)
+      ? "Revisa tu usuario y contraseña."
+      : /contexto de curso|no accesible/i.test(msg)
+        ? "Tu cuenta no tiene acceso a todos los cursos del sitio; ya solo consultamos tus cursos matriculados. Si persiste, pide al TL que active los servicios web."
+        : "Revisa tus credenciales y que los servicios web estén activos.";
+    status.textContent = `No se pudo ingresar: ${msg} ${detail}`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+$("#moodleDisconnect")?.addEventListener("click", () => {
+  clearMoodle();
+  $("#moodlePassword").value = "";
+  updateMoodleUI();
+  renderWelcome();
+});
+
 /* ---------- Configuración de la IA gratuita ---------- */
 const providerSel = $("#aiProvider");
 const keyInput = $("#aiKey");
@@ -2245,3 +2781,13 @@ load();
 renderHistory();
 renderChat();
 refreshAIStatus();
+updateMoodleUI();
+
+/* Si ya hay un token guardado, recuperamos los materiales al abrir la app. */
+(() => {
+  const cfg = getMoodle();
+  if (cfg.token)
+    moodleConnect(cfg.token, cfg.base)
+      .then(() => renderWelcome())
+      .catch(() => {});
+})();

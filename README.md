@@ -40,6 +40,38 @@ La clave se guarda en `localStorage` de tu navegador (en tu máquina, sin servid
 clave `ritchie-ia-config-ia`. El perfil muestra el estado (`IA activa · …` o `Configurar IA
 (local)`). Puedes quitarla cuando quieras con **Quitar key**.
 
+## Conectar con Moodle (material académico real)
+
+**Mi Moodle** (barra lateral) abre la pestaña **Moodle** dentro de **Configuración**. El único método
+de ingreso es **usuario y contraseña**; el sitio de la cohorte tiene web services REST activos y
+responde con `Access-Control-Allow-Origin: *`, así que **no hace falta backend**: el navegador llama
+directamente a `moodle.riwi.io`.
+
+- Las credenciales se canjean por un token mediante `/login/token.php` (servicio fijo
+  `moodle_mobile_app`). La contraseña **se envía directamente a Moodle y se borra del campo** en
+  cuanto llega el token; nunca se guarda ni pasa por un servidor propio.
+- El token devuelto se guarda en `localStorage` bajo `ritchie-ia-moodle`, solo en este navegador,
+  para no volver a pedir la contraseña en cada visita. **Desconectar** lo borra.
+- Al ingresar se descargan **solo tus cursos matriculados** (con
+  `core_enrol_get_users_courses` usando el `userid` de `core_webservice_get_site_info`), archivos y
+  actividades. No se usa `core_course_get_courses`: esa función valida **todos** los cursos del sitio
+  y Moodle lanza «Curso o actividad no accesible» si tu cuenta no tiene acceso a alguno (por ejemplo
+  el curso 2). Ese contenido se añade al system prompt y se muestra en **Acceso directo a tus
+  materiales** con enlaces `pluginfile.php?...&token=...` que abren en pestaña nueva.
+- **Navegación por la IA:** si le falta información, el modelo puede pedir una consulta escribiendo
+  `MOODLE_TOOL({"fn":"core_course_get_contents","courseid":7})`. La app ejecuta solo funciones de
+  lectura permitidas (tus cursos, ver contenidos, recursos, carpetas, páginas y URLs), valida los
+  parámetros —incluido que el `userid` sea el tuyo—, devuelve el resultado al modelo y repite hasta
+  4 pasos antes de dibujar la respuesta final. Es un bucle de herramientas en texto, compatible con
+  Gemini y OpenRouter.
+- Sin API key, el motor local despliega los materiales en acordeones. Si no hay conexión, una
+  pregunta sobre Moodle explica cómo ingresar.
+
+> No se automatiza el formulario de `https://moodle.riwi.io/login/index.php`: sus cookies no son
+> legibles desde otro origen. Usamos el mismo usuario y contraseña, pero enviados al endpoint oficial
+> `/login/token.php`, que devuelve el token usado por la API REST. Si el servicio
+> `moodle_mobile_app` no está habilitado para tu cuenta, pide al TL que lo active.
+
 ## Cambiar de proveedor o modelo
 
 Vuelve a tu perfil → **Configurar IA**. Al cambiar de proveedor, la lista de modelos se
@@ -64,8 +96,11 @@ con el siguiente modelo gratuito de la lista antes de mostrar el error.
   pestañas, etiquetas, botones y sugerencias de seguimiento**, eligiendo la vista según el
   contenido; no inventa cifras para gráficas.
 - La respuesta llega **en tiempo real**: se usa `streamGenerateContent` (Gemini) o `stream: true`
-  (OpenRouter) y el texto se dibuja con cada fragmento; al terminar se sustituye por la interfaz.
-  Si el streaming falla, se usa la llamada normal.
+  (OpenRouter). Los fragmentos se dibujan **como interfaz mientras llegan** —tarjetas, encabezados,
+  textos y enlaces aparecen progresivamente— sin mostrar nunca el código `root = Card(...)`. Si aún
+  no hay nada renderizable se ve solo un aviso con el anillo; las consultas internas a Moodle se
+  muestran como «Consultando Moodle». Al terminar se sustituye por la interfaz definitiva. Si el
+  streaming falla, se usa la llamada normal.
 - El prompt pide respuestas desarrolladas (120–250 palabras) con varios componentes,
   prohíbe `Sources`/`CardSourceProvider` y **no muestra nombres de documentos, PDFs, bloques de
   fuente ni notas de autonomía** en los mensajes.
@@ -108,6 +143,8 @@ caben todas en la pantalla.
 - Cualquier persona con acceso a ese navegador podría ver la key guardada. Usa una key
   **de prueba y restringida** (en Google AI Studio puedes limitarla por sitio web), y nunca
   una key de producción. Para un despliegue público real, la key debería vivir en un backend.
+- La contraseña de Moodle **no se guarda**: se envía directamente a `/login/token.php` y se borra
+  del campo al recibir el token. Solo se conserva el token en este navegador.
 - Los datos personales detectados en la pregunta se ocultan antes de enviarlos al modelo y
   también se redactan en la respuesta. El texto de la IA se escapa antes de insertarse en el DOM.
 - Los temas sensibles (salud, calificaciones, situaciones personales) se derivan al

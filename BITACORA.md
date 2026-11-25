@@ -114,7 +114,7 @@ Si el CDN no responde, se usa un **prompt mínimo** (líneas 179-182) y las resp
 
 ### 3.4 Streaming y renderizado de la respuesta
 
-1. La petición usa streaming: `streamGenerateContent` en Gemini o `stream: true` en OpenRouter. `readSSE()` (líneas 810-833) lee el cuerpo con `getReader()`, guarda el fragmento incompleto en un búfer e ignora `[DONE]`. Cada proveedor extrae el texto y `renderStream()` (líneas 1432-1444) lo dibuja **escapado**, con un anillo pulsante en la última línea mientras se escribe.
+1. La petición usa streaming: `streamGenerateContent` en Gemini o `stream: true` en OpenRouter. `readSSE()` (líneas 810-833) lee el cuerpo con `getReader()`, guarda el fragmento incompleto en un búfer e ignora `[DONE]`. Cada proveedor extrae el texto y `renderStream()` decide: si el fragmento es prosa lo dibuja escapado con un anillo pulsante; si es un programa OpenUI, `repairProgram()` cierra comillas/paréntesis abiertos y `renderPartialProgram()` dibuja **componentes reales** con lo que ya llegó. El código fuente del lenguaje nunca se muestra; mientras no hay nada renderizable aparece solo un aviso con el anillo. Las consultas `MOODLE_TOOL` se sustituyen por «Consultando Moodle».
 2. Si el streaming falla, se hace la llamada normal (`generateContent` / completions sin `stream`).
 3. El texto en streaming es **transitorio**: al terminar, `finishResponse()` (líneas 1517-1534) sustituye la tarjeta por la respuesta definitiva. Si es OpenUI, el programa empieza con `root = Card(...)` y un **intérprete propio** en [static/app.js](static/app.js) (parser en líneas 957-1079 y `renderNode` en 1114-1291), con las clases de [static/styles.css](static/styles.css), lo convierte en tarjetas, encabezados, callouts, separadores, pasos, tablas, listas, entidades, pestañas, etiquetas, botones, formularios y sugerencias de seguimiento.
 4. El prompt prohíbe `Sources`/`CardSourceProvider` y evita mostrar nombres de documentos, PDFs o notas de autonomía: los documentos de la cohorte son ficticios, como advierte [README.md](README.md). Si el programa no se puede interpretar, `programToText()` extrae los textos y los une con `·` para no dejar un mensaje vacío.
@@ -140,7 +140,24 @@ Cuando no hay API key, la app no finge una conexión: usa un **motor local de re
 - Cada respuesta tiene **Copiar** y **Rehacer**; cada mensaje del usuario, **Copiar** y **Editar**. `regenerate()` crea un nodo hermano pendiente (`1677-1700`), `saveEdit()` crea un nuevo nodo usuario hermano (`1714-1728`) y `switchBranch()` alterna entre ramas (`1702-1712`).
 - Los formularios generados por la IA envían sus datos como contexto oculto (`Datos del formulario: {...}`): el chat muestra solo el mensaje de la persona y la respuesta resume las preferencias en una lista con etiquetas legibles (`d63e5ac`, `8e321db`).
 
-### 3.8 Mapa rápido del código
+### 3.8 Integración con Moodle
+
+**Mi Moodle** dejó de ser un modal: ahora es una pestaña de **Configuración** y el único formulario
+pide **usuario y contraseña**. Las credenciales se canjean por un token en
+`/login/token.php` (servicio `moodle_mobile_app`) y la contraseña se descarta; solo el token se
+guarda en `localStorage` (`ritchie-ia-moodle`). No se automatiza
+`https://moodle.riwi.io/login/index.php` porque sus cookies no son legibles desde otro origen.
+
+El fallo reportado «No puede ejecutar funciones en el contexto de curso (course id: 2)… Curso o
+actividad no accesible» no venía del login, sino de `core_course_get_courses`: Moodle valida el
+contexto de **todos** los cursos del sitio y falla si la cuenta no tiene acceso a alguno. La carga
+ahora usa `core_enrol_get_users_courses` con el `userid` devuelto por
+`core_webservice_get_site_info`, es decir, solo los cursos matriculados; el listado global queda
+como respaldo silenciado. La misma restricción se aplicó a la navegación de la IA: el tool
+`core_course_get_courses` se sustituyó por `core_enrol_get_users_courses` y `parseMoodleTool()` solo
+acepta el `userid` propio.
+
+### 3.9 Mapa rápido del código
 
 | Bloque | Líneas de [static/app.js](static/app.js) | Responsabilidad |
 |---|---|---|

@@ -68,6 +68,8 @@
         <button class="nav-item" id="helpBtn"><span class="ic">help</span><span class="label">Ayuda</span></button>
         <button class="btn btn-tonal block" id="tlBtnSide"><span class="ic">groups</span><span class="label">Hablar con
             el TL (Team Leader)</span></button>
+        <button class="nav-item" id="moodleBtnSide" type="button"><span class="ic">school</span><span class="label">Mi
+            Moodle</span></button>
         <button class="profile" id="profileBtn" type="button"
           title="Abrir configuración de IA (se guarda en este navegador)"
           aria-label="Abrir configuración de IA del perfil">
@@ -159,6 +161,10 @@
             data-tab="tl" aria-label="TL (Team Leader)" data-short="TL">
             <span class="ic sm">groups</span><span class="tab-label">TL (Team Leader)</span>
           </button>
+          <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="panelMoodle"
+            data-tab="moodle" aria-label="Moodle" data-short="Moodle">
+            <span class="ic sm">school</span><span class="tab-label">Moodle</span>
+          </button>
         </div>
 
         <div class="settings-panels">
@@ -228,6 +234,8 @@
               <li><span class="ic">key</span><span><b>Conecta tu IA.</b> Haz clic en tu <b>perfil</b> (abajo en la barra
                   lateral) y pega una API key gratuita de Gemini u OpenRouter. Sin key, la app responde en modo
                   demostración.</span></li>
+              <li><span class="ic">school</span><span><b>Conecta Moodle.</b> En Configuración → Moodle ingresas con
+                  tu usuario y contraseña. La IA podrá consultar tus cursos y materiales reales.</span></li>
               <li><span class="ic">chat</span><span><b>Pregunta con claridad.</b> Sesiones, actividades, fechas de
                   entrega, proyectos y materiales.</span></li>
               <li><span class="ic">description</span><span><b>Revisa la fuente.</b> Cada respuesta indica el documento
@@ -267,6 +275,30 @@
               <button class="ui-btn ui-btn-secondary" type="button" data-settings-tab="help"><span
                   class="ic">help</span>Ver ayuda</button>
             </div>
+          </div>
+
+          <div class="settings-panel" id="panelMoodle" role="tabpanel" hidden>
+            <p>Ingresa con tu <b>usuario y contraseña de Moodle</b> para responder con tus materiales reales y abrirlos
+              desde este chat. Tu contraseña viaja directamente a Moodle: no se guarda ni pasa por un servidor nuestro.</p>
+            <form class="ui-form ui-form-settings" id="moodleForm" autocomplete="off">
+              <label class="ui-field">
+                <span class="ui-label">Usuario de Moodle</span>
+                <input class="ui-input" id="moodleUsername" type="text" autocomplete="username" spellcheck="false" />
+              </label>
+              <label class="ui-field">
+                <span class="ui-label">Contraseña de Moodle</span>
+                <input class="ui-input" id="moodlePassword" type="password" autocomplete="current-password" />
+              </label>
+              <p class="ui-hint" id="moodleStatus" role="status">Sin conectar.</p>
+              <div class="note"><span class="ic sm">info</span><span>Moodle devuelve un token que se guarda solo en este
+                  navegador para no pedir tu contraseña en cada visita. Si el servicio no está habilitado para tu cuenta,
+                  pide al TL que lo active.</span></div>
+              <div class="modal-actions">
+                <button type="button" class="ui-btn ui-btn-tertiary" id="moodleDisconnect">Desconectar</button>
+                <button type="submit" class="ui-btn ui-btn-primary">Ingresar y conectar</button>
+              </div>
+            </form>
+            <div class="moodle-courses" id="moodleCourses" hidden></div>
           </div>
         </div>
       </div>
