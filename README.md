@@ -71,7 +71,9 @@ con el siguiente modelo gratuito de la lista antes de mostrar el error.
 
 La interfaz usa una **barra superior** (logo, menú, nueva conversación y avatar), no un menú
 lateral. El botón de menú despliega el historial y las opciones hacia abajo; el avatar abre la
-misma configuración de IA.
+misma configuración de IA. En el modal de Configuración, las secciones (IA, Chats e historial,
+Ayuda y TL) se muestran como una **barra horizontal arriba**, con desplazamiento lateral si no
+caben todas en la pantalla.
 
 ## Privacidad (importante)
 

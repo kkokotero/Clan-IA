@@ -1258,6 +1258,15 @@ $("#aiTest").addEventListener("click", async () => {
 });
 
 /* ---------- Secciones de configuración ---------- */
+const settingsTabs = document.querySelector(".settings-tabs");
+const tabsQuery = window.matchMedia("(max-width: 600px)");
+/* En móvil las pestañas forman una barra horizontal; en escritorio, una columna */
+function syncTabsOrientation() {
+  if (settingsTabs) settingsTabs.setAttribute("aria-orientation", tabsQuery.matches ? "horizontal" : "vertical");
+}
+tabsQuery.addEventListener("change", syncTabsOrientation);
+syncTabsOrientation();
+
 document.querySelectorAll(".settings-tab").forEach((tab) => {
   tab.addEventListener("click", () => activateSettingsTab(tab.dataset.tab));
 });
