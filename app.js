@@ -49,21 +49,24 @@ Si la respuesta no está en estos documentos, responde exactamente con la palabr
 
 FORMATO DE RESPUESTA (OpenUI Lang):
 1. Responde SOLO con un programa válido de OpenUI Lang: sentencias "nombre = Componente(...)",
-   una por línea, con "root" como entrada. No escribas markdown ni texto fuera del programa.
-2. Usa Card como raíz. TextContent para el resumen; Steps, Table o ListBlock para el detalle.
-   Si el usuario pide una encuesta, formulario o elegir preferencias, usa Form con FormControl y Buttons;
-   el botón lleva @ToAssistant("...") para enviar las respuestas de vuelta.
-   StepsItem siempre lleva dos argumentos: título y detalles.
+   una por línea, con "root = Card(...)" como PRIMERA línea. No escribas markdown ni texto fuera del programa.
+2. Compón la respuesta con variedad: CardHeader o InlineHeader para títulos, TextContent para el
+   resumen y Steps, Table, EntityList, ListBlock, Tabs o Callout para el detalle. Usa Separator
+   para agrupar y FollowUpBlock o Buttons con @ToAssistant("...") para sugerir siguientes pasos.
+3. Si el usuario pide una encuesta, formulario o elegir preferencias, usa Form con FormControl y
+   Buttons explícitos. Cada control lleva una etiqueta breve y una pista (hint) útil; elige Select,
+   Chips, OptionCards, TextArea, CheckBoxGroup o RadioGroup según corresponda, sin pedir datos personales.
+   StepsItem siempre lleva dos argumentos: título y detalles. Toda variable definida debe usarse.
    No añadas bloques de fuente ni notas de autonomía: muestra solo la respuesta desarrollada.
-3. Si la respuesta no está en los documentos, responde exactamente con la palabra: NO_SE.
-4. Nunca inventes datos. Nunca menciones APIs, claves ni tecnología interna.
+4. Si la respuesta no está en los documentos, responde exactamente con la palabra: NO_SE.
+5. Nunca inventes datos (ni cifras para gráficas). Nunca menciones APIs, claves ni tecnología interna.
 
 REGLAS DE ÉTICA Y PRIVACIDAD (obligatorias):
-5. PRIVACIDAD: Nunca solicites datos personales (correo, celular, cédula, datos de salud). Si el usuario los comparte, ignóralos y no los repitas. Nunca incluyas correos, teléfonos, números de identificación ni datos médicos en tu respuesta.
-6. SESGOS: Responde de manera equitativa. Ante casos iguales, da respuestas iguales sin importar quién pregunte. Si tu respuesta difiere para un caso similar, explica claramente la razón.
-7. SIN FUENTES: No menciones los nombres de los documentos, sus archivos ni ninguna sección "Sources"/"Fuente". No uses los componentes Sources ni CardSourceProvider. Usa la información sin citarla.
-8. TRANSPARENCIA IA: No lo aclares en el texto; la interfaz ya lo indica.
-9. AUTONOMÍA: Tu rol es INFORMAR, nunca decidir por el usuario. No añadas notas sobre quién decide.
+6. PRIVACIDAD: Nunca solicites datos personales (correo, celular, cédula, datos de salud). Si el usuario los comparte, ignóralos y no los repitas. Nunca incluyas correos, teléfonos, números de identificación ni datos médicos en tu respuesta.
+7. SESGOS: Responde de manera equitativa. Ante casos iguales, da respuestas iguales sin importar quién pregunte. Si tu respuesta difiere para un caso similar, explica claramente la razón.
+8. SIN FUENTES: No menciones los nombres de los documentos, sus archivos ni ninguna sección "Sources"/"Fuente". No uses los componentes Sources ni CardSourceProvider. Usa la información sin citarla.
+9. TRANSPARENCIA IA: No lo aclares en el texto; la interfaz ya lo indica.
+10. AUTONOMÍA: Tu rol es INFORMAR, nunca decidir por el usuario. No añadas notas sobre quién decide.
 
 DOCUMENTOS DE LA COHORTE:
 
@@ -90,35 +93,63 @@ function buildSystemPrompt() {
     return lib.prompt({
       preamble: SYSTEM_PROMPT,
       examples: [
-        `root = Card([title, detail, steps])
-title = TextContent("Próxima sesión de IA", "large-heavy")
-detail = TextContent("Jueves 26 de noviembre de 2026, 6:00 p.m. (hora de Colombia), virtual.", "default")
-steps = Steps([s1, s2])
+        `root = Card([head, summary, note, sep, agenda, next])
+head = CardHeader("Próxima sesión de IA", "Jueves 26 de noviembre de 2026")
+summary = TextContent("Sesión virtual a las 6:00 p. m. (hora de Colombia). Tema: Introducción a los modelos de lenguaje.", "default")
+note = Callout("info", "Modalidad", "Virtual, con materiales en la carpeta de la cohorte.")
+sep = Separator("horizontal", true)
+agenda = Steps([s1, s2])
 s1 = StepsItem("Tema", "Introducción a los modelos de lenguaje")
-s2 = StepsItem("Modalidad", "Virtual, con materiales en la carpeta de la cohorte")`,
-        `root = Card([title, tbl])
-title = TextContent("Actividades pendientes", "large-heavy")
-tbl = Table([Col("Actividad", acts), Col("Vencimiento", dates)])
-acts = ["Taller de prompts", "Reflexión de la sesión 8", "Avance del proyecto"]
-dates = ["27 de noviembre", "29 de noviembre", "1 de diciembre"]`,
-        `root = Card([title, intro, survey])
-title = TextContent("¿Cómo prefieres tu seguimiento?", "large-heavy")
+s2 = StepsItem("Modalidad", "Virtual")
+next = FollowUpBlock([q1, q2])
+q1 = FollowUpItem("¿Qué actividades tengo pendientes?")
+q2 = FollowUpItem("¿Dónde encuentro los materiales?")`,
+        `root = Card([head, tbl, keyFact, tags, actions])
+head = CardHeader("Actividades pendientes")
+tbl = Table([colAct, colDate])
+colAct = Col("Actividad", ["Taller de prompts", "Reflexión de la sesión 8", "Avance del proyecto"])
+colDate = Col("Vencimiento", ["27 de noviembre", "29 de noviembre", "1 de diciembre"])
+keyFact = EntityList([{left: "Más próxima", right: "Taller de prompts", rightVariant: "text"}])
+tags = TagBlock(["27 nov", "29 nov", "1 dic"], "sm")
+actions = Buttons([ask1])
+ask1 = Button("Ver materiales", @ToAssistant("¿Dónde encuentro los materiales de estudio?"), "secondary")`,
+        `root = Card([head, views])
+head = CardHeader("Entrega del proyecto")
+views = Tabs([tabDate, tabSteps])
+tabDate = TabItem("fecha", "Fecha límite", [deadline, deliveryNote])
+deadline = TextContent("Viernes 4 de diciembre de 2026, hasta las 11:59 p. m.", "large-heavy")
+deliveryNote = Callout("warning", "Forma de entrega", "Carga el enlace del repositorio en la plataforma de la cohorte.")
+tabSteps = TabItem("pasos", "Cómo entregar", [stepsHead, stepsList])
+stepsHead = InlineHeader("Pasos", "Sigue estos pasos")
+stepsList = ListBlock([li1, li2])
+li1 = ListItem("Prepara el repositorio", "Con tu proyecto final")
+li2 = ListItem("Carga el enlace", "En la plataforma de la cohorte")`,
+        `root = Card([head, intro, survey, follow])
+head = CardHeader("¿Cómo prefieres tu seguimiento?")
 intro = TextContent("Elige tus preferencias para adaptar las próximas respuestas.", "default")
-survey = Form("preferencias", buttons, [fTema, fRitmo])
-buttons = Buttons([sendBtn])
-sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"))
+survey = Form("preferencias", buttons, [fTema, fRitmo, fDetalle, fFormato])
+buttons = Buttons([sendBtn, skipBtn])
+sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"), "primary")
+skipBtn = Button("Omitir", @ToAssistant("Continuar sin preferencias"), "secondary")
 fTema = FormControl("Tema de interés", Select("tema", [t1, t2], "Elige un tema"), "¿Qué quieres ver primero?")
 t1 = SelectItem("sesiones", "Sesiones y calendario")
 t2 = SelectItem("proyecto", "Entrega del proyecto")
 fRitmo = FormControl("Ritmo", Chips("ritmo", "single", [c1, c2]), "Elige una opción")
 c1 = ChipItem("breve", "Breve y directo")
-c2 = ChipItem("detallado", "Con detalle")`,
+c2 = ChipItem("detallado", "Con detalle")
+fDetalle = FormControl("Mejoras sugeridas", TextArea("comentario", "Escribe tus ideas (opcional)", 3), "Opcional")
+fFormato = FormControl("Formato", OptionCards("formato", "single", [oc1, oc2]), "Elige cómo ver la información")
+oc1 = OptionCard("pasos", "Paso a paso", "Con instrucciones ordenadas")
+oc2 = OptionCard("tabla", "Tabla", "Comparativa rápida")
+follow = FollowUpBlock([q1])
+q1 = FollowUpItem("Ver el calendario de la cohorte")`,
       ],
       additionalRules: [
         "Responde en español neutro con detalle y claridad: desarrolla cada dato con contexto útil, no des solo una frase. Objetivo: 120 a 250 palabras cuando el tema lo permita.",
-        "Usa siempre OpenUI Lang con varios componentes: Card como raíz, TextContent para el resumen y Steps, Table o ListBlock para el detalle. Aprovecha todos los datos disponibles del documento.",
-        "Cuando el usuario pida una encuesta, formulario, preferencias o una selección, usa Form como hijo de Card. Define cada FormControl en su propia línea con Input, TextArea, Select, Chips, RadioGroup o CheckBoxGroup, y pasa Buttons([Button(...)]) como segundo argumento de Form con @ToAssistant(\"Enviar\"). Nunca pidas datos personales.",
-        "StepsItem exige dos argumentos posicionales: título y detalles, por ejemplo StepsItem(\"Tema\", \"Introducción a los modelos de lenguaje\"). Nunca lo escribas con un solo argumento.",
+        "Escribe root = Card(...) como primera línea y define cada variable en su propia línea; toda variable definida debe aparecer dentro de otra componente (si no, no se renderiza). Usa argumentos posicionales, nunca 'clave: valor'.",
+        "Aprovecha todos los datos del documento y elige la vista que mejor los represente: Table o EntityList para datos sueltos, Steps o ListBlock para procesos, Tabs para alternativas, Callout para avisos y FollowUpBlock o Buttons con @ToAssistant(\"...\") para invitar a seguir preguntando. Usa Separator o InlineHeader para organizar bloques largos.",
+        "Cuando el usuario pida una encuesta, formulario, preferencias o una selección, usa Form como hijo de Card. Define cada FormControl en su propia línea con Input, TextArea, Select, Chips, OptionCards, RadioGroup, CheckBoxGroup o DatePicker, añade una pista breve como tercer argumento y pasa Buttons([Button(...)]) como segundo argumento de Form con @ToAssistant(\"Enviar\"). Nunca pidas datos personales.",
+        "StepsItem exige dos argumentos posicionales: título y detalles, por ejemplo StepsItem(\"Tema\", \"Introducción a los modelos de lenguaje\"). Nunca lo escribas con un solo argumento. No inventes cifras para charts: los documentos solo tienen fechas y texto.",
         "Los datos enviados en un formulario te llegan como 'Datos del formulario: {...}' en el siguiente mensaje: úsalos para adaptar la respuesta, sin repetir datos personales.",
         "Nunca pidas datos personales ni los repitas en el programa.",
         "No uses Sources, CardSourceProvider ni ninguna lista de fuentes. No escribas la palabra 'Fuente' ni nombres de archivos PDF. Usa los datos sin citarlos.",
@@ -126,7 +157,7 @@ c2 = ChipItem("detallado", "Con detalle")`,
       ],
     });
   }
-  return SYSTEM_PROMPT + "\n\nFormato OpenUI Lang: una sentencia por línea; root = Card([...]); usa TextContent, Steps, ListBlock y Callout. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes.";
+  return SYSTEM_PROMPT + "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes.";
 }
 
 const SOURCE_MAP = {
@@ -239,21 +270,27 @@ keywords: ["material", "recurso", "estudio", "documento", "apuntes", "diapositiv
 ];
 
 /* Encuesta interactiva de demostración (programa validado con el bundle de OpenUI) */
-const DEMO_SURVEY = `root = Card([title, intro, survey])
-title = TextContent("¿Cómo prefieres tu seguimiento?", "large-heavy")
+const DEMO_SURVEY = `root = Card([head, intro, survey, follow])
+head = CardHeader("¿Cómo prefieres tu seguimiento?", "Tus respuestas se usan solo en este chat")
 intro = TextContent("Elige tus preferencias para adaptar las próximas respuestas.", "default")
-survey = Form("preferencias", buttons, [fTema, fRitmo, fDetalle])
-buttons = Buttons([sendBtn])
-sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"))
+survey = Form("preferencias", buttons, [fTema, fRitmo, fFormato, fDetalle])
+buttons = Buttons([sendBtn, skipBtn])
+sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"), "primary")
+skipBtn = Button("Omitir", @ToAssistant("Continuar sin preferencias"), "secondary")
 fTema = FormControl("Tema de interés", Select("tema", [t1, t2, t3], "Elige un tema"), "¿Qué quieres ver primero?")
 t1 = SelectItem("sesiones", "Sesiones y calendario")
 t2 = SelectItem("proyecto", "Entrega del proyecto")
 t3 = SelectItem("materiales", "Materiales de estudio")
-fRitmo = FormControl("Ritmo de las respuestas", Chips("ritmo", "single", [c1, c2, c3]), "Elige una opción")
+fRitmo = FormControl("Ritmo de las respuestas", Chips("ritmo", "single", [c1, c2, c3]), "Elige una sola opción")
 c1 = ChipItem("breve", "Breve y directo")
 c2 = ChipItem("detallado", "Con detalle")
 c3 = ChipItem("ejemplos", "Con ejemplos")
-fDetalle = FormControl("Comentario", TextArea("comentario", "¿Qué te gustaría mejorar?", 3), "Opcional")`;
+fFormato = FormControl("Formato preferido", OptionCards("formato", "single", [oc1, oc2]), "Elige cómo ver la información")
+oc1 = OptionCard("pasos", "Paso a paso", "Instrucciones ordenadas")
+oc2 = OptionCard("tabla", "Tabla", "Comparativa rápida")
+fDetalle = FormControl("Mejoras sugeridas", TextArea("comentario", "Escribe tus ideas (opcional)", 3), "Opcional")
+follow = FollowUpBlock([q1])
+q1 = FollowUpItem("Ver el calendario de la cohorte")`;
 
 function formatFormValue(value) {
   if (Array.isArray(value)) return value.map(formatFormValue).join(", ");
@@ -266,15 +303,20 @@ function formatFormValue(value) {
   }
   return String(value);
 }
+const FORM_LABELS = { tema: "Tema", ritmo: "Ritmo", formato: "Formato", comentario: "Comentario" };
 function formSubmissionAnswer(question) {
   let data = {};
   const match = question.match(/Datos del formulario:\s*(\{[\s\S]*\})/);
   if (match) { try { data = JSON.parse(match[1]); } catch (e) { data = {}; } }
   const rows = Object.entries(data)
-    .map(([k, v]) => `<li><b>${escapeHTML(k)}:</b> ${escapeHTML(formatFormValue(v))}</li>`)
+    .map(([k, v]) => [FORM_LABELS[k] || k.replace(/[_-]/g, " ").replace(/^./, (c) => c.toUpperCase()), formatFormValue(v)])
+    .filter(([, value]) => Boolean(value) && value !== "undefined")
+    .map(([label, value]) =>
+      `<li><span class="fi">${icon("check_circle")}</span><span class="ft"><b>${escapeHTML(label)}</b><span>${escapeHTML(value)}</span></span></li>`)
     .join("");
   return { type: "answer", short: "¡Listo! Recibí tus respuestas",
-    html: `<p>Con esto puedo adaptar las próximas respuestas a tus preferencias.</p><ul>${rows || "<li>No se recibieron datos.</li>"}</ul>`,
+    html: `<p>Con esto puedo adaptar las próximas respuestas a tus preferencias.</p>` +
+      (rows ? `<ul class="facts">${rows}</ul>` : `<p class="muted">No se recibieron datos.</p>`),
     noSource: true };
 }
 

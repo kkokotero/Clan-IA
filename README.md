@@ -54,14 +54,23 @@ con el siguiente modelo gratuito de la lista antes de mostrar el error.
 - `app.js` usa `openuiChatLibrary.prompt({...})` para generar el system prompt: así el modelo
   conoce la sintaxis y los componentes permitidos. Las reglas de la cohorte y de privacidad se
   pasan como `preamble`.
-- La IA devuelve un programa OpenUI Lang (por ejemplo `root = Card([title, detail, steps])`) y
-  el `Renderer` lo convierte en interfaz dentro de cada mensaje.
+- La IA devuelve un programa OpenUI Lang (siempre empieza con `root = Card(...)`) y el
+  `Renderer` lo convierte en interfaz dentro de cada mensaje. El prompt incluye ejemplos y
+  reglas para combinar **tarjetas, encabezados, callouts, separadores, pasos, tablas, listas,
+  entidades, pestañas, etiquetas, botones y sugerencias de seguimiento**, eligiendo la vista
+  según el contenido; no inventa cifras para gráficas.
 - La respuesta llega **en tiempo real**: se usa `streamGenerateContent` (Gemini) o `stream: true`
   (OpenRouter) y la interfaz se redibuja con cada fragmento. Si el streaming falla, se usa la
   llamada normal.
 - El prompt pide respuestas desarrolladas (120–250 palabras) con varios componentes OpenUI,
   prohíbe `Sources`/`CardSourceProvider` y **no muestra nombres de documentos, PDFs, bloques de
   fuente ni notas de autonomía** en los mensajes.
+- Los **formularios generados** (encuestas y preferencias) usan `Form` con `FormControl`, pistas,
+  `Select`, `Chips`, `OptionCards`, `TextArea`, casillas y botones primarios/secundarios. El CSS
+  les da una tarjeta propia, más espacio, estados seleccionados con la paleta de la app, botones
+  de 44 px y una columna en móvil; el encabezado «Related Queries» se muestra en español.
+- Al enviar un formulario, la respuesta resume las preferencias en una **lista de datos con
+  etiquetas legibles** en lugar de una lista de texto plano.
 - El CSS fuerza **colores oscuros y legibles** dentro de la respuesta OpenUI (OpenUI trae textos
   grises muy claros por defecto) y oculta cualquier sección de fuentes que el renderer genere.
 - Si no hay conexión con el CDN, se usa un prompt mínimo y las respuestas se muestran como texto.

@@ -302,16 +302,133 @@ body.ai-off { filter: grayscale(1); }
   --openui-radius-xl: 28px;
 }
 /* Controles interactivos con el mismo lenguaje visual que el resto de la app */
-.openui-select-trigger,
-.openui-input,
-.openui-textarea {
-  border-radius: var(--r-sm) !important;
-  border: 1px solid var(--outline-variant) !important;
+.card-openui .openui-mount { --openui-space-m: 16px; --openui-space-l: 22px; }
+.card-openui .openui-mount .openui-select-trigger,
+.card-openui .openui-mount .openui-input,
+.card-openui .openui-mount .openui-textarea {
+  border-radius: 14px !important;
+  border: 1px solid var(--outline) !important;
   background: var(--surface) !important;
+  color: var(--on-surface);
   font-family: inherit;
+  font-size: .92rem;
 }
-.openui-chip-item,
-.openui-button-base { border-radius: 999px !important; font-family: inherit; }
+.card-openui .openui-mount .openui-input,
+.card-openui .openui-mount .openui-textarea { padding: 12px 14px; }
+.card-openui .openui-mount .openui-textarea { min-height: 88px; resize: vertical; }
+.card-openui .openui-mount .openui-input::placeholder,
+.card-openui .openui-mount .openui-textarea::placeholder { color: #8A8695; }
+.card-openui .openui-mount .openui-input:focus,
+.card-openui .openui-mount .openui-textarea:focus,
+.card-openui .openui-mount .openui-select-trigger[data-state="open"] {
+  outline: none; border-color: var(--primary) !important; box-shadow: 0 0 0 1px var(--primary);
+}
+
+/* Formularios: tarjeta, etiquetas, pistas y botones */
+.card-openui .openui-mount [role="form"] {
+  padding: 18px; border: 1px solid var(--outline-variant);
+  border-radius: var(--r-lg); background: var(--surface);
+}
+.card-openui .openui-mount .openui-form-control { display: grid; gap: 6px; }
+.card-openui .openui-mount .openui-label {
+  font-family: inherit; font-size: .88rem; font-weight: 600; color: var(--on-surface);
+}
+.card-openui .openui-mount .openui-hint { font-size: .78rem; color: var(--on-surface-variant); }
+.card-openui .openui-mount .openui-hint-error { color: var(--error); }
+.card-openui .openui-mount .openui-input-error,
+.card-openui .openui-mount .openui-textarea-error { border-color: var(--error) !important; }
+.card-openui .openui-mount .openui-chips { gap: 8px; flex-wrap: wrap; }
+.card-openui .openui-mount .openui-chip-item,
+.card-openui .openui-mount .openui-button-base { border-radius: 999px !important; font-family: inherit; }
+.card-openui .openui-mount .openui-chip-item {
+  min-height: 38px; padding: 0 14px; font-size: .85rem; font-weight: 500;
+  border: 1px solid var(--outline) !important;
+  background: var(--surface) !important; color: var(--on-surface-variant);
+  transition: background-color .18s, border-color .18s, color .18s;
+}
+.card-openui .openui-mount .openui-chip-item:hover {
+  background: var(--state-hover) !important; border-color: var(--primary) !important; color: var(--primary);
+}
+.card-openui .openui-mount .openui-chip-item[aria-selected="true"],
+.card-openui .openui-mount .openui-chip-item--selected {
+  background: var(--primary-container) !important; border-color: var(--primary) !important;
+  color: var(--on-primary-container) !important; font-weight: 600;
+}
+.card-openui .openui-mount .openui-checkbox-group,
+.card-openui .openui-mount .openui-radio-group { gap: 8px; }
+.card-openui .openui-mount .openui-checkbox-item-container,
+.card-openui .openui-mount .openui-radio-item-container {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--outline-variant); border-radius: var(--r-sm); background: var(--surface-low);
+}
+.card-openui .openui-mount .openui-checkbox-item-root,
+.card-openui .openui-mount .openui-radio-item-root {
+  width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--outline);
+}
+.card-openui .openui-mount .openui-checkbox-item-root[data-state="checked"],
+.card-openui .openui-mount .openui-radio-item-root[data-state="checked"] {
+  background: var(--primary); border-color: var(--primary);
+}
+.card-openui .openui-mount .openui-checkbox-item-label,
+.card-openui .openui-mount .openui-radio-item-label {
+  font-family: inherit; font-size: .9rem; font-weight: 500; color: var(--on-surface);
+}
+.card-openui .openui-mount .openui-checkbox-item-description,
+.card-openui .openui-mount .openui-radio-item-description {
+  font-size: .78rem; color: var(--on-surface-variant);
+}
+.card-openui .openui-mount .openui-option-cards__grid { gap: 10px; }
+.card-openui .openui-mount .openui-option-card {
+  min-height: 72px; padding: 14px; text-align: left;
+  border: 1px solid var(--outline-variant) !important;
+  border-radius: var(--r-md) !important; background: var(--surface-low) !important;
+  transition: background-color .18s, border-color .18s;
+}
+.card-openui .openui-mount .openui-option-card:hover {
+  background: var(--state-hover) !important; border-color: var(--primary) !important;
+}
+.card-openui .openui-mount .openui-option-card[aria-checked="true"],
+.card-openui .openui-mount .openui-option-card--selected {
+  background: var(--primary-container) !important; border-color: var(--primary) !important;
+}
+.card-openui .openui-mount .openui-option-card__title { font-size: .9rem; }
+.card-openui .openui-mount .openui-option-card__subtitle { font-size: .78rem; color: var(--on-surface-variant); }
+.card-openui .openui-mount .openui-buttons { flex-wrap: wrap; gap: 10px; }
+.card-openui .openui-mount .openui-button-base {
+  min-height: 44px; padding: 0 20px; font-size: .9rem; font-weight: 600;
+}
+.card-openui .openui-mount .openui-button-base-secondary {
+  border: 1px solid var(--outline); color: var(--primary); background: var(--surface);
+}
+.card-openui .openui-mount .openui-button-base-secondary:hover {
+  background: var(--state-hover); border-color: var(--primary);
+}
+
+/* Listas, pestañas y sugerencias generadas por la IA */
+.card-openui .openui-mount .openui-list-item { padding: 10px 12px; border-radius: var(--r-sm); }
+.card-openui .openui-mount .openui-list-item-clickable:hover { background: var(--state-hover); }
+.card-openui .openui-mount .openui-list-item-title { font-size: .9rem; font-weight: 500; }
+.card-openui .openui-mount .openui-list-item-subtitle { font-size: .8rem; color: var(--on-surface-variant); }
+.card-openui .openui-mount .openui-tabs-trigger {
+  border-radius: 10px 10px 0 0; font-family: inherit; font-size: .87rem; font-weight: 500;
+}
+.card-openui .openui-mount .openui-tabs-trigger[data-state="active"] { color: var(--primary); }
+.card-openui .openui-mount .openui-tabs-indicator { background: var(--primary); }
+.card-openui .openui-mount .openui-follow-up-block__header { font-size: 0; }
+.card-openui .openui-mount .openui-follow-up-block__header::after {
+  content: "Preguntas relacionadas"; font-size: .78rem; font-weight: 600; color: var(--on-surface-variant);
+}
+.card-openui .openui-mount .openui-follow-up-item {
+  display: inline-flex; align-self: flex-start; width: auto; margin: 0 6px 6px 0; padding: 8px 14px;
+  border: 1px solid var(--outline-variant); border-radius: 999px; background: var(--surface);
+  font-family: inherit; font-size: .85rem; color: var(--primary);
+  transition: background-color .18s, border-color .18s;
+}
+.card-openui .openui-mount .openui-follow-up-item:last-child { border-bottom: 1px solid var(--outline-variant); }
+.card-openui .openui-mount .openui-follow-up-item-text { color: var(--primary); }
+.card-openui .openui-mount .openui-follow-up-item:hover {
+  background: var(--state-hover); border-color: var(--primary);
+}
 
 .card-openui .openui-mount {
   min-width: 0; margin-top: 8px; overflow-x: auto; color: #24212C;
@@ -591,6 +708,8 @@ body.ai-off { filter: grayscale(1); }
   .btn { min-height: 44px; }
   .source .btn { min-height: 40px; }
   .disclaimer { font-size: .72rem; }
+  .card-openui .openui-mount [role="form"] { padding: 14px; }
+  .card-openui .openui-mount .openui-option-cards__row--2 { grid-template-columns: 1fr; }
   .modal { align-items: end; padding: 0; }
   .modal-card { border-radius: 28px 28px 0 0; max-width: none; }
   #settingsModal .modal-card { padding: 24px 16px 18px; }
