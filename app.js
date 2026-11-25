@@ -954,12 +954,34 @@ function readModel() {
     : modelSelect.value;
 }
 
+function activateSettingsTab(name) {
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
+    const active = tab.dataset.tab === name;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+  });
+  const ia = name === "ia";
+  $("#panelIA").hidden = !ia;
+  $("#panelChats").hidden = ia;
+}
+
+function updateHistoryStats() {
+  const el = $("#historyStats");
+  if (!el) return;
+  const total = conversations.reduce((n, c) => n + (c.messages ? c.messages.length : 0), 0);
+  el.innerHTML = `<div class="stat"><b>${conversations.length}</b><span>Conversaciones</span></div>` +
+    `<div class="stat"><b>${total}</b><span>Mensajes</span></div>`;
+  $("#deleteCurrent").disabled = !current();
+}
+
 function openSettings() {
   const s = getSettings();
   providerSel.value = s.provider;
   keyInput.value = s.apiKey;
   populateModels(s.provider, s.model);
   helpText.textContent = PROVIDERS[s.provider].help;
+  activateSettingsTab("ia");
+  updateHistoryStats();
   openModal("settingsModal");
 }
 /* El perfil del usuario es la entrada a la configuración local de la IA */
@@ -1016,6 +1038,37 @@ $("#aiTest").addEventListener("click", async () => {
   } finally {
     btn.disabled = false;
   }
+});
+
+/* ---------- Chats e historial ---------- */
+document.querySelectorAll(".settings-tab").forEach((tab) => {
+  tab.addEventListener("click", () => activateSettingsTab(tab.dataset.tab));
+});
+
+$("#exportHistory").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(conversations, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "ritchie-ia-historial.json";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$("#deleteCurrent").addEventListener("click", () => {
+  if (!current() || !confirm("¿Borrar la conversación actual?")) return;
+  conversations = conversations.filter((c) => c.id !== currentId);
+  currentId = null;
+  save(); renderHistory(); renderChat(); updateHistoryStats();
+});
+
+$("#clearHistory").addEventListener("click", () => {
+  if (!conversations.length || !confirm("¿Borrar todas las conversaciones? Esta acción no se puede deshacer.")) return;
+  conversations = [];
+  currentId = null;
+  save(); renderHistory(); renderChat(); updateHistoryStats();
 });
 
 document.querySelectorAll(".modal").forEach((m) =>
