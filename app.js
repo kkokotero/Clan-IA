@@ -51,6 +51,9 @@ FORMATO DE RESPUESTA (OpenUI Lang):
 1. Responde SOLO con un programa válido de OpenUI Lang: sentencias "nombre = Componente(...)",
    una por línea, con "root" como entrada. No escribas markdown ni texto fuera del programa.
 2. Usa Card como raíz. TextContent para el resumen; Steps, Table o ListBlock para el detalle.
+   Si el usuario pide una encuesta, formulario o elegir preferencias, usa Form con FormControl y Buttons;
+   el botón lleva @ToAssistant("...") para enviar las respuestas de vuelta.
+   StepsItem siempre lleva dos argumentos: título y detalles.
    No añadas bloques de fuente ni notas de autonomía: muestra solo la respuesta desarrollada.
 3. Si la respuesta no está en los documentos, responde exactamente con la palabra: NO_SE.
 4. Nunca inventes datos. Nunca menciones APIs, claves ni tecnología interna.
@@ -98,13 +101,27 @@ title = TextContent("Actividades pendientes", "large-heavy")
 tbl = Table([Col("Actividad", acts), Col("Vencimiento", dates)])
 acts = ["Taller de prompts", "Reflexión de la sesión 8", "Avance del proyecto"]
 dates = ["27 de noviembre", "29 de noviembre", "1 de diciembre"]`,
+        `root = Card([title, intro, survey])
+title = TextContent("¿Cómo prefieres tu seguimiento?", "large-heavy")
+intro = TextContent("Elige tus preferencias para adaptar las próximas respuestas.", "default")
+survey = Form("preferencias", buttons, [fTema, fRitmo])
+buttons = Buttons([sendBtn])
+sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"))
+fTema = FormControl("Tema de interés", Select("tema", [t1, t2], "Elige un tema"), "¿Qué quieres ver primero?")
+t1 = SelectItem("sesiones", "Sesiones y calendario")
+t2 = SelectItem("proyecto", "Entrega del proyecto")
+fRitmo = FormControl("Ritmo", Chips("ritmo", "single", [c1, c2]), "Elige una opción")
+c1 = ChipItem("breve", "Breve y directo")
+c2 = ChipItem("detallado", "Con detalle")`,
       ],
       additionalRules: [
         "Responde en español neutro con detalle y claridad: desarrolla cada dato con contexto útil, no des solo una frase. Objetivo: 120 a 250 palabras cuando el tema lo permita.",
         "Usa siempre OpenUI Lang con varios componentes: Card como raíz, TextContent para el resumen y Steps, Table o ListBlock para el detalle. Aprovecha todos los datos disponibles del documento.",
+        "Cuando el usuario pida una encuesta, formulario, preferencias o una selección, usa Form como hijo de Card. Define cada FormControl en su propia línea con Input, TextArea, Select, Chips, RadioGroup o CheckBoxGroup, y pasa Buttons([Button(...)]) como segundo argumento de Form con @ToAssistant(\"Enviar\"). Nunca pidas datos personales.",
+        "StepsItem exige dos argumentos posicionales: título y detalles, por ejemplo StepsItem(\"Tema\", \"Introducción a los modelos de lenguaje\"). Nunca lo escribas con un solo argumento.",
+        "Los datos enviados en un formulario te llegan como 'Datos del formulario: {...}' en el siguiente mensaje: úsalos para adaptar la respuesta, sin repetir datos personales.",
         "Nunca pidas datos personales ni los repitas en el programa.",
         "No uses Sources, CardSourceProvider ni ninguna lista de fuentes. No escribas la palabra 'Fuente' ni nombres de archivos PDF. Usa los datos sin citarlos.",
-        "No uses acciones, formularios ni consultas: solo componentes de contenido.",
         "No incluyas bloques de código markdown: devuelve únicamente el programa OpenUI Lang.",
       ],
     });
@@ -221,6 +238,46 @@ keywords: ["material", "recurso", "estudio", "documento", "apuntes", "diapositiv
   },
 ];
 
+/* Encuesta interactiva de demostración (programa validado con el bundle de OpenUI) */
+const DEMO_SURVEY = `root = Card([title, intro, survey])
+title = TextContent("¿Cómo prefieres tu seguimiento?", "large-heavy")
+intro = TextContent("Elige tus preferencias para adaptar las próximas respuestas.", "default")
+survey = Form("preferencias", buttons, [fTema, fRitmo, fDetalle])
+buttons = Buttons([sendBtn])
+sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"))
+fTema = FormControl("Tema de interés", Select("tema", [t1, t2, t3], "Elige un tema"), "¿Qué quieres ver primero?")
+t1 = SelectItem("sesiones", "Sesiones y calendario")
+t2 = SelectItem("proyecto", "Entrega del proyecto")
+t3 = SelectItem("materiales", "Materiales de estudio")
+fRitmo = FormControl("Ritmo de las respuestas", Chips("ritmo", "single", [c1, c2, c3]), "Elige una opción")
+c1 = ChipItem("breve", "Breve y directo")
+c2 = ChipItem("detallado", "Con detalle")
+c3 = ChipItem("ejemplos", "Con ejemplos")
+fDetalle = FormControl("Comentario", TextArea("comentario", "¿Qué te gustaría mejorar?", 3), "Opcional")`;
+
+function formatFormValue(value) {
+  if (Array.isArray(value)) return value.map(formatFormValue).join(", ");
+  if (value && typeof value === "object") {
+    if (Object.prototype.hasOwnProperty.call(value, "value")) return formatFormValue(value.value);
+    return Object.entries(value)
+      .filter(([k]) => k !== "componentType")
+      .map(([k, v]) => `${k}: ${formatFormValue(v)}`)
+      .join(" · ");
+  }
+  return String(value);
+}
+function formSubmissionAnswer(question) {
+  let data = {};
+  const match = question.match(/Datos del formulario:\s*(\{[\s\S]*\})/);
+  if (match) { try { data = JSON.parse(match[1]); } catch (e) { data = {}; } }
+  const rows = Object.entries(data)
+    .map(([k, v]) => `<li><b>${escapeHTML(k)}:</b> ${escapeHTML(formatFormValue(v))}</li>`)
+    .join("");
+  return { type: "answer", short: "¡Listo! Recibí tus respuestas",
+    html: `<p>Con esto puedo adaptar las próximas respuestas a tus preferencias.</p><ul>${rows || "<li>No se recibieron datos.</li>"}</ul>`,
+    noSource: true };
+}
+
 /* Temas sensibles: se derivan a una persona */
 const SENSITIVE = [
   "salud", "enfermo", "enferma", "enfermedad", "medic", "depres", "ansiedad", "estres", "triste", "suicid",
@@ -304,6 +361,10 @@ function load() {
 /* ---------- Motor de respuesta simulado ---------- */
 function resolveAnswer(question) {
   const q = normalize(question);
+  if (/datos del formulario/i.test(question)) return formSubmissionAnswer(question);
+  if (/(encuesta|formulario|preferencias|prefieres|elegir opciones|valorar|calificar)/.test(q)) {
+    return { type: "openui", response: DEMO_SURVEY };
+  }
   if (SENSITIVE.some((k) => q.includes(k))) return { type: "safety" };
   // Gana el tema con la palabra clave más específica (más larga), no el primero de la lista.
   let hit = null, best = 0;
@@ -522,36 +583,51 @@ async function streamAI(question, settings, onChunk) {
 /* ---------- Render de OpenUI (bundle oficial cargado por CDN) ---------- */
 const openUIRoots = new Map();
 
+/* Acciones de los formularios: el estado se devuelve a la IA como contexto */
+function handleOpenUIAction(action) {
+  if (!action || action.type !== "continue_conversation") return;
+  const state = action.formState;
+  const hasJSON = Boolean(state && typeof state === "object" && Object.keys(state).length);
+  const bits = [];
+  if (action.humanFriendlyMessage) bits.push(action.humanFriendlyMessage);
+  if (hasJSON) bits.push("Datos del formulario: " + JSON.stringify(state));
+  const message = bits.join(" · ") || "Continuar";
+  /* Si hay datos JSON se envían a la IA sin ensuciar el chat; si no, la acción se muestra como mensaje */
+  ask(message, hasJSON);
+}
+
+/* Texto legible si el modelo entrega un programa que OpenUI no puede dibujar */
+function programToText(program) {
+  const strings = program.match(/"((?:\\.|[^"\\])*)"/g) || [];
+  return strings.map((s) => s.slice(1, -1).replace(/\\"/g, '"')).join(" · ");
+}
+
 function mountOpenUI(wrap, response) {
   const sdk = window.__OpenUI;
   const mount = wrap && wrap.querySelector(".openui-mount");
   if (!sdk || !mount || typeof response !== "string") return false;
   try {
+    let failed = false;
     const root = sdk.createRoot(mount);
     root.render(sdk.React.createElement(sdk.Renderer, {
       response,
       library: sdk.openuiChatLibrary,
+      onAction: handleOpenUIAction,
+      onError: (errors) => { if (errors && errors.length) failed = true; },
     }));
     openUIRoots.set(mount, root);
+    /* Solo se valida el programa terminado: los fragmentos del stream no son OpenUI válido */
+    requestAnimationFrame(() => {
+      if (failed || !mount.textContent.trim()) {
+        unmountWrap(wrap);
+        mount.innerHTML = `<p class="openui-fallback">${escapeHTML(programToText(response))}</p>`;
+      }
+    });
     return true;
   } catch (err) {
-    console.error("OpenUI no pudo renderizar:", err);
     mount.textContent = "No se pudo dibujar la interfaz generada.";
     return false;
   }
-}
-
-/* Vuelve a dibujar la interfaz mientras llegan tokens del stream */
-function updateOpenUI(wrap, response) {
-  const sdk = window.__OpenUI;
-  const mount = wrap && wrap.querySelector(".openui-mount");
-  const root = mount && openUIRoots.get(mount);
-  if (!sdk || !root) return false;
-  root.render(sdk.React.createElement(sdk.Renderer, {
-    response,
-    library: sdk.openuiChatLibrary,
-  }));
-  return true;
 }
 
 function unmountWrap(wrap) {
@@ -571,12 +647,10 @@ function unmountOpenUI() {
 /* ---------- Plantillas ---------- */
 function cardHTML(msg) {
   if (msg.type === "openui") {
-    return `<div class="card card-openui"><div class="card-head"><span class="who">Ritchie AI</span></div><div class="openui-mount"></div></div>`;
+    return `<div class="card card-openui"><div class="openui-mount"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Preparando interfaz…</span></div></div></div>`;
   }
   if (msg.type === "answer") {
-    const badge = msg.noSource ? "" : `<span class="badge badge-demo">Datos ficticios de ejemplo · no es información oficial</span>`;
-    const aiBadge = `<span class="badge badge-ia">Esta información fue generada por IA — puede contener errores. Verifica siempre con fuentes oficiales.</span>`;
-    return `<div class="card"><div class="card-head"><span class="who">Ritchie AI</span>${badge}${aiBadge}</div>${msg.short ? `<p class="short">${msg.short}</p>` : ""}${msg.html}</div>`;
+    return `<div class="card">${msg.short ? `<p class="short">${msg.short}</p>` : ""}${msg.html || ""}</div>`;
   }
   if (msg.type === "safety") {
     return `<div class="card is-safety">
@@ -626,7 +700,7 @@ function showThinking() {
   const wrap = document.createElement("div");
   wrap.className = "msg bot";
   wrap.id = "thinking";
-  wrap.innerHTML = LOGO_MINI + `<div class="card"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span>Pensando...</span></div></div>`;
+  wrap.innerHTML = LOGO_MINI + `<div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Pensando...</span></div>`;
   messagesEl.appendChild(wrap);
   scrollDown();
 }
@@ -666,11 +740,13 @@ function renderChat() {
 }
 
 /* ---------- Flujo principal ---------- */
-function ask(question) {
+function ask(question, hidden = false) {
   question = question.trim();
   if (!question || busy) return;
+  const hideMessage = hidden || /Datos del formulario:\s*\{/.test(question);
   if (!current()) {
-    const conv = { id: uid(), title: question.slice(0, 40), messages: [] };
+    const title = hideMessage ? "Encuesta respondida" : question.slice(0, 40);
+    const conv = { id: uid(), title, messages: [] };
     conversations.push(conv);
     currentId = conv.id;
   }
@@ -679,12 +755,14 @@ function ask(question) {
   main.classList.remove("is-empty");
   // Redactar datos personales del input del usuario antes de mostrar
   const safeQuestion = redactPII(question);
-  const userMsg = { role: "user", text: safeQuestion };
-  conv.messages.push(userMsg);
-  appendMessage(userMsg);
+  if (!hideMessage) {
+    const userMsg = { role: "user", text: safeQuestion };
+    conv.messages.push(userMsg);
+    appendMessage(userMsg);
+  }
   renderHistory();
   // Avisar si se detectaron datos personales
-  if (containsPII(question)) {
+  if (!hideMessage && containsPII(question)) {
     const piiWarn = { role: "bot", type: "answer", noSource: true,
       html: `<div class="pii-warning">${icon("security", "lg")} <div><b>Protección de datos personales</b><p>Hemos detectado datos personales en tu mensaje. Por tu seguridad, fueron ocultados automáticamente. Ritchie AI nunca solicita ni almacena datos personales.</p></div></div>` };
     conv.messages.push(piiWarn);
@@ -730,14 +808,12 @@ async function respond(question) {
       try {
         /* La interfaz se va dibujando con cada token que llega */
         const text = await streamAI(question, settings, (partial) => {
-          if (useOpenUI) {
-            updateOpenUI(wrap, partial);
-          } else {
-            const card = wrap.querySelector(".card");
-            if (card) {
-              const lines = cleanResponse(partial).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-              card.innerHTML = `<p class="short">${escapeHTML(lines[0] || "Pensando...")}</p><div class="api-answer">${lines.slice(1).map((l) => `<p>${escapeHTML(l)}</p>`).join("")}</div>`;
-            }
+          /* Los fragmentos no son programas válidos: OpenUI se dibuja al terminar */
+          if (useOpenUI) return;
+          const card = wrap.querySelector(".card");
+          if (card) {
+            const lines = cleanResponse(partial).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+            card.innerHTML = `<p class="short">${escapeHTML(lines[0] || "Pensando...")}</p><div class="api-answer">${lines.slice(1).map((l) => `<p>${escapeHTML(l)}</p>`).join("")}</div>`;
           }
         });
         result = resultFromText(cleanResponse(text), question);
