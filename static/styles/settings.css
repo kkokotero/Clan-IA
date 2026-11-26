@@ -539,3 +539,6 @@
   vertical-align: middle;
   line-height: 1;
 }
+
+.history-card-main { text-decoration: none; color: inherit; }
+.history-card-main:hover b { color: var(--primary); }

@@ -68,6 +68,10 @@ export function ask(question, options = {}) {
     const conv = { id: uid(), title, nodes: [], activeLeafId: null };
     S.conversations.push(conv);
     S.currentId = conv.id;
+    try {
+      if (window.location.pathname === '/chat/')
+        window.history.pushState(null, '', `/chat/?chat=${encodeURIComponent(conv.id)}`);
+    } catch (e) {}
   }
   const conv = current();
   welcome.hidden = true;

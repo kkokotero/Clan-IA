@@ -66,10 +66,10 @@ export function renderHistoryList() {
           ).length;
           const active = c.id === S.currentId;
           return `<div class="history-card${active ? " active" : ""}" data-id="${escapeHTML(c.id)}">
-            <div class="history-card-main">
+            <a class="history-card-main" href="/chat/?chat=${encodeURIComponent(c.id)}">
               <b>${escapeHTML(c.title || "Sin título")}</b>
               <small>${n} mensaje${n === 1 ? "" : "s"}${branches ? ` · ${branches} rama${branches === 1 ? "" : "s"}` : ""}</small>
-            </div>
+            </a>
             <div class="history-card-actions">
               <button type="button" class="icon-btn" data-action="open" aria-label="Abrir conversación"><span class="ic sm">open_in_new</span></button>
               <button type="button" class="icon-btn" data-action="rename" aria-label="Renombrar conversación"><span class="ic sm">edit</span></button>

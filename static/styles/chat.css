@@ -1619,3 +1619,7 @@ a.ui-btn {
   justify-content: center;
 }
 }
+
+/* Enlaces del menú lateral: sin subrayado y con el mismo comportamiento visual. */
+.nav-item,
+.profile { text-decoration: none; }

@@ -140,32 +140,25 @@ export function initChat() {
     });
   });
   
-  $("#tlBtnSide").addEventListener("click", () => {
-    closeMenu();
-    window.location.assign('/settings/tl/');
-  });
-  $("#moodleBtnSide")?.addEventListener("click", () => {
+  $("#tlBtnSide").addEventListener("click", () => closeMenu());
+  $("#moodleBtnSide")?.addEventListener("click", (e) => {
     closeMenu();
     if (!moodleSessionActive()) {
+      e.preventDefault();
       window.location.assign('/');
-      return;
     }
-    const pw = $("#moodlePassword"); if (pw) pw.value = "";
-    updateMoodleUI();
-    window.open(`${getMoodle().base}/my/`, '_blank', 'noopener');
   });
-  $("#logoutBtnSide")?.addEventListener("click", () => {
+  $("#logoutBtnSide")?.addEventListener("click", (e) => {
+    e.preventDefault();
     closeMenu();
     moodleLogout();
   });
-  $("#profileBtn").addEventListener("click", () => {
-    closeMenu();
-    window.location.assign('/settings/ai/');
-  });
+  $("#profileBtn").addEventListener("click", () => closeMenu());
   function startNewChat() {
     if (S.busy) return;
     S.currentId = null;
     S.editingId = null;
+    try { window.history.replaceState(null, '', '/chat/'); } catch (e) {}
     renderChat();
     renderHistory();
     closeMenu();
@@ -180,7 +173,10 @@ export function initChat() {
       e.stopPropagation();
       if (S.busy) return;
       S.conversations = S.conversations.filter((c) => c.id !== del.dataset.del);
-      if (S.currentId === del.dataset.del) S.currentId = null;
+      if (S.currentId === del.dataset.del) {
+        S.currentId = null;
+        try { window.history.replaceState(null, '', '/chat/'); } catch (e) {}
+      }
       save();
       renderChat();
       renderHistory();
@@ -191,7 +187,7 @@ export function initChat() {
       S.currentId = item.dataset.id;
       S.editingId = null;
       try {
-        window.history.replaceState(null, '', `/chat/?chat=${encodeURIComponent(S.currentId)}`);
+        window.history.pushState(null, '', `/chat/?chat=${encodeURIComponent(S.currentId)}`);
       } catch (e) {}
       renderChat();
       renderHistory();
@@ -221,6 +217,16 @@ export function initChat() {
   $("#scrim").addEventListener("click", () => setMenu(false));
   menuQuery.addEventListener("change", (e) => setMenu(!e.matches));
 }
+/* El botón atrás/adelante del navegador también cambia de conversación. */
+window.addEventListener('popstate', () => {
+  const id = new URLSearchParams(window.location.search).get('chat');
+  S.currentId = id && S.conversations.some((c) => c.id === id) ? id : null;
+  S.editingId = null;
+  renderChat();
+  renderHistory();
+});
+const enlaceMoodle = $('#moodleBtnSide');
+if (enlaceMoodle) enlaceMoodle.href = `${getMoodle().base}/my/`;
 initChat();
 initModals();
 

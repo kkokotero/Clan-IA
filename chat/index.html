@@ -57,13 +57,13 @@
       <nav class="history" id="history" aria-label="Historial de conversaciones"></nav>
 
       <div class="sidebar-footer">
-        <button class="btn btn-tonal block" id="tlBtnSide"><span class="ic">groups</span><span class="label">Hablar con
-            el TL (Team Leader)</span></button>
-        <button class="nav-item" id="moodleBtnSide" type="button"><span class="ic">school</span><span class="label">Mi
-            Moodle</span></button>
-        <button class="nav-item" id="logoutBtnSide" type="button" hidden><span class="ic">logout</span><span
-            class="label">Cerrar sesión de Moodle</span></button>
-        <button class="profile" id="profileBtn" type="button"
+        <a class="btn btn-tonal block" id="tlBtnSide" href="/settings/tl/"><span class="ic">groups</span><span class="label">Hablar con
+            el TL (Team Leader)</span></a>
+        <a class="nav-item" id="moodleBtnSide" href="https://moodle.riwi.io/my/" target="_blank" rel="noopener"><span class="ic">school</span><span class="label">Mi
+            Moodle</span></a>
+        <a class="nav-item" id="logoutBtnSide" href="/" hidden><span class="ic">logout</span><span
+            class="label">Cerrar sesión de Moodle</span></a>
+        <a class="profile" id="profileBtn" href="/settings/ai/"
           title="Abrir configuración de IA (se guarda en este navegador)"
           aria-label="Abrir configuración de IA del perfil">
           <div class="avatar-user" id="userAvatar" aria-hidden="true">ES</div>
@@ -71,7 +71,7 @@
             <span class="profile-name" id="profileName">Estudiante</span>
           </div>
           <span class="ic sm profile-cog" aria-hidden="true">settings</span>
-        </button>
+        </a>
       </div>
     </aside>
     <div class="scrim" id="scrim"></div>

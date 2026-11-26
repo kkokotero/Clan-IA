@@ -104,13 +104,18 @@ export function initSettings() {
   menuQuery?.addEventListener('change', (e) => setMenu(!e.matches));
   on('#newChat', 'click', () => window.location.assign('/chat/'));
   on('#mobileNewChat', 'click', () => window.location.assign('/chat/'));
-  on('#profileBtn', 'click', () => window.location.assign('/settings/ai/'));
+  on('#profileBtn', 'click', () => closeMenu());
   on('#mobileProfileBtn', 'click', () => window.location.assign('/settings/ai/'));
-  on('#tlBtnSide', 'click', () => window.location.assign('/settings/tl/'));
-  on('#moodleBtnSide', 'click', () => {
-    window.open(`${getMoodle().base}/my/`, '_blank', 'noopener');
+  on('#tlBtnSide', 'click', () => closeMenu());
+  on('#moodleBtnSide', 'click', (e) => {
+    closeMenu();
+    if (!getMoodle().token) {
+      e.preventDefault();
+      window.location.assign('/');
+    }
   });
-  on('#logoutBtnSide', 'click', () => {
+  on('#logoutBtnSide', 'click', (e) => {
+    e.preventDefault();
     closeMenu();
     moodleLogout();
   });
@@ -198,6 +203,11 @@ export function initSettings() {
     const action = e.target.closest('[data-action]')?.dataset.action;
     const conv = S.conversations.find((c) => c.id === card.dataset.id);
     if (!conv) return;
+    if (!action) {
+      if (e.target.closest('a')) return;
+      window.location.assign(`/chat/?chat=${encodeURIComponent(conv.id)}`);
+      return;
+    }
     if (action === 'open') {
       window.location.assign(`/chat/?chat=${encodeURIComponent(conv.id)}`);
     } else if (action === 'rename') {
@@ -298,5 +308,7 @@ for (const sel of ['#logoutBtnSide', '#settingsLogout']) {
   const btn = $(sel);
   if (btn && sinSesion) btn.hidden = true;
 }
+const enlaceMoodle = $('#moodleBtnSide');
+if (enlaceMoodle) enlaceMoodle.href = `${getMoodle().base}/my/`;
 initSettings();
 initModals();
