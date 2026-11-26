@@ -1,0 +1,207 @@
+/* Ritchie AI — tokens.css */
+/* =========================================================
+   Ritchie AI — Sistema visual Material 3 Expressive
+   Reglas: hover solo con color / opacidad / borde / icono.
+   Sin transform, sin cambios de tamaño en hover.
+   ========================================================= */
+:root {
+  /* Roles semánticos */
+  --primary: #6750a4;
+  --on-primary: #ffffff;
+  --primary-container: #e9ddff;
+  --on-primary-container: #21005d;
+  --primary-hover: #5b4596;
+
+  --secondary: #5266b8;
+  --on-secondary: #ffffff;
+  --secondary-container: #dde2fb;
+  --on-secondary-container: #16245f;
+
+  --tertiary: #b8a4e8;
+  --tertiary-container: #f0e9ff;
+  --on-tertiary-container: #36245e;
+
+  --background: #f8f7fc;
+  --surface: #ffffff;
+  --surface-variant: #f0edf6;
+  --surface-low: #f4f2fa;
+  --surface-high: #e9e5f1;
+
+  --on-surface: #24212c;
+  --on-surface-variant: #686473;
+  --outline: #b9b3c6;
+  --outline-variant: #e2deea;
+
+  --success: #2f7d5c;
+  --success-container: #dff3e8;
+  --error: #c8453f;
+  --error-container: #fdebe9;
+  --error-border: #f3c6c2;
+  --warning: #9a5b12;
+  --warning-container: #fff0d9;
+
+  --state-hover: rgba(103, 80, 164, 0.08);
+
+  /* Forma */
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+
+  /* Elevación (sutil) */
+  --e1: 0 1px 2px rgba(36, 33, 44, 0.06);
+  --e2: 0 2px 8px rgba(36, 33, 44, 0.08);
+  --e3: 0 8px 28px rgba(36, 33, 44, 0.14);
+  --e4: 0 16px 44px rgba(36, 33, 44, 0.18);
+
+  /* Material 3 Expressive: formas, movimiento y tipografía */
+  --shape-xs: 8px;
+  --shape-sm: 16px;
+  --shape-md: 28px;
+  --shape-lg: 36px;
+  --shape-xl: 48px;
+  --shape-pill: 999px;
+  --shape-expressive: 20px;
+  --shape-expressive-alt: 20px;
+  --shape-card: 24px;
+  --motion-expressive: cubic-bezier(0.2, 0.9, 0.25, 1.15);
+  --motion-standard: cubic-bezier(0.2, 0, 0, 1);
+  --fs-display: clamp(2rem, 5vw, 3.25rem);
+  --fs-headline: clamp(1.5rem, 3vw, 2rem);
+  --fs-title: 1.125rem;
+  --fs-label: 0.8125rem;
+  --inverse-surface: #322f3b;
+  --inverse-on-surface: #f8f7fc;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+[hidden] {
+  display: none !important;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  font-family:
+    "Inter",
+    "Google Sans",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  background: var(--background);
+  color: var(--on-surface);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+a {
+  color: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Iconos: Google Material Symbols Outlined */
+.ic,
+.logo {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
+  -webkit-font-smoothing: antialiased;
+  color: currentColor;
+  flex-shrink: 0;
+}
+.ic.sm {
+  font-size: 16px;
+}
+.ic.lg {
+  font-size: 24px;
+}
+
+/* Isotipo: conejo de Material Symbols */
+.logo {
+  display: block;
+  color: var(--primary);
+}
+.logo-tile {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.logo-tile.brand {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 16px;
+  background: var(--primary);
+}
+.logo-tile.brand .logo {
+  font-size: 26px;
+  color: #fff;
+}
+.logo-tile.mini {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--primary-container);
+}
+.logo-tile.mini .logo {
+  font-size: 24px;
+}
+
+/* Layout: el lateral se despliega / pliega desde el isotipo */
+.app {
+  display: grid;
+  grid-template-columns: 304px 1fr;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  transition: grid-template-columns 0.25s ease;
+}
+.app[data-menu="closed"] {
+  grid-template-columns: 76px 1fr;
+}
+/* Registro: sin menú, el contenido ocupa toda la ventana */
+.app.landing,
+.app.landing[data-menu="closed"] {
+  grid-template-columns: 1fr;
+}
+.app.landing .sidebar,
+.app.landing .mobile-topbar,
+.app.landing .scrim {
+  display: none;
+}
+
+/* La barra superior solo existe en móvil (ver media query al final) */
+.mobile-topbar {
+  display: none;
+}
+

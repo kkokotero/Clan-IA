@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-openui-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ritchie AI — IA</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicons/favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="/static/favicons/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/favicons/apple-touch-icon.png" />
+  <link rel="manifest" href="/static/site.webmanifest" />
+  <meta name="theme-color" content="#6750A4" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..600,0,0" />
+  <script src="https://cdn.jsdelivr.net/npm/@openuidev/browser-bundle@0.2/dist/openui-bundle.min.js" defer></script>
+  <link rel="stylesheet" href="/static/styles/tokens.css" />
+  <link rel="stylesheet" href="/static/styles/components.css" />
+  <link rel="stylesheet" href="/static/styles/chat.css" />
+  <link rel="stylesheet" href="/static/styles/settings.css" />
+  <link rel="stylesheet" href="/static/styles/responsive.css" />
+</head>
+<body>
+<div class="app" id="app">
+    <header class="mobile-topbar" id="mobileTopbar">
+      <button class="logo-tile brand" id="mobileMenuBtn" type="button" aria-label="Abrir menú" aria-expanded="false"
+        aria-controls="sidebar">
+        <span class="logo" aria-hidden="true">cruelty_free</span>
+      </button>
+      <div class="brand-text">
+        <span class="brand-name">Ritchie AI</span>
+        <span class="brand-sub">Asistente educativo</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="mobile-top-icon" id="mobileNewChat" type="button" aria-label="Nueva conversación"><span
+            class="ic">add</span></button>
+        <button class="mobile-top-icon" id="mobileProfileBtn" type="button" aria-label="Abrir configuración de IA">
+          <span class="mobile-avatar" id="mobileAvatar">ES</span>
+        </button>
+      </div>
+    </header>
+    <aside class="sidebar" id="sidebar" aria-label="Barra lateral">
+      <div class="brand-row">
+        <button class="logo-tile brand tip-r" id="menuToggle" type="button" aria-label="Desplegar menú lateral"
+          aria-expanded="false" aria-controls="sidebar" data-tip="Menú lateral">
+          <span class="logo" aria-hidden="true">cruelty_free</span>
+        </button>
+        <div class="brand-text">
+          <span class="brand-name">Ritchie AI</span>
+          <span class="brand-sub">Asistente educativo</span>
+        </div>
+      </div>
+
+      <button class="new-chat" id="newChat"><span class="ic">add</span><span class="label">Nueva
+          conversación</span></button>
+
+      <div class="section-label">Historial</div>
+      <nav class="history" id="history" aria-label="Historial de conversaciones"></nav>
+
+      <div class="sidebar-footer">
+        <button class="nav-item" id="helpBtn"><span class="ic">help</span><span class="label">Ayuda</span></button>
+        <button class="btn btn-tonal block" id="tlBtnSide"><span class="ic">groups</span><span class="label">Hablar con
+            el TL (Team Leader)</span></button>
+        <button class="nav-item" id="moodleBtnSide" type="button"><span class="ic">school</span><span class="label">Mi
+            Moodle</span></button>
+        <button class="nav-item" id="logoutBtnSide" type="button" hidden><span class="ic">logout</span><span
+            class="label">Cerrar sesión de Moodle</span></button>
+        <button class="profile" id="profileBtn" type="button"
+          title="Abrir configuración de IA (se guarda en este navegador)"
+          aria-label="Abrir configuración de IA del perfil">
+          <div class="avatar-user" id="userAvatar" aria-hidden="true">ES</div>
+          <div class="profile-text">
+            <span class="profile-name" id="profileName">Estudiante</span>
+            <span class="profile-sub" id="profileStatus">Configurar IA</span>
+          </div>
+          <span class="ic sm profile-cog" aria-hidden="true">settings</span>
+        </button>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+<main class="main settings-main">
+  <div class="settings-layout">
+    <nav class="settings-nav" aria-label="Menú de configuración">
+        <a class="settings-nav-item active" href="/settings/ai/" aria-current="page"><span class="ic sm">key</span><span>IA</span></a>
+        <a class="settings-nav-item" href="/settings/chats/" aria-current="false"><span class="ic sm">chat</span><span>Chats e historial</span></a>
+        <a class="settings-nav-item" href="/settings/help/" aria-current="false"><span class="ic sm">help</span><span>Ayuda</span></a>
+        <a class="settings-nav-item" href="/settings/tl/" aria-current="false"><span class="ic sm">groups</span><span>TL (Team Leader)</span></a>
+      <hr class="settings-nav-sep" />
+      <button class="settings-nav-item danger" id="settingsLogout" type="button"><span class="ic sm">logout</span><span>Cerrar sesión</span></button>
+    </nav>
+    <div class="settings-panels">
+<div class="settings-panel" role="tabpanel">
+
+            <div class="exp-panel-head exp-animate">
+              <span class="exp-tile"><span class="ic">key</span></span>
+              <div>
+                <h2>Conecta tu IA</h2>
+                <p>Elige un modelo y pega tu clave. Se guarda solo en este navegador.</p>
+              </div>
+            </div>
+            <div class="note" id="aiKeyHint"><span class="ic sm">info</span><span>Conseguir una key. Usa una key de prueba restringida.</span></div>
+            <form class="ui-form ui-form-settings form-expressive" id="settingsForm" autocomplete="off">
+              <div class="ui-field">
+                <span class="ui-label">Proveedor</span>
+                <div class="ui-select-custom">
+                  <button type="button" class="ui-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="ui-select-value">Google Gemini</span><span class="ic">expand_more</span>
+                  </button>
+                  <div class="ui-select-menu" role="listbox" hidden></div>
+                </div>
+                <select class="ui-select-native" id="aiProvider" hidden>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openrouter">OpenRouter</option>
+                </select>
+              </div>
+              <label class="ui-field">
+                <span class="ui-label">API key</span>
+                <input class="ui-input" id="aiKey" type="password" placeholder="Pega aquí tu API key" spellcheck="false" />
+                <div class="key-status" id="aiKeyStatus" role="status" aria-live="polite"></div>
+              </label>
+              <label class="ui-field" id="customModelField" hidden>
+                <span class="ui-label">ID del modelo</span>
+                <input class="ui-input" id="aiModelCustom" type="text" spellcheck="false" placeholder="Escribe el ID exacto" />
+              </label>
+              <p class="exp-section-title">Modelos disponibles</p>
+              <select class="ui-select-native" id="aiModel" hidden></select>
+              <div class="exp-model-search">
+                <span class="ic sm">search</span>
+                <input id="aiModelSearch" type="search" autocomplete="off" placeholder="Buscar modelo o ID…" aria-label="Buscar modelo" />
+              </div>
+              <div class="exp-model-list" id="aiModelList"></div>
+              <div class="modal-actions column">
+                <button type="button" class="ui-btn ui-btn-danger" id="aiClear" hidden>Quitar key</button>
+                <button type="submit" class="ui-btn ui-btn-primary">Guardar</button>
+              </div>
+            </form>
+            <div class="exp-callout"><b>Privacidad primero</b>Tu clave nunca se almacena en un servidor: se guarda solo en este navegador y las peticiones van directas al proveedor que elijas.</div>
+          </div>
+    </div>
+  </div>
+</main>
+</div>
+  <script type="module" src="/static/js/views/settings.js"></script>
+</body>
+</html>

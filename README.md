@@ -4,14 +4,19 @@ Asistente educativo de la cohorte que llama **directamente desde el navegador** 
 gratuitos de [Google Gemini](https://aistudio.google.com/apikey) u
 [OpenRouter](https://openrouter.ai/keys).
 
-**No hay servidor, ni Node, ni `package.json`, ni build.** Abre `index.html` y funciona.
+**No hay Node, ni `package.json`, ni build.** Los módulos ES (`import`/`export`) necesitan
+HTTP: sirve la carpeta con `python3 -m http.server 8000` y abre
+`http://localhost:8000/`. Abrir `index.html` con doble clic (`file://`) ya no funciona.
 
 El inicio es una **introducción al proyecto y un formulario de registro/ingreso a Moodle**.
 Solo se puede entrar al chat con una cuenta de Moodle **ingresada**: sin esa sesión la
 conversación permanece cerrada y las respuestas no se simulan.
 
+La interfaz usa **Material 3 Expressive**: formas asimétricas y muy redondeadas, color tonal,
+tipografía jerárquica y movimiento con curva suave (tokens en `static/styles/tokens.css`).
+
 Las respuestas de la IA se generan en **OpenUI Lang**, pero se dibujan con un **renderizador
-propio** (`static/app.js` + `static/styles.css`) que usa los mismos colores, formas y
+propio** (`static/js/` + `static/styles/`) que usa los mismos colores, formas y
 componentes que el resto de la app: tarjetas, pasos, tablas, pestañas, avisos y formularios en lugar
 de texto plano. El
 bundle de [OpenUI](https://openui.com/) se carga desde CDN **solo para construir el prompt**; si
@@ -22,12 +27,12 @@ no carga, se usa un prompt mínimo y las respuestas siguen viéndose con la est�
 
 ## Cómo usarlo
 
-1. Abre **`index.html`** en tu navegador (doble clic; no necesitas servidor). La pantalla de
-   inicio presenta el proyecto y el formulario de acceso.
+1. Sirve el repo con `python3 -m http.server 8000` y abre `http://localhost:8000/`. La
+   pantalla de inicio presenta el proyecto y el formulario de acceso.
 2. Ingresa con tu **usuario y contraseña de Moodle**. Si aún no tienes cuenta, créala en el sitio
    de Moodle. Con la sesión activa se abre el chat; sin ella no se puede entrar.
 3. Haz clic en tu **perfil** (abajo en la barra lateral; en móvil, tu avatar en la barra
-   superior) → se abre **Configurar IA**.
+   superior) → se abre la página de **Configuración** (`/settings/ai/`).
 4. Elige proveedor, selecciona un modelo de la **lista desplegable** y pega tu API key
    gratuita. Puedes pulsar **Probar conexión** antes de guardar:
    - **Google Gemini** → crea una key en https://aistudio.google.com/apikey.
@@ -62,12 +67,15 @@ la pantalla de inicio.
   cuanto llega el token; nunca se guarda ni pasa por un servidor propio.
 - El token devuelto se guarda en `localStorage` bajo `ritchie-ia-moodle`, solo en este navegador,
   para no volver a pedir la contraseña en cada visita. **Desconectar** lo borra.
-- Al ingresar se descargan **solo tus cursos matriculados** (con
-  `core_enrol_get_users_courses` usando el `userid` de `core_webservice_get_site_info`), archivos y
-  actividades. No se usa `core_course_get_courses`: esa función valida **todos** los cursos del sitio
-  y Moodle lanza «Curso o actividad no accesible» si tu cuenta no tiene acceso a alguno (por ejemplo
-  el curso 2). Ese contenido se añade al system prompt y se muestra en **Acceso directo a tus
-  materiales** con enlaces `pluginfile.php?...&token=...` que abren en pestaña nueva.
+- El registro **solo pide el token**: no descarga cursos, materiales, tareas ni calendario, y al
+  abrir la app tampoco. En la primera pregunta se hace una única llamada ligera a
+  `core_webservice_get_site_info` para saber tu `userid` y las funciones disponibles; todo lo demás
+  se consulta **bajo demanda** con `MOODLE_TOOL` o `MOODLE_OPEN`, solo lo que la pregunta necesita.
+- Para descubrir tus cursos se usa `core_enrol_get_users_courses` con tu `userid`; nunca
+  `core_course_get_courses`, que valida **todos** los cursos del sitio y Moodle lanza «Curso o
+  actividad no accesible» si tu cuenta no tiene acceso a alguno (por ejemplo el curso 2). Lo que la
+  IA consulta se recuerda para verificar nombres y se muestra en **Acceso directo a tus materiales**
+  con enlaces `pluginfile.php?...&token=...` que abren en pestaña nueva.
 - **Navegación por URLs de Moodle:** la IA "abre" los enlaces reales que aparecen en los datos:
   `MOODLE_OPEN({"url":"https://moodle.riwi.io/course/view.php?id=7"})`. Al abrir un enlace de curso
   consulta sus secciones; al abrir una actividad resuelve el material; al abrir un `pluginfile.php`
@@ -153,13 +161,13 @@ tendría que ser desde un servidor propio o desde una instancia local de OpenCod
 
 ## Respuestas con interfaz propia
 
-- `index.html` carga solo el bundle de `@openuidev/browser-bundle@0.2` desde jsDelivr, que
+- Las tres páginas cargan solo el bundle de `@openuidev/browser-bundle@0.2` desde jsDelivr, que
   expone `openuiChatLibrary` en `window.__OpenUI`. Ya **no se carga su CSS ni su Renderer**.
-- `static/app.js` usa `openuiChatLibrary.prompt({...})` para generar el system prompt: así el
+- `static/js/ai/prompt.js` usa `openuiChatLibrary.prompt({...})` para generar el system prompt: así el
   modelo conoce la sintaxis y los componentes permitidos. Las reglas de la cohorte y de privacidad
   se pasan como `preamble`.
 - La IA devuelve un programa (siempre empieza con `root = Card(...)`) y un intérprete propio en
-  `static/app.js` lo convierte en HTML con las clases de la app. El prompt incluye ejemplos y
+  `static/js/chat/render.js` lo convierte en HTML con las clases de la app. El prompt incluye ejemplos y
   reglas
   para combinar **tarjetas, encabezados, callouts, separadores, pasos, tablas, listas, entidades,
   pestañas, etiquetas, botones y sugerencias de seguimiento**, eligiendo la vista según el
@@ -221,8 +229,14 @@ caben todas en la pantalla.
 
 ## Archivos
 
-- `index.html`: pantalla de inicio (introducción y acceso a Moodle), chat y modales
-  (**Configuración**, con secciones de IA, chats, ayuda, TL y Moodle).
-- `static/styles.css`: estilos del chat, la pantalla de inicio y los formularios.
-- `static/app.js`: puerta de acceso a Moodle, chat, historial y llamada directa a Gemini/OpenRouter.
+- `index.html`: registro/ingreso a Moodle (redirige a `/chat/` con sesión activa).
+- `chat/index.html`: chat, barra lateral, historial, composer y modal de confirmación.
+- `settings/index.html`: redirige a `/settings/ai/`. Cada opción tiene su propia página:
+  `settings/ai/`, `settings/chats/`, `settings/help/` y `settings/tl/` (sin Moodle:
+  «Cerrar sesión» está en el menú). Todas conservan el menú lateral de la app.
+- `static/styles/`: CSS por capas (`tokens`, `components`, `landing`, `chat`, `settings`,
+  `responsive`).
+- `static/js/`: módulos ES por responsabilidad (`core`, `moodle`, `ai`, `chat`, `settings`,
+  `views`). `core/state.js` concentra el estado compartido; `views/*` son los bootstrap de
+  cada página.
 - `HALLAZGOS.md`: resultados de la prueba con otro equipo.

@@ -1,6 +1,7 @@
 {
   "name": "Ritchie AI",
   "short_name": "Ritchie AI",
+  "start_url": "/chat/",
   "description": "Asistente educativo de la cohorte Ritchie en Riwi.",
   "icons": [
     { "src": "favicons/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
