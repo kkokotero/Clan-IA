@@ -29,19 +29,23 @@ register("Input", (a, node) => {
   const toggle = tipo === "password"
     ? `<button class="ui-input-action" type="button" data-toggle-pwd aria-label="Mostrar contraseña" aria-pressed="false"><span class="ic sm">visibility</span></button>`
     : "";
-  return `<span class="ui-input-wrap">${ico}<input class="ui-input" type="${escapeHTML(tipo)}" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}"${rules.required ? " required" : ""}>${toggle}</span>`;
+  const valor = a[5] == null ? "" : valText(a[5]);
+  return `<span class="ui-input-wrap">${ico}<input class="ui-input" type="${escapeHTML(tipo)}" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}" value="${escapeHTML(valor)}"${rules.required ? " required" : ""}>${toggle}</span>`;
 });
 register("TextArea", (a, node) => {
   const rules = a[3] && typeof a[3] === "object" ? a[3] : {};
   const ico = safeIconHTML(node?.__uiIcon || a[4] || "notes");
-  return `<span class="ui-input-wrap ui-input-wrap-top">${ico}<textarea class="ui-input ui-textarea" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}" rows="${Number(a[2]) || 3}"${rules.required ? " required" : ""}></textarea></span>`;
+  const valor = a[5] == null ? "" : valText(a[5]);
+  return `<span class="ui-input-wrap ui-input-wrap-top">${ico}<textarea class="ui-input ui-textarea" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}" rows="${Number(a[2]) || 3}"${rules.required ? " required" : ""}>${escapeHTML(valor)}</textarea></span>`;
 });
 register("Select", (a, node) => {
   const placeholder = valText(a[2]) || "Elige una opción";
   const opciones = asArray(a[1])
     .map(
-      (it) =>
-        `<option value="${escapeHTML(valText(it?.args?.[0]))}">${escapeHTML(valText(it?.args?.[1]))}</option>`,
+      (it) => {
+        const v = valText(it?.args?.[0]);
+        return `<option value="${escapeHTML(v)}"${v && v === valText(a[4]) ? " selected" : ""}>${escapeHTML(valText(it?.args?.[1]))}</option>`;
+      },
     )
     .join("");
   return `<span class="ui-select-custom" data-search="false">
