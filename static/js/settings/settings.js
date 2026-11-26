@@ -11,6 +11,19 @@ export const modelSelect = $("#aiModel");
 export const customInput = $("#aiModelCustom");
 export const customField = $("#customModelField");
 
+/* El desplegable de proveedores sale del registro, así cualquier proveedor
+   nuevo aparece en la página sin tocar el HTML. */
+export function populateProviders(selected) {
+  if (!providerSel) return;
+  providerSel.innerHTML = Object.entries(PROVIDERS)
+    .map(
+      ([id, p]) =>
+        `<option value="${escapeHTML(id)}">${escapeHTML(p.label)}</option>`,
+    )
+    .join("");
+  providerSel.value = PROVIDERS[selected] ? selected : "gemini";
+}
+
 /* Llena el desplegable con los modelos del proveedor elegido */
 export function populateModels(provider, selected) {
   if (!modelSelect) return;

@@ -44,7 +44,19 @@ de texto plano. No se carga ninguna librería ni CSS externo: el prompt y el dib
      (todos `:free`). Además, al abrir Configurar IA se consulta el catálogo
      público de OpenRouter y se añaden los modelos gratuitos nuevos que acepten
      texto; si no hay conexión, se usa la lista incluida.
-5. Guarda. El perfil muestra **"IA activa · Google Gemini"** (u OpenRouter). Sin key, la
+     - **Groq** → key gratuita en https://console.groq.com/keys. Plan free de 30
+       peticiones/minuto y 1.000/día: GPT-OSS 120B/20B, Qwen 3.8/3.6 y Compound.
+     - **Cerebras** → key en https://cloud.cerebras.ai/. Capa free permanente de
+       1M tokens/día: GPT-OSS 120B, Qwen 3.8, Llama 4 Scout y Qwen 3 32B.
+     - **Mistral AI** → key en https://console.mistral.ai/api-keys. Capa
+       experimental gratuita: Mistral Small/Medium/Large, Ministral y Codestral.
+     - **Hugging Face** → token read en https://huggingface.co/settings/tokens.
+       Incluye $0.10/mes de crédito: Llama 3.3 70B, Qwen 3.8, DeepSeek V4.1,
+       GPT-OSS 120B y GLM 5.3 Flash.
+   Todos los proveedores llaman directamente desde el navegador (CORS) y usan la
+   misma interfaz OpenAI-compatible; los modelos saturados se reintentan con el
+   siguiente de la lista.
+5. Guarda. El perfil muestra **"IA activa · Google Gemini"** (o el proveedor elegido). Sin key, la
    asistente lo indica con una tarjeta que invita a configurarla.
 6. Cada respuesta de la IA tiene **Copiar** y **Rehacer**; cada mensaje tuyo tiene **Copiar**
    y **Editar**. Al editar se crea una rama nueva: usa el selector **Rama 1/2** para

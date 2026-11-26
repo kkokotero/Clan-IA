@@ -183,13 +183,14 @@ export function syncSelectUI() {
 export function updateKeyHint() {
   const hint = $('#aiKeyHint');
   if (!hint) return;
-  const provider = $('#aiProvider')?.value || 'gemini';
-  const link =
-    provider === 'openrouter'
-      ? '<a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a> (OpenRouter)'
-      : '<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a> (Gemini)';
+  const provider = PROVIDERS[$('#aiProvider')?.value || 'gemini'] || PROVIDERS.gemini;
+  const url = provider.keyUrl || '';
+  const dominio = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const link = url
+    ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(dominio)}</a> (${escapeHTML(provider.label)})`
+    : escapeHTML(provider.label);
   const body = hint.querySelector('span:last-child') || hint;
-  body.innerHTML = `Conseguir una key: ${link}. Usa una key de prueba restringida.`;
+  body.innerHTML = `Conseguir una key: ${link}. ${escapeHTML(provider.help || '')}`;
 }
 
 /* Catálogo visible de modelos del proveedor elegido. */

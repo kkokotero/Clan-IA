@@ -14,6 +14,7 @@ import {
   keyInput,
   modelSelect,
   populateModels,
+  populateProviders,
   providerSel,
   readModel,
   renderHistoryList,
@@ -497,7 +498,7 @@ initSelects();
 initModelSearch();
 /* Estado inicial del formulario de IA (ahora es una página, no un modal). */
 const cfgIA = getSettings();
-if (providerSel) providerSel.value = cfgIA.provider;
+populateProviders(cfgIA.provider);
 if (keyInput) keyInput.value = cfgIA.apiKey;
 if (providerSel) populateModels(cfgIA.provider, cfgIA.model);
 /* Ampliamos el catálogo de OpenRouter con los modelos gratuitos vigentes. */

@@ -7,6 +7,7 @@ import { S, busy, conversations, currentId, editingId, memorySettings, moodleAll
 export const PROVIDERS = {
   gemini: {
     label: "Google Gemini",
+    keyUrl: "https://aistudio.google.com/apikey",
     defaultModel: "gemini-4-hydrogen",
     help: "Consigue tu key en aistudio.google.com/apikey. Los modelos 3.8/3.6/3.5 Flash y 2.5 daban 503 o están deprecados; se ofrecen los Gemini 4 vigentes.",
     models: [
@@ -25,6 +26,7 @@ export const PROVIDERS = {
   },
   openrouter: {
     label: "OpenRouter",
+    keyUrl: "https://openrouter.ai/keys",
     defaultModel: "openrouter/free",
     help: "Consigue tu key en openrouter.ai/keys. 'openrouter/free' elige uno disponible; la lista se amplía con los modelos gratuitos vigentes del catálogo público.",
     models: [
@@ -57,6 +59,83 @@ export const PROVIDERS = {
       { value: "recursive/flint-v1.0:free", label: "Flint v1.0" },
     ],
   },
+  groq: {
+    label: "Groq",
+    keyUrl: "https://console.groq.com/keys",
+    defaultModel: "openai/gpt-oss-120b",
+    help: "Key gratuita en console.groq.com/keys. Plan free: 30 peticiones/minuto y 1.000/día por modelo.",
+    models: [
+      { value: "openai/gpt-oss-120b", label: "GPT-OSS 120B (recomendado)" },
+      { value: "openai/gpt-oss-20b", label: "GPT-OSS 20B (rápido)" },
+      { value: "qwen/qwen3.8-27b", label: "Qwen 3.8 27B" },
+      { value: "qwen/qwen3.6-27b", label: "Qwen 3.6 27B" },
+      { value: "groq/compound", label: "Groq Compound" },
+      { value: "groq/compound-mini", label: "Groq Compound Mini" },
+    ],
+  },
+  cerebras: {
+    label: "Cerebras",
+    keyUrl: "https://cloud.cerebras.ai/",
+    defaultModel: "gpt-oss-120b",
+    help: "Key gratuita en cloud.cerebras.ai. Capa free permanente: 1M tokens/día y 30 peticiones/minuto.",
+    models: [
+      { value: "gpt-oss-120b", label: "GPT-OSS 120B (recomendado)" },
+      { value: "qwen-3.8-27b", label: "Qwen 3.8 27B" },
+      { value: "llama-4-scout", label: "Llama 4 Scout" },
+      { value: "llama3.1-8b", label: "Llama 3.1 8B (rápido)" },
+      { value: "qwen-3-32b", label: "Qwen 3 32B" },
+    ],
+  },
+  mistral: {
+    label: "Mistral AI",
+    keyUrl: "https://console.mistral.ai/api-keys",
+    defaultModel: "mistral-small-latest",
+    help: "Key en console.mistral.ai. La Plateforme tiene capa gratuita experimental con límites de uso.",
+    models: [
+      { value: "mistral-small-latest", label: "Mistral Small (recomendado)" },
+      { value: "mistral-medium-latest", label: "Mistral Medium" },
+      { value: "mistral-large-latest", label: "Mistral Large" },
+      { value: "ministral-8b-latest", label: "Ministral 8B" },
+      { value: "ministral-3b-latest", label: "Ministral 3B" },
+      { value: "codestral-latest", label: "Codestral" },
+    ],
+  },
+  huggingface: {
+    label: "Hugging Face",
+    keyUrl: "https://huggingface.co/settings/tokens",
+    defaultModel: "meta-llama/Llama-3.3-70B-Instruct",
+    help: "Token read en huggingface.co/settings/tokens. Cuenta free incluye $0.10/mes de crédito en Inference Providers.",
+    models: [
+      {
+        value: "meta-llama/Llama-3.3-70B-Instruct",
+        label: "Llama 3.3 70B Instruct (recomendado)",
+      },
+      { value: "Qwen/Qwen3.8-27B", label: "Qwen 3.8 27B" },
+      { value: "Qwen/Qwen3-32B", label: "Qwen 3 32B" },
+      {
+        value: "deepseek-ai/DeepSeek-V4.1-Flash",
+        label: "DeepSeek V4.1 Flash",
+      },
+      { value: "openai/gpt-oss-120b", label: "GPT-OSS 120B" },
+      { value: "zai-org/GLM-5.3-Flash", label: "GLM 5.3 Flash" },
+    ],
+  },
+};
+
+/* Proveedores que hablan el protocolo de chat de OpenAI. Todos permiten CORS
+   desde el navegador, así que la key viaja directamente al proveedor. */
+const OPENAI_COMPATIBLE = {
+  openrouter: {
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    headers: () => ({
+      "HTTP-Referer": (typeof location !== "undefined" && location.origin) || "https://localhost",
+      "X-Title": "Clan IA",
+    }),
+  },
+  groq: { url: "https://api.groq.com/openai/v1/chat/completions" },
+  cerebras: { url: "https://api.cerebras.ai/v1/chat/completions" },
+  mistral: { url: "https://api.mistral.ai/v1/chat/completions" },
+  huggingface: { url: "https://router.huggingface.co/v1/chat/completions" },
 };
 
 /* El catálogo de OpenRouter es público y admite CORS. Lo consultamos sin key
@@ -193,16 +272,14 @@ export async function callGemini(question, settings, system) {
   return text;
 }
 
-export async function callOpenRouter(question, settings, system) {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+async function callOpenAI(question, settings, system, proveedor = "openrouter") {
+  const api = OPENAI_COMPATIBLE[proveedor] || OPENAI_COMPATIBLE.openrouter;
+  const res = await fetch(api.url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${settings.apiKey}`,
-      "HTTP-Referer":
-        (typeof location !== "undefined" && location.origin) ||
-        "https://localhost",
-      "X-Title": "Clan IA",
+      ...(api.headers ? api.headers() : {}),
     },
     body: JSON.stringify({
       model: settings.model,
@@ -215,11 +292,23 @@ export async function callOpenRouter(question, settings, system) {
     }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+  if (!res.ok)
+    throw new Error(data?.error?.message || data?.message || `HTTP ${res.status}`);
   const text = data?.choices?.[0]?.message?.content || "";
   if (!text.trim()) throw new Error("el modelo devolvió una respuesta vacía");
   return text;
 }
+
+export const callOpenRouter = (question, settings, system) =>
+  callOpenAI(question, settings, system, "openrouter");
+export const callGroq = (question, settings, system) =>
+  callOpenAI(question, settings, system, "groq");
+export const callCerebras = (question, settings, system) =>
+  callOpenAI(question, settings, system, "cerebras");
+export const callMistral = (question, settings, system) =>
+  callOpenAI(question, settings, system, "mistral");
+export const callHuggingFace = (question, settings, system) =>
+  callOpenAI(question, settings, system, "huggingface");
 
 export function cleanResponse(raw) {
   // Algunos modelos envuelven el programa en bloques ```; los quitamos antes de renderizar.
@@ -276,10 +365,7 @@ export async function askAI(question, settings, context = "") {
   /* Si el modelo está saturado (503/429) probamos con el siguiente de la lista */
   for (const model of ordered) {
     try {
-      raw =
-        settings.provider === "openrouter"
-          ? await callOpenRouter(q, { ...settings, model }, system)
-          : await callGemini(q, { ...settings, model }, system);
+      raw = await apiFor(settings.provider).call(q, { ...settings, model }, system);
       lastError = null;
       break;
     } catch (err) {
@@ -357,16 +443,14 @@ export async function streamGemini(question, settings, system, onChunk) {
   return text;
 }
 
-export async function streamOpenRouter(question, settings, system, onChunk) {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+async function streamOpenAI(question, settings, system, onChunk, proveedor = "openrouter") {
+  const api = OPENAI_COMPATIBLE[proveedor] || OPENAI_COMPATIBLE.openrouter;
+  const res = await fetch(api.url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${settings.apiKey}`,
-      "HTTP-Referer":
-        (typeof location !== "undefined" && location.origin) ||
-        "https://localhost",
-      "X-Title": "Clan IA",
+      ...(api.headers ? api.headers() : {}),
     },
     body: JSON.stringify({
       model: settings.model,
@@ -381,7 +465,7 @@ export async function streamOpenRouter(question, settings, system, onChunk) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    throw new Error(data?.error?.message || data?.message || `HTTP ${res.status}`);
   }
   let text = "";
   await readSSE(res, (data) => {
@@ -393,6 +477,27 @@ export async function streamOpenRouter(question, settings, system, onChunk) {
   });
   return text;
 }
+
+export const streamOpenRouter = (q, s, system, onChunk) =>
+  streamOpenAI(q, s, system, onChunk, "openrouter");
+export const streamGroq = (q, s, system, onChunk) =>
+  streamOpenAI(q, s, system, onChunk, "groq");
+export const streamCerebras = (q, s, system, onChunk) =>
+  streamOpenAI(q, s, system, onChunk, "cerebras");
+export const streamMistral = (q, s, system, onChunk) =>
+  streamOpenAI(q, s, system, onChunk, "mistral");
+export const streamHuggingFace = (q, s, system, onChunk) =>
+  streamOpenAI(q, s, system, onChunk, "huggingface");
+
+const API = {
+  gemini: { call: callGemini, stream: streamGemini },
+  openrouter: { call: callOpenRouter, stream: streamOpenRouter },
+  groq: { call: callGroq, stream: streamGroq },
+  cerebras: { call: callCerebras, stream: streamCerebras },
+  mistral: { call: callMistral, stream: streamMistral },
+  huggingface: { call: callHuggingFace, stream: streamHuggingFace },
+};
+const apiFor = (provider) => API[provider] || API.gemini;
 
 export async function streamAI(question, settings, onChunk, context = "") {
   const system = buildSystemPrompt();
@@ -406,10 +511,7 @@ export async function streamAI(question, settings, onChunk, context = "") {
   for (const model of ordered) {
     try {
       const s = { ...settings, model };
-      const raw =
-        settings.provider === "openrouter"
-          ? await streamOpenRouter(q, s, system, onChunk)
-          : await streamGemini(q, s, system, onChunk);
+      const raw = await apiFor(settings.provider).stream(q, s, system, onChunk);
       if (raw) return raw;
     } catch (err) {
       lastError = err;
