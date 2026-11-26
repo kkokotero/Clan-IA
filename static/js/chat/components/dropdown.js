@@ -29,7 +29,7 @@ export function initDropdowns(root = document) {
   root.querySelectorAll('.ui-select-custom').forEach((wrap) => {
     if (wrap.dataset.ready) return;
     wrap.dataset.ready = '1';
-    const select = wrap.closest('.ui-field')?.querySelector('.ui-select-native');
+    const select = wrap.querySelector('.ui-select-native') || wrap.closest('.ui-field')?.querySelector('.ui-select-native');
     const trigger = wrap.querySelector('.ui-select-trigger');
     const menu = wrap.querySelector('.ui-select-menu');
     const label = wrap.querySelector('.ui-select-value');

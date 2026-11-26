@@ -87,7 +87,8 @@ ESPECIFICACIÓN DE COMPONENTES (sintaxis exacta, un componente por línea):
 - Buttons([Button("Etiqueta", @ToAssistant("mensaje"), "primary"|"secondary"|"tertiary", icono?), ...], "column"?)
 - Link("Etiqueta", "URL") / TextLink("Etiqueta", "URL")
 - LinkButton("Etiqueta", "URL", "primary"|"secondary"|"tertiary", icono?) — botón que abre un enlace.
-- Image("URL", "texto alternativo", "pie"?) / Video("URL", "pie"?) — solo con URLs reales de Moodle o de la app.
+- Image("URL", "texto alternativo", "pie"?) / Video("URL", "pie"?) — solo con URLs reales de Moodle o de la app. El reproductor de vídeo es propio de la app (motor Plyr): ofrece progreso, contador, volumen, velocidad y pantalla completa tanto para vídeos directos como para YouTube/Vimeo.
+- Grid("columnas", [componentes]) — organiza cualquier contenido en 1 a 4 columnas; en móvil se apila.
 - FollowUpBlock([FollowUpItem("pregunta", icono?), ...])
 Ejemplo de forma (sin datos inventados):
 root = Card([h, t])

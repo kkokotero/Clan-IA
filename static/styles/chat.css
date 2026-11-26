@@ -1818,3 +1818,51 @@ a.ui-btn {
   border-color: var(--primary);
   color: var(--on-primary-container);
 }
+
+/* Grid para que la IA ordene el contenido como quiera. */
+.ui-grid { display: grid; gap: 12px; }
+@media (max-width: 600px) { .ui-grid { grid-template-columns: 1fr !important; } }
+
+/* Reproductor de vídeo personalizado. */
+.ui-player { position: relative; }
+.ui-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 8px 4px;
+}
+.ui-player-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--shape-xs);
+  color: var(--on-surface-variant);
+}
+.ui-player-btn:hover { background: var(--surface-variant); color: var(--primary); }
+.ui-player-range { flex: 1; min-width: 90px; accent-color: var(--primary); cursor: pointer; }
+.ui-player-time { font-size: 0.78rem; color: var(--on-surface-variant); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ui-player-speed { flex-shrink: 0; }
+.ui-player-speed .ui-select-trigger { min-height: 36px; padding: 0 10px; font-size: 0.8rem; border: 1px solid var(--outline-variant); }
+
+/* Reproductor embebido de YouTube/Vimeo. */
+.ui-embed {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--shape-sm);
+  overflow: hidden;
+  background: #000;
+}
+.ui-embed iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+/* Motor de vídeo Plyr integrado en las tarjetas de la app. */
+.ui-figure .plyr,
+.ui-figure .plyr__video-embed {
+  border-radius: var(--shape-sm);
+  overflow: hidden;
+}
+.ui-figure .plyr__video-embed { width: 100%; aspect-ratio: 16 / 9; position: relative; }
+.ui-figure .plyr--video { --plyr-color-main: var(--primary); font-family: inherit; }

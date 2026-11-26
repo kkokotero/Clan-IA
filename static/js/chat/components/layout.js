@@ -86,3 +86,8 @@ register("CodeBlock", (a) => {
     <pre class="ui-code"><code class="language-${escapeHTML(lang)}">${resaltar(code, lang)}</code></pre>
   </div>`;
 });
+
+register("Grid", (a) => {
+  const cols = Math.min(4, Math.max(1, Number(a[0]) || 2));
+  return `<div class="ui-grid" style="grid-template-columns: repeat(${cols}, minmax(0, 1fr))">${renderChildren(a[1])}</div>`;
+});

@@ -3,6 +3,10 @@ import { renderProgramInto } from '../chat/render.js';
 import { $, escapeHTML } from '../core/dom.js';
 
 const MUESTRAS = [
+  ['Reproductor de vídeo personalizado', `root = Card([v])
+v = Video("https://www.youtube.com/watch?v=aqz-KE-bpKQ", "Reproductor listo para usar de YouTube (sin configuración)")`],
+  ['Grid de contenido', `root = Card([g])
+g = Grid("2", [Card([CardHeader("Columna uno", "Texto", "school")]), Card([CardHeader("Columna dos", "Texto", "chat")])])`],
   ['Código con copiar/descargar', `root = Card([code])
 code = CodeBlock("javascript", "const saludo = \"Hola Clan IA\";\nconsole.log(saludo);")`],
   ['Imagen, vídeo y botón-enlace', `root = Card([img, vid, lb])
