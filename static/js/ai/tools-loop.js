@@ -2,10 +2,11 @@
    del modelo, carga solo esos módulos y los ejecuta. No importa ninguna
    herramienta por adelantado. */
 import { DEVICE_QUESTION, askAI, cleanResponse, streamAI } from './providers.js';
+import { stripCalls } from './protocol.js';
 import { normalize } from '../core/dom.js';
 import { compactMoodleResult } from '../core/helpers.js';
 import { S, getMoodle } from '../core/state.js';
-import { TOOLS, detect, hasCalls, run, toolForMarker } from './tools/index.js';
+import { MARKERS, TOOLS, detect, hasCalls, run, toolForMarker } from './tools/index.js';
 import { maybe as autoDiscover } from './tools/auto-discover.js';
 import { demand as verifyDemand } from './tools/verify-policy.js';
 
@@ -26,7 +27,7 @@ export function buildMoodleToolLog(entries, step) {
     log =
       "\n\n" +
       blocks.join("\n\n") +
-      `\n\nPuedes seguir consultando (paso ${step}/${MOODLE_MAX_STEPS}) o devolver SOLO el programa final de componentes. Si una consulta falló, corrige los parámetros.`;
+      `\n\nPuedes seguir escribiendo y consultando (paso ${step}/${MOODLE_MAX_STEPS}) o devolver el programa final de componentes. Si una consulta falló, corrige los parámetros.`;
     if (log.length <= MOODLE_MAX_CONTEXT) break;
     blocks.shift();
   }
@@ -48,11 +49,45 @@ async function ejecutarConHerramientas(question, settings, onChunk, useStream = 
   };
   S.lastMoodleError = "";
   const toolNotes = [];
-  const hablar = (contexto) =>
-    useStream
-      ? streamAI(question, settings, emit, contexto)
-      : askAI(question, settings, contexto);
-  let text = await hablar("");
+  const contenidoPrevio = [];
+  const ejecutadas = new Set();
+  let cola = Promise.resolve();
+
+  /* Ejecutamos cada herramienta en cuanto su llamada queda completa, incluso
+     mientras el modelo sigue escribiendo. El texto ya mostrado se conserva. */
+  const ejecutarLlamadas = (llamadas) => {
+    for (const [marker, orders] of Object.entries(llamadas)) {
+      const tool = toolForMarker(marker);
+      if (!tool) continue;
+      for (const order of orders) {
+        const clave = `${marker}::${JSON.stringify(order)}`;
+        if (ejecutadas.has(clave)) continue;
+        ejecutadas.add(clave);
+        const nombre = TOOLS.find((t) => t.marker === marker)?.nombre || marker;
+        emit(`TOOL_STATUS:: ${nombre}`);
+        cola = cola.then(async () => {
+          const nota = await run(tool.id, order, ctx);
+          if (nota) toolNotes.push(nota);
+        });
+      }
+    }
+  };
+
+  const alFragmento = (partial) => {
+    if (!partial) return; // streamAI usa "" para descartar un modelo caído
+    const visible = stripCalls(cleanResponse(partial), MARKERS).trim();
+    emit(`TEXT:: ${visible}`);
+    if (useStream) ejecutarLlamadas(detect(partial));
+  };
+
+  const hablar = async (contexto, paso) => {
+    emit(`STEP:: ${paso}`);
+    if (!useStream) return askAI(question, settings, contexto);
+    return streamAI(question, settings, alFragmento, contexto);
+  };
+
+  let text = await hablar("", 1);
+  await cola;
 
   for (let step = 1; step <= MOODLE_MAX_STEPS; step++) {
     const termino = /FINISH\s*\(\s*\)/i.test(text);
@@ -71,26 +106,20 @@ async function ejecutarConHerramientas(question, settings, onChunk, useStream = 
             : null;
       if (nota) {
         toolNotes.push(nota);
-        text = await hablar("\n\n" + nota);
+        const escrito = stripCalls(clean, MARKERS).trim();
+        if (escrito) contenidoPrevio.push(escrito);
+        text = await hablar("\n\n" + nota, step + 1);
+        await cola;
         continue;
       }
       break;
     }
 
-    /* Mostramos en la tarjeta qué herramienta está trabajando. */
-    const primerMarker = Object.keys(llamadas)[0];
-    const nombreHerramienta =
-      TOOLS.find((t) => t.marker === primerMarker)?.nombre || primerMarker;
-    emit(`TOOL_STATUS:: ${nombreHerramienta}`);
-    for (const [marker, orders] of Object.entries(llamadas)) {
-      const tool = toolForMarker(marker);
-      if (!tool) continue;
-      /* Carga dinámica: solo el módulo que el modelo pidió en este paso. */
-      for (const order of orders) {
-        const nota = await run(tool.id, order, ctx);
-        if (nota) toolNotes.push(nota);
-      }
-    }
+    /* Sin streaming no hubo fragmentos: ejecutamos aquí las llamadas leídas. */
+    const escrito = stripCalls(clean, MARKERS).trim();
+    if (escrito) contenidoPrevio.push(escrito);
+    ejecutarLlamadas(llamadas);
+    await cola;
 
     if (ctx.entries.length > MOODLE_MAX_LOG_ENTRIES)
       ctx.entries.splice(0, ctx.entries.length - MOODLE_MAX_LOG_ENTRIES);
@@ -103,7 +132,8 @@ async function ejecutarConHerramientas(question, settings, onChunk, useStream = 
         ") ---\n" +
         toolNotes.slice(-6).join("\n\n")
       : "";
-    text = await hablar(registro + notas);
+    text = await hablar(registro + notas, step + 1);
+    await cola;
   }
 
   const final = cleanResponse(text);
@@ -115,6 +145,9 @@ async function ejecutarConHerramientas(question, settings, onChunk, useStream = 
     )
       return "MOODLE_NOT_FOUND";
   }
+  const especial = /^\s*(NO_SE|MOODLE_NOT_FOUND)\s*$/i.test(final);
+  if (contenidoPrevio.length && final && !especial)
+    return [...contenidoPrevio, final].join("\n\n");
   return text;
 }
 

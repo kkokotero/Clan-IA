@@ -476,6 +476,15 @@
 }
 
 /* ===== Interfaces generadas por la IA (sistema propio, estética de la app) ===== */
+.ui-intro {
+  margin-bottom: 10px;
+}
+.ui-intro p {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--on-surface);
+}
 .ui-render {
   min-width: 0;
   display: flex;
@@ -488,13 +497,24 @@
   pointer-events: none;
   opacity: 0.88;
 }
+.stream-parts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stream-prose {
+  margin: 0;
+  white-space: pre-wrap;
+}
 .stream-placeholder {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
-  color: var(--on-surface-variant);
-  font-size: 0.95rem;
+}
+.stream-placeholder .ic.sm {
+  font-size: 18px;
+  color: var(--primary);
 }
 .ui-fallback {
   color: var(--on-surface-variant);
@@ -938,6 +958,10 @@
   flex-direction: column;
 }
 .ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   min-height: 48px;
   padding: 0 24px;
   border-radius: 999px;
@@ -1354,9 +1378,19 @@ a.ui-btn {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--on-surface-variant);
-  font-size: 0.92rem;
-  font-weight: 500;
+  color: var(--on-surface);
+}
+/* Todos los avisos de progreso usan la misma tipografía que una respuesta. */
+.thinking,
+.thinking-label,
+.stream-prose,
+.stream-placeholder {
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--on-surface);
 }
 .thinking-label {
   animation: text-pulse 1.6s ease-in-out infinite;

@@ -188,7 +188,14 @@ export function resultFromText(clean, question) {
   if (/^\s*(NO_SE|MOODLE_NOT_FOUND)\s*$/i.test(clean))
     return { type: "error", question, message: notFound };
   const isProgram = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
-  if (isProgram) return { type: "ui", response: clean };
+  if (isProgram) {
+    /* El texto escrito antes de las herramientas se conserva sobre la UI. */
+    const intro = clean
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !/^[A-Za-z_$][\w$]*\s*=/.test(l));
+    return { type: "ui", response: clean, intro };
+  }
   /* Respuesta en texto: se muestra con el mismo estilo que el resto del chat */
   const lines = clean
     .split(/\r?\n/)

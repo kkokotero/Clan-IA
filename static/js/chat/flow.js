@@ -179,7 +179,7 @@ export async function respond(
         /*Último repintado con el texto íntegro: si algún fragmento no llegó a
           dibujarse, la tarjeta no se queda cortada antes de finalizar. */
         const card = wrap.querySelector(".card");
-        if (card) renderStream(complete, card);
+        if (card) renderStream(complete, card, true);
         result = resultFromText(complete, question);
       } catch (err) {
         /* Si el proveedor no soporta streaming, usamos la llamada normal */
@@ -187,7 +187,7 @@ export async function respond(
           const text = await runAIWithTools(question, settings, () => {}, false);
           const complete = cleanResponse(text);
           const card = wrap.querySelector(".card");
-          if (card) renderStream(complete, card);
+          if (card) renderStream(complete, card, true);
           result = resultFromText(complete, question);
         } catch (e2) {
           result = aiErrorResult(e2, question, settings);

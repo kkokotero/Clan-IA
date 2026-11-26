@@ -270,6 +270,15 @@ export function renderPartialProgram(mount, program) {
 }
 
 /* ---------- Plantillas ---------- */
+/* Texto que el modelo escribió mientras consultaba: se muestra igual que una
+   respuesta normal, encima de los componentes generados. */
+export function introHTML(lineas) {
+  if (!Array.isArray(lineas) || !lineas.length) return "";
+  return `<div class="ui-intro">${lineas
+    .map((l) => `<p>${richText(l)}</p>`)
+    .join("")}</div>`;
+}
+
 export function cardHTML(msg) {
   const preamble = msg.preamble
     ? `<div class="preamble">${msg.preamble}</div>`
@@ -278,7 +287,7 @@ export function cardHTML(msg) {
     return `${preamble}<div class="card card-pending"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Clan IA está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span></div></div>`;
   }
   if (msg.type === "ui") {
-    return `${preamble}<div class="card card-ui"><div class="ui-render"></div></div>`;
+    return `${preamble}<div class="card card-ui">${introHTML(msg.intro)}<div class="ui-render"></div></div>`;
   }
   if (msg.type === "answer") {
     return `${preamble}<div class="card">${msg.short ? `<p class="short">${msg.short}</p>` : ""}${msg.html || ""}</div>`;
@@ -396,7 +405,7 @@ export function showThinking() {
     LOGO_MINI +
     `<div class="thinking">
     <span class="dots"><i></i><i></i><i></i></span>
-    <span class="thinking-label">Clan IA está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span>
+    <span class="thinking-label">Clan IA está preparando tu respuesta<span class="thinking-ring" aria-hidden="true"></span></span>
   </div>`;
   messagesEl.appendChild(wrap);
   scrollDown();
@@ -421,6 +430,34 @@ export const scrollDown = (instant = false) =>
 export const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
 
+/* El stream dibuja el texto ya escrito y los avisos de herramienta como líneas
+   del mismo estilo. Nada se reemplaza: cada paso se añade debajo. */
+const streamViews = new WeakMap();
+const vistaStream = (card) => {
+  let vista = streamViews.get(card);
+  if (!vista) {
+    vista = { partes: [], programa: "", esPrograma: false, ultimoTexto: -1 };
+    streamViews.set(card, vista);
+  }
+  return vista;
+};
+
+const pintarStream = (card, vista, enCurso) => {
+  const partes = vista.partes
+    .map((p, i) => {
+      const cola = enCurso && i === vista.partes.length - 1 ? STREAM_TAIL : "";
+      if (p.tipo === "status")
+        return `<p class="stream-placeholder">${icon(p.icono || "bolt", "sm")}${escapeHTML(p.texto)}…${cola}</p>`;
+      return `<p class="stream-prose">${escapeHTML(p.texto)}${cola}</p>`;
+    })
+    .join("");
+  card.classList.toggle("card-ui", vista.esPrograma);
+  card.innerHTML = `<div class="stream-parts">${partes}</div><div class="ui-render"></div>`;
+  if (vista.esPrograma)
+    renderPartialProgram(card.querySelector(".ui-render"), vista.programa);
+  scrollDown();
+};
+
 /* Mientras llega el texto decidimos si es un programa de componentes o prosa. En el
    primer caso dibujamos componentes reales con lo que ya viene; en el segundo,
    mostramos el texto como siempre. Nunca se ve el código fuente del programa. */
@@ -431,57 +468,70 @@ export const PARTIAL_WRITE = /MOODLE_WRITE\s*\(/i;
 export const PARTIAL_CHAT = /CHAT_(?:LIST|READ|WRITE)\s*\(/i;
 export const PARTIAL_DEVICE = /DEVICE_INFO\s*\(/i;
 
-/* El fragmento que está llegando termina con un círculo que late */
-export function renderStream(partial, card) {
-  const clean = cleanResponse(partial);
-  card.classList.add("card-ui");
-  let mount = card.querySelector(".ui-render");
-  if (!mount) {
-    card.innerHTML = `<div class="ui-render"></div>`;
-    mount = card.querySelector(".ui-render");
-  }
-  if (/^TOOL_STATUS::/.test(clean)) {
-    const nombre = clean.replace(/^TOOL_STATUS::\s*/, "").trim();
-    mount.innerHTML = `<p class="stream-placeholder">${escapeHTML(nombre)}…${STREAM_TAIL}</p>`;
+/* `final` repinta la tarjeta con la respuesta definitiva; mientras tanto,
+   TEXT/STEP/TOOL_STATUS se acumulan en el mismo orden en que van ocurriendo. */
+export function renderStream(partial, card, final = false) {
+  const clean = cleanResponse(partial || "");
+
+  if (final) {
+    streamViews.delete(card);
+    card.classList.remove("is-streaming");
+    if (PARTIAL_PROGRAM.test(clean)) {
+      card.classList.add("card-ui");
+      const intro = clean
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l && !/^[A-Za-z_$][\w$]*\s*=/.test(l));
+      card.innerHTML = `${introHTML(intro)}<div class="ui-render"></div>`;
+      renderPartialProgram(card.querySelector(".ui-render"), clean);
+      return;
+    }
+    card.classList.remove("card-ui");
+    const lineas = clean
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    card.innerHTML = `<p class="short">${richText(lineas[0] || "")}</p><div class="api-answer">${lineas
+      .slice(1)
+      .map((l) => `<p>${richText(l)}</p>`)
+      .join("")}</div>`;
     return;
   }
-  if (PARTIAL_DEVICE.test(clean)) {
-    mount.innerHTML = `<p class="stream-placeholder">Consultando fecha, hora y dispositivo${STREAM_TAIL}</p>`;
+
+  const raw = String(partial || "");
+  const vista = vistaStream(card);
+
+  if (/^STEP::/.test(raw)) {
+    vista.ultimoTexto = -1;
     return;
   }
-  if (PARTIAL_VERIFY.test(clean)) {
-    mount.innerHTML = `<p class="stream-placeholder">Verificando nombres en Moodle${STREAM_TAIL}</p>`;
+  if (/^TOOL_STATUS::/.test(raw)) {
+    const nombre = raw.replace(/^TOOL_STATUS::\s*/, "").trim();
+    const texto = `Usando ${nombre}`;
+    const ultima = vista.partes[vista.partes.length - 1];
+    if (!ultima || ultima.tipo !== "status" || ultima.texto !== texto)
+      vista.partes.push({ tipo: "status", texto, icono: "bolt" });
+    vista.ultimoTexto = -1;
+    pintarStream(card, vista, true);
     return;
   }
-  if (PARTIAL_WRITE.test(clean)) {
-    mount.innerHTML = `<p class="stream-placeholder">Preparando cambio en Moodle${STREAM_TAIL}</p>`;
+
+  const texto = cleanResponse(raw.replace(/^TEXT::\s?/, "")).trim();
+  if (!texto) return;
+
+  if (PARTIAL_PROGRAM.test(texto)) {
+    vista.esPrograma = true;
+    vista.programa = texto;
+    pintarStream(card, vista, true);
     return;
   }
-  if (PARTIAL_CHAT.test(clean)) {
-    mount.innerHTML = `<p class="stream-placeholder">Consultando tus chats${STREAM_TAIL}</p>`;
-    return;
+  if (vista.partes[vista.ultimoTexto]?.tipo === "texto") {
+    vista.partes[vista.ultimoTexto].texto = texto;
+  } else {
+    vista.partes.push({ tipo: "texto", texto });
+    vista.ultimoTexto = vista.partes.length - 1;
   }
-  if (PARTIAL_TOOL.test(clean)) {
-    mount.innerHTML = `<p class="stream-placeholder">Recorriendo Moodle${STREAM_TAIL}</p>`;
-    return;
-  }
-  if (PARTIAL_PROGRAM.test(clean)) {
-    if (renderPartialProgram(mount, clean)) return;
-    mount.innerHTML = `<p class="stream-placeholder">Diseñando la respuesta${STREAM_TAIL}</p>`;
-    return;
-  }
-  card.classList.remove("card-ui");
-  const lines = clean
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const marked = lines.map(
-    (l, i) => escapeHTML(l) + (i === lines.length - 1 ? STREAM_TAIL : ""),
-  );
-  card.innerHTML = `<p class="short">${marked[0] || `Escribiendo${STREAM_TAIL}`}</p><div class="api-answer">${marked
-    .slice(1)
-    .map((l) => `<p>${l}</p>`)
-    .join("")}</div>`;
+  pintarStream(card, vista, true);
 }
 
 /* ---------- Render ---------- */

@@ -28,7 +28,7 @@ HERRAMIENTAS DEL DISPOSITIVO (fecha, hora y equipo):
 - Para saber la fecha de hoy, la hora, la zona horaria o cualquier dato del dispositivo, responde SOLO con una o más líneas DEVICE_INFO({"keys":["date","time","timezone"]}), sin texto adicional ni bloques de código.
 - Campos disponibles: datetime, date, time, timezone, language, platform, device, screen, viewport, pixelratio, online, network, battery, memory, cpu, preferences. Si omites "keys" se consultan todos.
 ${generatePrompt()}
-- Puedes combinar varias herramientas en la misma respuesta. Los valores devueltos son reales: úsalos tal cual.
+- Puedes combinar varias herramientas en la misma respuesta y escribir texto antes o después de ellas. No hace falta esperar a terminar de escribir para consultar: los resultados se te devuelven y sigues redactando con ellos. Los valores devueltos son reales: úsalos tal cual.
 
 PERFIL, COMPAÑEROS, CHATS Y CAMBIOS:
 - Para consultar TODA tu información usa MOODLE_PROFILE. Para editarla usa MOODLE_WRITE con core_user_update_users: firstname, lastname, email, city, country, timezone, institution, department, phone1, phone2, url, alternatename, description, idnumber. Siempre pide confirmación.
@@ -73,7 +73,7 @@ NAVEGACIÓN POR MOODLE:
 - Para cualquier otro dato usa MOODLE_TOOL({"fn":"...","params":{...}}). Funciones de solo lectura disponibles: ${functionList}.
 - Puedes combinar varias líneas MOODLE_OPEN y MOODLE_TOOL en una respuesta. Tienes hasta ${MOODLE_MAX_STEPS} pasos y puedes reintentar si algo falla.
 - "userid" es siempre ${S.moodleUserId || "el de la sesión"}; "courseid"/"courseids" solo tus cursos; "cmid"/"cmids" solo actividades descubiertas. Nunca uses core_course_get_courses. Las escrituras van solo por MOODLE_WRITE con confirmación.
-- Cuando ya tengas datos reales suficientes, devuelve SOLO el programa final de componentes con root = Card(...) como primera línea. No mezcles herramientas con el programa final.
+- Cuando ya tengas datos reales suficientes, devuelve el programa final de componentes con root = Card(...) como primera línea. Puedes conservar el texto que hayas escrito junto a las herramientas; no repitas una consulta ya ejecutada y no dejes marcadores de herramienta dentro del programa final.
 
 ESPECIFICACIÓN DE COMPONENTES (sintaxis exacta, un componente por línea):
 - Card([...]) — contenedor raíz; siempre empieza con root = Card([...]).
@@ -116,7 +116,7 @@ root = Card([h, t])
 h = CardHeader("Título", "Subtítulo")
 t = TextContent("Texto leído de Moodle", "default")
 ICONOS: puedes definir el icono de cualquier componente que acepte "icono?" como último argumento. Usa solo nombres de Material Symbols en minúsculas con guiones bajos, por ejemplo: school, calendar_month, assignment, description, link, groups, key, schedule, check_circle, error, info, bolt, open_in_new, search, person, mail, phone, location_city, public, domain, flag, event, chat, security, lock, star, arrow_forward. Si no estás seguro, omite el argumento.
-Usa comillas dobles para todo el texto. Define cada componente en una línea y usa las variables definidas. No mezcles herramientas con el programa final.
+Usa comillas dobles para todo el texto. Define cada componente en una línea y usa las variables definidas. Puedes acompañar el programa con texto breve; las herramientas van antes del programa, no dentro de él.
 
 Los formularios se dibujan con campos personalizados de la app (iconos, dropdowns y botones); no son campos nativos. Input con tipo "password" incluye un botón para mostrar u ocultar lo escrito.
 
