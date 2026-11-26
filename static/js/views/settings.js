@@ -1,4 +1,4 @@
-import { PROVIDERS, askAI } from '../ai/providers.js';
+import { PROVIDERS, askAI, refreshOpenRouterModels } from '../ai/providers.js';
 import { refreshAIStatus, renderHistory } from '../chat/flow.js';
 import { current, load, save } from '../chat/model.js';
 import { $, app, closeMenu, escapeHTML, menuQuery, menuToggle, setMenu } from '../core/dom.js';
@@ -500,6 +500,15 @@ const cfgIA = getSettings();
 if (providerSel) providerSel.value = cfgIA.provider;
 if (keyInput) keyInput.value = cfgIA.apiKey;
 if (providerSel) populateModels(cfgIA.provider, cfgIA.model);
+/* Ampliamos el catálogo de OpenRouter con los modelos gratuitos vigentes. */
+if (providerSel) {
+  refreshOpenRouterModels().then((agregados) => {
+    if (!agregados) return;
+    populateModels(providerSel.value, readModel());
+    renderModelList();
+    syncSelectUI();
+  });
+}
 syncSelectUI();
 if (keyInput?.value.trim()) scheduleValidate(400);
 if ($('#profileForm')) {

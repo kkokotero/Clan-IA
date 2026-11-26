@@ -8,22 +8,25 @@ export const PROVIDERS = {
   gemini: {
     label: "Google Gemini",
     defaultModel: "gemini-4-hydrogen",
-    help: "Consigue tu key en aistudio.google.com/apikey. Los modelos 3.8/3.6 Flash daban 503 y ya no se ofrecen.",
+    help: "Consigue tu key en aistudio.google.com/apikey. Los modelos 3.8/3.6/3.5 Flash y 2.5 daban 503 o están deprecados; se ofrecen los Gemini 4 vigentes.",
     models: [
       {
         value: "gemini-4-hydrogen",
         label: "Gemini 4 Hydrogen (recomendado)",
       },
+      { value: "gemini-4-carbon", label: "Gemini 4 Carbon (avanzado)" },
+      { value: "gemini-4-neon", label: "Gemini 4 Neon (rápido)" },
+      { value: "gemini-4-argon", label: "Gemini 4 Argon" },
       {
         value: "gemini-3.5-flash-lite",
-        label: "Gemini 3.5 Flash-Lite (rápido)",
+        label: "Gemini 3.5 Flash-Lite (económico)",
       },
     ],
   },
   openrouter: {
     label: "OpenRouter",
     defaultModel: "openrouter/free",
-    help: "Consigue tu key en openrouter.ai/keys. Modelos disponibles vigentes (nov 2026); 'openrouter/free' elige uno disponible.",
+    help: "Consigue tu key en openrouter.ai/keys. 'openrouter/free' elige uno disponible; la lista se amplía con los modelos gratuitos vigentes del catálogo público.",
     models: [
       { value: "openrouter/free", label: "OpenRouter (recomendado)" },
       {
@@ -42,11 +45,57 @@ export const PROVIDERS = {
         value: "nvidia/nemotron-3.5-lightning:free",
         label: "Nemotron 3.5 Lightning",
       },
+      {
+        value: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        label: "Nemotron 3 Nano Omni",
+      },
       { value: "google/gemma-4-26b-a4b-it:free", label: "Gemma 4 26B" },
+      { value: "google/gemma-4-31b-it:free", label: "Gemma 4 31B" },
       { value: "inclusionai/ling-3.2-flash:free", label: "Ling 3.2 Flash" },
+      { value: "liquid/lfm-3-1.7b:free", label: "LFM 3 1.7B" },
+      { value: "particle-ai/particle-1:free", label: "Particle 1" },
+      { value: "recursive/flint-v1.0:free", label: "Flint v1.0" },
     ],
   },
 };
+
+/* El catálogo de OpenRouter es público y admite CORS. Lo consultamos sin key
+   para añadir modelos gratuitos nuevos sin tener que tocar el código. Si falla,
+   seguimos con la lista incluida arriba. */
+const OPENROUTER_CATALOG = 'https://openrouter.ai/api/v1/models';
+let catalogPromise = null;
+
+export function refreshOpenRouterModels() {
+  if (!catalogPromise) {
+    catalogPromise = fetch(OPENROUTER_CATALOG, { credentials: 'omit' })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data) => {
+        const productos = PROVIDERS.openrouter.models;
+        const vistos = new Set(productos.map((m) => m.value));
+        const nuevos = (data?.data || [])
+          .filter(
+            (m) =>
+              String(m?.pricing?.prompt) === '0' &&
+              String(m?.pricing?.completion) === '0' &&
+              !String(m?.id || '').includes(':batch') &&
+              (m?.architecture?.output_modalities || []).join(',') === 'text' &&
+              (m?.endpoints || []).includes('/api/v1/chat/completions') &&
+              !vistos.has(m.id),
+          )
+          .map((m) => {
+            const nombre = String(m.name || m.id);
+            return {
+              value: m.id,
+              label: `${nombre.includes(': ') ? nombre.split(': ').slice(1).join(': ') : nombre} (gratis)`,
+            };
+          });
+        productos.push(...nuevos);
+        return nuevos.length;
+      })
+      .catch(() => 0);
+  }
+  return catalogPromise;
+}
 
 /* Los errores del proveedor se convierten en tarjetas comprensibles: nunca se
    muestra al usuario el texto técnico completo (URLs, límites, modelos…). */

@@ -34,13 +34,16 @@ de texto plano. No se carga ninguna librería ni CSS externo: el prompt y el dib
 4. Elige proveedor, selecciona un modelo de la **lista desplegable** y pega tu API key
    gratuita. Puedes pulsar **Probar conexión** antes de guardar:
    - **Google Gemini** → crea una key en https://aistudio.google.com/apikey.
-     Modelos gratuitos vigentes: `gemini-4-hydrogen` (recomendado) y
-     `gemini-3.5-flash-lite` (rápido). Los antiguos `gemini-3.8-flash`, `3.6-flash`,
-     `3.5-flash`, `2.5-flash` y `2.0-flash` están deprecados o saturados (503) y se
-     eliminaron de la lista.
+     Modelos vigentes: `gemini-4-hydrogen` (recomendado), `gemini-4-carbon`,
+     `gemini-4-neon`, `gemini-4-argon` y `gemini-3.5-flash-lite` (económico).
+     Los antiguos `gemini-3.8-flash`, `3.6-flash`, `3.5-flash`, `2.5-flash` y
+     `2.0-flash` están deprecados o saturados (503) y no se ofrecen.
    - **OpenRouter** → crea una key en https://openrouter.ai/keys. Por defecto
-     `openrouter/free`; también Nemotron 3 Ultra, ERNIE 5.5 Flash, Nemotron 3.5
-     Super VL/Lightning, Gemma 4 26B y Ling 3.2 Flash (todos `:free`).
+     `openrouter/free`. La lista incluye Nemotron 3 Ultra/3.5/3 Nano, ERNIE 5.5
+     Flash, Gemma 4 26B/31B, Ling 3.2 Flash, LFM 3 1.7B, Particle 1 y Flint v1.0
+     (todos `:free`). Además, al abrir Configurar IA se consulta el catálogo
+     público de OpenRouter y se añaden los modelos gratuitos nuevos que acepten
+     texto; si no hay conexión, se usa la lista incluida.
 5. Guarda. El perfil muestra **"IA activa · Google Gemini"** (u OpenRouter). Sin key, la
    asistente lo indica con una tarjeta que invita a configurarla.
 6. Cada respuesta de la IA tiene **Copiar** y **Rehacer**; cada mensaje tuyo tiene **Copiar**
