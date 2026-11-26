@@ -364,6 +364,10 @@ export async function streamAI(question, settings, onChunk, context = "") {
       onChunk(""); // descarta el partial del modelo caído
     }
   }
+  /* Si el streaming terminó sin texto, repetimos la pregunta sin streaming
+     para no dejar la respuesta cortada a mitad. */
+  const respuesta = await askAI(question, settings, context);
+  if (respuesta) return respuesta;
   if (lastError) throw lastError;
   return "";
 }

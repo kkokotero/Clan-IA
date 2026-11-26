@@ -440,6 +440,11 @@ export function renderStream(partial, card) {
     card.innerHTML = `<div class="ui-render"></div>`;
     mount = card.querySelector(".ui-render");
   }
+  if (/^TOOL_STATUS::/.test(clean)) {
+    const nombre = clean.replace(/^TOOL_STATUS::\s*/, "").trim();
+    mount.innerHTML = `<p class="stream-placeholder">${escapeHTML(nombre)}…${STREAM_TAIL}</p>`;
+    return;
+  }
   if (PARTIAL_DEVICE.test(clean)) {
     mount.innerHTML = `<p class="stream-placeholder">Consultando fecha, hora y dispositivo${STREAM_TAIL}</p>`;
     return;

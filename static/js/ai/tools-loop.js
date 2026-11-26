@@ -5,7 +5,7 @@ import { DEVICE_QUESTION, askAI, cleanResponse, streamAI } from './providers.js'
 import { normalize } from '../core/dom.js';
 import { compactMoodleResult } from '../core/helpers.js';
 import { S, getMoodle } from '../core/state.js';
-import { detect, hasCalls, run, toolForMarker } from './tools/index.js';
+import { TOOLS, detect, hasCalls, run, toolForMarker } from './tools/index.js';
 import { maybe as autoDiscover } from './tools/auto-discover.js';
 import { demand as verifyDemand } from './tools/verify-policy.js';
 
@@ -77,7 +77,9 @@ async function ejecutarConHerramientas(question, settings, onChunk, useStream = 
 
     /* Mostramos en la tarjeta qué herramienta está trabajando. */
     const primerMarker = Object.keys(llamadas)[0];
-    emit(primerMarker === "DEVICE_INFO" ? "DEVICE_INFO()" : `${primerMarker}({})`);
+    const nombreHerramienta =
+      TOOLS.find((t) => t.marker === primerMarker)?.nombre || primerMarker;
+    emit(`TOOL_STATUS:: ${nombreHerramienta}`);
     for (const [marker, orders] of Object.entries(llamadas)) {
       const tool = toolForMarker(marker);
       if (!tool) continue;
