@@ -31,11 +31,13 @@ export let moodleSessionReady = false;
 export let moodleSessionPromise = null;
 export let moodleProfileContext = "";
 export let lastMoodleError = "";
+export let moodleAvatarUrl = "";
 export function normalizeMoodle(s) {
   const rawBase = typeof s?.base === "string" ? s.base.trim() : "";
   return {
     token: typeof s?.token === "string" ? s.token.trim() : "",
     name: typeof s?.name === "string" ? s.name.trim() : "",
+    avatarUrl: typeof s?.avatarUrl === "string" ? s.avatarUrl.trim() : "",
     base: /^https:\/\//i.test(rawBase)
       ? rawBase.replace(/\/+$/, "")
       : MOODLE_DEFAULT_BASE,
@@ -77,6 +79,7 @@ export function resetMoodleData() {
   moodleURLs = [];
   moodleEvents = [];
   lastMoodleError = "";
+  moodleAvatarUrl = "";
 }
 export function clearMoodle() {
   moodleMemory = null;
@@ -133,6 +136,8 @@ export const S = {
   set moodleProfileContext(v) { moodleProfileContext = v; },
   get lastMoodleError() { return lastMoodleError; },
   set lastMoodleError(v) { lastMoodleError = v; },
+  get moodleAvatarUrl() { return moodleAvatarUrl; },
+  set moodleAvatarUrl(v) { moodleAvatarUrl = v; },
   get memorySettings() { return memorySettings; },
   set memorySettings(v) { memorySettings = v; },
   get conversations() { return conversations; },

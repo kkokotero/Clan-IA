@@ -1,7 +1,7 @@
 import { $, chat } from '../core/dom.js';
 import { S, busy, conversations, currentId, editingId, getMoodle, memorySettings, moodleAllFunctions, moodleCMIds, moodleContents, moodleContext, moodleCourses, moodleEvents, moodleFunctions, moodleMaterials, moodleMemory, moodlePeople, moodlePeopleIds, moodleProfileContext, moodleSessionPromise, moodleSessionReady, moodleTasks, moodleURLs, moodleUser, moodleUserId, resetMoodleData, saveMoodle } from '../core/state.js';
 import { moodleLogin } from '../moodle/client.js';
-import { setMoodleStatus } from '../moodle/session.js';
+import { ensureMoodleSession, setMoodleStatus } from '../moodle/session.js';
 if (getMoodle().token) window.location.replace('/chat/');
 if (new URLSearchParams(window.location.search).get('moodle') === 'renovar')
   setMoodleStatus('Tu sesión de Moodle venció. Vuelve a ingresar para renovarla.');
@@ -41,6 +41,8 @@ export function initRegister() {
          Los datos de Moodle se consultan después, bajo demanda, con MOODLE_TOOL. */
       resetMoodleData();
       saveMoodle({ token, base });
+      /* Sincroniza nombre y foto reales de Moodle antes de entrar al chat. */
+      await ensureMoodleSession().catch(() => {});
       setMoodleStatus("");
       /* Sesión activa: salimos del registro y entramos al chat. */
       const pendiente = localStorage.getItem('ritchie-ia-chat-pendiente');

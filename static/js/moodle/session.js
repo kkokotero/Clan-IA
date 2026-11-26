@@ -53,8 +53,15 @@ export async function ensureMoodleSession() {
       timezone: info.timezone,
       language: info.lang,
     });
-    if (S.moodleUser !== "Estudiante" && S.moodleUser !== getMoodle().name)
-      saveMoodle({ ...getMoodle(), name: S.moodleUser });
+    S.moodleAvatarUrl = moodleDirectURL(
+      info.userpictureurl || info.userimage || info.avatar || "",
+    );
+    if (S.moodleUser !== "Estudiante" || S.moodleAvatarUrl)
+      saveMoodle({
+        ...getMoodle(),
+        name: S.moodleUser,
+        avatarUrl: S.moodleAvatarUrl,
+      });
     S.moodleProfileContext = [
       "Mi perfil real (de Moodle; para más campos usa core_user_get_users_by_field):",
       `- ${JSON.stringify(profile)}`,
@@ -211,8 +218,12 @@ export function updateMoodleUI() {
       .toUpperCase() || "ES";
   const profileName = $("#profileName");
   if (profileName) profileName.textContent = name;
+  const avatarUrl = S.moodleAvatarUrl || cfg.avatarUrl || "";
   [$("#userAvatar"), $("#mobileAvatar")].forEach((avatar) => {
-    if (avatar) avatar.textContent = initials;
+    if (!avatar) return;
+    if (avatarUrl)
+      avatar.innerHTML = `<img class="avatar-img" src="${escapeHTML(avatarUrl)}" alt="" />`;
+    else avatar.textContent = initials;
   });
   if (!panel) return;
   panel.hidden = !S.moodleContext;
