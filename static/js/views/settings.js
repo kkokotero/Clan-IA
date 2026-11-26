@@ -80,7 +80,7 @@ async function loadProfileOptions() {
       });
     } catch (e) {}
   }
-  try {
+  if (S.moodleUserId) try {
     const courses = await moodleRequest('core_enrol_get_users_courses', {
       userid: S.moodleUserId,
     });

@@ -37,6 +37,7 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
   const toolNotes = [];
   const rejectedNames = [];
   let verifiedAny = false;
+  S.lastMoodleError = "";
   let autoDescubierto = false;
   let verificacionPedida = false;
   let text = useStream
@@ -69,7 +70,7 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
         !DEVICE_QUESTION.test(question) &&
         !(getMoodle().token && S.moodleCourses.length) &&
         !(getMoodle().token && S.moodleMaterials.length);
-      if (preguntaMoodle && !autoDescubierto && getMoodle().token) {
+      if (preguntaMoodle && !autoDescubierto && getMoodle().token && S.moodleUserId) {
         autoDescubierto = true;
         try {
           const data = await moodleRequest("core_enrol_get_users_courses", {
@@ -84,8 +85,7 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
           text = await askAI(question, settings, "\n\n" + nota);
           continue;
         } catch (err) {
-          S.lastMoodleError = String(err.message || err);
-          const nota = `No pude consultar tus cursos en Moodle: ${S.lastMoodleError}. Si no puedes responder con datos reales, responde exactamente MOODLE_NOT_FOUND.`;
+          const nota = "No pude consultar tus cursos en Moodle con esos datos. Si no puedes responder con información real, responde exactamente MOODLE_NOT_FOUND.";
           toolNotes.push(nota);
           text = await askAI(question, settings, "\n\n" + nota);
           continue;
@@ -124,18 +124,26 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
       }
       for (const order of openCalls)
         toolNotes.push(await applyMoodleOpen(order));
+      const sinParametros = new Set([
+        "core_webservice_get_site_info",
+        "core_country_get_countries",
+      ]);
       for (const call of calls) {
         let data;
         if (!moodleToolAllowed(call.fn)) {
           data = { error: `Función no disponible o no permitida: ${call.fn}` };
+        } else if (
+          !Object.keys(call.params || {}).length &&
+          !sinParametros.has(call.fn)
+        ) {
+          data = { error: `Faltan parámetros válidos para ${call.fn}` };
         } else {
           try {
             data = await moodleRequest(call.fn, call.params);
             if (call.fn === "core_course_get_contents") collectMoodleCMIds(data);
             collectMoodleURLs(data);
           } catch (err) {
-            S.lastMoodleError = String(err.message || err);
-            data = { error: S.lastMoodleError };
+            data = { error: String(err.message || err) };
           }
         }
         entries.push({ fn: call.fn, params: call.params, data });
