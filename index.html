@@ -40,7 +40,7 @@
         <button class="mobile-top-icon" id="mobileNewChat" type="button" aria-label="Nueva conversación"><span
             class="ic">add</span></button>
         <button class="mobile-top-icon" id="mobileProfileBtn" type="button" aria-label="Abrir configuración de IA">
-          <span class="mobile-avatar" id="mobileAvatar">ED</span>
+          <span class="mobile-avatar" id="mobileAvatar">ES</span>
         </button>
       </div>
     </header>
@@ -70,12 +70,14 @@
             el TL (Team Leader)</span></button>
         <button class="nav-item" id="moodleBtnSide" type="button"><span class="ic">school</span><span class="label">Mi
             Moodle</span></button>
+        <button class="nav-item" id="logoutBtnSide" type="button" hidden><span class="ic">logout</span><span
+            class="label">Cerrar sesión de Moodle</span></button>
         <button class="profile" id="profileBtn" type="button"
           title="Abrir configuración de IA (se guarda en este navegador)"
           aria-label="Abrir configuración de IA del perfil">
-          <div class="avatar-user" aria-hidden="true">ED</div>
+          <div class="avatar-user" id="userAvatar" aria-hidden="true">ES</div>
           <div class="profile-text">
-            <span class="profile-name">Estudiante Demo</span>
+            <span class="profile-name" id="profileName">Estudiante</span>
             <span class="profile-sub" id="profileStatus">Configurar IA</span>
           </div>
           <span class="ic sm profile-cog" aria-hidden="true">settings</span>
@@ -87,12 +89,55 @@
     <!-- ========== ÁREA PRINCIPAL ========== -->
     <main class="main">
 
-      <div class="ai-off-notice" id="aiOffNotice" role="status" hidden>
-        <span class="ic sm">cloud_off</span>
-        <span>Sin conexión con la IA. Las respuestas son de demostración; configura una key en tu perfil para
-          conectar.</span>
-        <button class="btn btn-text" id="aiOffConfigBtn" type="button">Configurar IA</button>
-      </div>
+      <!-- ========== INICIO: introducción al repo + ingreso ========== -->
+      <section class="landing" id="landing" aria-labelledby="landingTitle" hidden>
+        <div class="landing-inner">
+          <div class="landing-hero">
+            <div class="logo-tile brand landing-logo" aria-hidden="true">
+              <span class="logo">cruelty_free</span>
+            </div>
+            <h1 class="landing-title" id="landingTitle">Ritchie AI</h1>
+            <p class="landing-subtitle">Tu asistente educativo, conectado a tus cursos.</p>
+            <p class="landing-lede">Entra con tu cuenta y pregúntale lo que necesites: sesiones, tareas, materiales y
+              fechas de entrega.</p>
+            <ul class="landing-points">
+              <li>
+                <span class="ic" aria-hidden="true">school</span>
+                <span><b>Tus datos reales.</b> Calendario, tareas y materiales de tus cursos.</span>
+              </li>
+              <li>
+                <span class="ic" aria-hidden="true">bolt</span>
+                <span><b>Respuestas al instante.</b> Sesiones, entregas y proyectos en segundos.</span>
+              </li>
+              <li>
+                <span class="ic" aria-hidden="true">open_in_new</span>
+                <span><b>Acceso directo.</b> Abre tus cursos y materiales desde el chat.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="landing-card">
+            <h2 class="landing-card-title">Ingresa</h2>
+            <p class="landing-card-sub">Usa tu usuario y contraseña.</p>
+            <form class="ui-form ui-form-settings" id="moodleForm" autocomplete="off">
+              <label class="ui-field">
+                <span class="ui-label">Usuario</span>
+                <input class="ui-input" id="moodleUsername" type="text" autocomplete="username" spellcheck="false"
+                  placeholder="nombre de usuario" required />
+              </label>
+              <label class="ui-field">
+                <span class="ui-label">Contraseña</span>
+                <input class="ui-input" id="moodlePassword" type="password" autocomplete="current-password"
+                  placeholder="••••••••" required />
+              </label>
+              <p class="landing-status" id="moodleStatus" role="status" aria-live="polite" hidden></p>
+              <div class="landing-form-actions">
+                <button type="submit" class="ui-btn ui-btn-primary">Ingresar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
 
       <section class="chat" id="chat" aria-live="polite">
         <!-- Estado vacío -->
@@ -104,7 +149,7 @@
         <div class="messages" id="messages"></div>
         <p class="disclaimer" role="note">
           <span class="ic sm">info</span>
-          <span>Ritchie AI puede cometer errores. Verifica siempre las fuentes.</span>
+          <span>Ritchie AI puede cometer errores. Verifica siempre con tus materiales oficiales.</span>
         </p>
       </section>
 
@@ -117,21 +162,6 @@
         </form>
       </footer>
     </main>
-  </div>
-
-  <!-- ========== MODAL: DOCUMENTO DE DEMOSTRACIÓN ========== -->
-  <div class="modal" id="docModal" role="dialog" aria-modal="true" aria-labelledby="docTitle" hidden>
-    <div class="modal-card">
-      <button class="icon-btn modal-close" data-close aria-label="Cerrar"><span class="ic">close</span></button>
-      <div class="modal-head">
-        <div class="modal-ico"><span class="ic lg">description</span></div>
-        <h2 id="docTitle">Documento de demostración</h2>
-      </div>
-      <p>Aquí se abriría el archivo <b id="docName">calendario-cohorte-demo.pdf</b>.</p>
-      <div class="note"><span class="ic sm">info</span><span>Este enlace es solo un ejemplo: no existe un documento real
-          conectado. Los datos mostrados por la demo son ficticios y no oficiales.</span></div>
-      <div class="modal-actions"><button class="btn btn-filled" data-close>Cerrar</button></div>
-    </div>
   </div>
 
   <!-- ========== MODAL: CONFIRMACIÓN DE CAMBIOS ========== -->
@@ -246,19 +276,19 @@
             <p>Así puedes sacarle el mejor provecho a Ritchie AI.</p>
             <ul class="help-list">
               <li><span class="ic">key</span><span><b>Conecta tu IA.</b> Haz clic en tu <b>perfil</b> (abajo en la barra
-                  lateral) y pega una API key gratuita de Gemini u OpenRouter. Sin key, la app responde en modo
-                  demostración.</span></li>
-              <li><span class="ic">school</span><span><b>Conecta Moodle.</b> En Configuración → Moodle ingresas con
-                  tu usuario y contraseña. La IA podrá consultar tus cursos y materiales reales.</span></li>
+                  lateral) y pega una API key gratuita de Gemini u OpenRouter. Sin key, la app no responde: pide una
+                  key para empezar.</span></li>
+              <li><span class="ic">school</span><span><b>Ingresa a Moodle.</b> El formulario está en la pantalla de
+                  inicio; sin sesión el chat queda cerrado. La IA consulta tus cursos y materiales reales.</span></li>
               <li><span class="ic">chat</span><span><b>Pregunta con claridad.</b> Sesiones, actividades, fechas de
                   entrega, proyectos y materiales.</span></li>
-              <li><span class="ic">description</span><span><b>Revisa la fuente.</b> Cada respuesta indica el documento
-                  del que proviene.</span></li>
+              <li><span class="ic">description</span><span><b>Contrasta la información.</b> La asistente usa tus
+                  materiales de Moodle: verifica siempre en el curso correspondiente.</span></li>
               <li><span class="ic">shield</span><span><b>Temas sensibles.</b> Salud, calificaciones, situaciones
                   personales o decisiones sobre otras personas se atienden con el TL (Team Leader).</span></li>
             </ul>
-            <div class="note"><span class="ic sm">info</span><span>Los documentos de la cohorte son ficticios, incluso
-                cuando responde una IA real.</span></div>
+            <div class="note"><span class="ic sm">info</span><span>Ritchie AI responde solo con la IA configurada
+                y los datos leídos de tu Moodle.</span></div>
             <div class="modal-actions">
               <button class="ui-btn ui-btn-secondary" type="button" data-settings-tab="ia"><span
                   class="ic">key</span>Configurar IA</button>
@@ -292,27 +322,12 @@
           </div>
 
           <div class="settings-panel" id="panelMoodle" role="tabpanel" hidden>
-            <p>Ingresa con tu <b>usuario y contraseña de Moodle</b> para responder con tus materiales reales y abrirlos
-              desde este chat. Tu contraseña viaja directamente a Moodle: no se guarda ni pasa por un servidor nuestro.</p>
-            <form class="ui-form ui-form-settings" id="moodleForm" autocomplete="off">
-              <label class="ui-field">
-                <span class="ui-label">Usuario de Moodle</span>
-                <input class="ui-input" id="moodleUsername" type="text" autocomplete="username" spellcheck="false" />
-              </label>
-              <label class="ui-field">
-                <span class="ui-label">Contraseña de Moodle</span>
-                <input class="ui-input" id="moodlePassword" type="password" autocomplete="current-password" />
-              </label>
-              <p class="ui-hint" id="moodleStatus" role="status">Sin conectar.</p>
-              <div class="note"><span class="ic sm">info</span><span>Moodle devuelve un token que se guarda solo en este
-                  navegador para no pedir tu contraseña en cada visita. Si el servicio no está habilitado para tu cuenta,
-                  pide al TL que lo active.</span></div>
-              <div class="modal-actions">
-                <button type="button" class="ui-btn ui-btn-tertiary" id="moodleDisconnect">Desconectar</button>
-                <button type="submit" class="ui-btn ui-btn-primary">Ingresar y conectar</button>
-              </div>
-            </form>
+            <p>Conecta tu cuenta para que la asistente pueda consultar tus cursos y materiales reales desde el chat. La
+              contraseña viaja directamente a Moodle: no se guarda ni pasa por un servidor nuestro.</p>
             <div class="moodle-courses" id="moodleCourses" hidden></div>
+            <div class="modal-actions">
+              <button class="btn btn-tonal" type="button" id="moodleDisconnect">Desconectar</button>
+            </div>
           </div>
         </div>
       </div>

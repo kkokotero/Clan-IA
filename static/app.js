@@ -1,14 +1,17 @@
 /* =========================================================
-   Ritchie AI — Lógica (demostración)
-   Todas las respuestas son simuladas con datos FICTICIOS.
+   Ritchie AI — Lógica
+   El chat exige sesión activa en Moodle; las respuestas salen
+   de la IA conectada (Gemini/OpenRouter) con datos reales.
    ========================================================= */
 const $ = (sel) => document.querySelector(sel);
 const app = $("#app");
 const main = $(".main");
+const landing = $("#landing");
 const chat = $("#chat");
 const welcome = $("#welcome");
 const messagesEl = $("#messages");
 const form = $("#form");
+const composerWrap = $(".composer-wrap");
 const input = $("#input");
 const sendBtn = $("#send");
 const historyEl = $("#history");
@@ -39,6 +42,23 @@ let moodleCMIds = [];
 let moodleContents = {};
 let moodleURLs = [];
 let moodleEvents = [];
+
+/* El chat solo existe para quienes tienen una sesión activa en Moodle */
+const moodleSessionActive = () => Boolean(getMoodle().token);
+function syncChatAccess() {
+  const active = moodleSessionActive();
+  /* En la pantalla de registro no hay barra lateral ni barra superior: el
+     formulario ocupa toda la interfaz. */
+  app.classList.toggle("landing", !active);
+  main.classList.toggle("landing", !active);
+  if (!active) main.classList.remove("is-empty");
+  chat.hidden = !active;
+  composerWrap.hidden = !active;
+  landing.hidden = active;
+  /* «Cerrar sesión» solo tiene sentido con una sesión activa. */
+  const logoutBtn = $("#logoutBtnSide");
+  if (logoutBtn) logoutBtn.hidden = !active;
+}
 
 /* El usuario ingresa con usuario y contraseña; Moodle devuelve un token que se
    guarda en este navegador ( igual que la key de la IA ) para no volver a pedir
@@ -175,12 +195,6 @@ const MOODLE_MAX_LOG_ENTRIES = 8;
 const MOODLE_MAX_CONTEXT = 24000;
 /* Lista todos los cursos del sitio y falla si alguno no es accesible */
 const MOODLE_BLOCKED = new Set(["core_course_get_courses"]);
-/* Red de seguridad: si el modelo repite el calendario de demostración aunque el
-   prompt diga lo contrario, descartamos la respuesta en vez de mostrarla. */
-const MOODLE_DEMO_LEAK =
-  /Jueves 26 de noviembre de 2026|Taller de prompts|Reflexión de la sesión 8|Avance del proyecto|Viernes 4 de diciembre de 2026/i;
-/* Cualquier plugin (core, mod, block, local, report, badges...) puede exponer
-   funciones get: basta con que el nombre tenga el segmento "_get". */
 const MOODLE_READ_NAME = /^[a-z][a-z0-9_]*_get(?:_[a-z0-9_]+)?$/i;
 const MOODLE_WRITE_VERB =
   /\b(create|update|delete|submit|set|save|edit|mark|send|post|add|remove|move|copy|import|upload|enrol|unenrol|grade|complete|subscribe|unsubscribe|hide|show|lock|unlock|reset|restore|backup|evaluate|invite)\b/i;
@@ -1109,7 +1123,7 @@ async function applyMoodleOpen(order) {
   return moodleOpenURL(raw);
 }
 
-/* Calendario real: sin esto las preguntas de fecha caían en el PDF de demostración. */
+/* Calendario real: las fechas se leen de Moodle, nunca se inventan. */
 function moodleEventDate(event) {
   const seconds = Number(event && (event.timestart ?? event.timeStart));
   if (!Number.isFinite(seconds) || seconds <= 0) return "sin fecha";
@@ -1382,34 +1396,6 @@ async function moodleConnect(token, base) {
   return info;
 }
 
-function moodleDemoHTML() {
-  if (!moodleContext) return "";
-  const byCourse = new Map();
-  moodleMaterials.forEach((m) => {
-    if (!byCourse.has(m.courseId)) byCourse.set(m.courseId, []);
-    byCourse.get(m.courseId).push(m);
-  });
-  const accordions = moodleCourses
-    .slice(0, 8)
-    .map((c) => {
-      const items = (byCourse.get(c.id) || [])
-        .slice(0, 10)
-        .map((m) =>
-          m.url
-            ? `<li><a class="ui-link" href="${escapeHTML(m.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(m.title)}</a></li>`
-            : `<li>${escapeHTML(m.title)}</li>`,
-        )
-        .join("");
-      return `<details class="ui-accordion-item" open><summary>${escapeHTML(c.fullname)}</summary><div><ul class="ui-list">${items || "<li>Sin materiales expuestos por la API</li>"}</ul></div></details>`;
-    })
-    .join("");
-  return (
-    `<h3>Mis materiales de Moodle</h3>` +
-    `<p>Conectado como <b>${escapeHTML(moodleUser)}</b>: ${moodleCourses.length} cursos y ${moodleMaterials.length} materiales disponibles.</p>` +
-    `<div class="ui-accordion">${accordions}</div>`
-  );
-}
-
 /* ---------- Proveedores gratuitos (llamada directa desde el navegador) ---------- */
 const PROVIDERS = {
   gemini: {
@@ -1527,56 +1513,7 @@ function aiErrorResult(err, question, settings) {
   return { type: "error", kind: info.kind, title: info.title, question, message: info.message };
 }
 
-const SYSTEM_PROMPT = `Eres Ritchie AI, el asistente educativo de la cohorte Ritchie en Riwi.
-Responde SOLO con información de los documentos de la cohorte y de las herramientas del dispositivo.
-Los documentos son de ejemplo: para la fecha o hora de hoy usa la herramienta, no los documentos.
-Si la respuesta no está en esas fuentes, responde exactamente con la palabra: NO_SE
-
-FORMATO DE RESPUESTA (OpenUI Lang):
-1. Responde SOLO con un programa válido de OpenUI Lang: sentencias "nombre = Componente(...)",
-   una por línea, con "root = Card(...)" como PRIMERA línea. No escribas markdown ni texto fuera del programa.
-2. Compón la respuesta con variedad: CardHeader o InlineHeader para títulos, TextContent para el
-   resumen y Steps, Table, EntityList, ListBlock, Tabs o Callout para el detalle. Usa Separator
-   para agrupar y FollowUpBlock o Buttons con @ToAssistant("...") para sugerir siguientes pasos.
-3. Si el usuario pide una encuesta, formulario o elegir preferencias, usa Form con FormControl y
-   Buttons explícitos. Cada control lleva una etiqueta breve y una pista (hint) útil; elige Select,
-   Chips, OptionCards, TextArea, CheckBoxGroup o RadioGroup según corresponda, sin pedir datos personales.
-   StepsItem siempre lleva dos argumentos: título y detalles. Toda variable definida debe usarse.
-   No añadas bloques de fuente ni notas de autonomía: muestra solo la respuesta desarrollada.
-4. Si la respuesta no está en los documentos, responde exactamente con la palabra: NO_SE.
-5. Nunca inventes datos (ni cifras para gráficas). Nunca menciones APIs, claves ni tecnología interna.
-
-REGLAS DE ÉTICA Y PRIVACIDAD (obligatorias):
-6. PRIVACIDAD: Nunca solicites datos personales (correo, celular, cédula, datos de salud). Si el usuario los comparte, ignóralos y no los repitas. Nunca incluyas correos, teléfonos, números de identificación ni datos médicos en tu respuesta.
-7. SESGOS: Responde de manera equitativa. Ante casos iguales, da respuestas iguales sin importar quién pregunte. Si tu respuesta difiere para un caso similar, explica claramente la razón.
-8. SIN FUENTES: No menciones los nombres de los documentos, sus archivos ni ninguna sección "Sources"/"Fuente". No uses los componentes Sources ni CardSourceProvider. Usa la información sin citarla.
-9. TRANSPARENCIA IA: No lo aclares en el texto; la interfaz ya lo indica.
-10. AUTONOMÍA: Tu rol es INFORMAR, nunca decidir por el usuario. No añadas notas sobre quién decide.
-11. ENLACES: Solo incluye un enlace si su URL aparece literalmente en los documentos; nunca inventes ni completes una URL. Escríbelo como componente Link("texto del enlace", "https://...") o dentro de un texto como [texto](https://...). Los enlaces se abren en una pestaña nueva. No los presentes como "Fuente" ni los uses en lugar de la respuesta desarrollada.
-
-HERRAMIENTAS DEL DISPOSITIVO (fecha, hora y equipo):
-- Para fecha de hoy, hora, zona horaria, idioma, plataforma, pantalla, conexión, batería u otros datos del equipo, responde SOLO con DEVICE_INFO({"keys":["date","time","timezone"]}), sin texto adicional ni bloques de código.
-- Campos disponibles: datetime, date, time, timezone, language, platform, device, screen, viewport, pixelratio, online, network, battery, memory, cpu, preferences. Sin "keys" se consultan todos. Usa los valores devueltos; nunca asumas la fecha ni el dispositivo.
-
-DOCUMENTOS DE LA COHORTE:
-
---- Calendario de la cohorte ---
-Próxima sesión de IA: Jueves 26 de noviembre de 2026, 6:00 p.m., virtual. Tema: Introducción a los modelos de lenguaje.
-Actividades pendientes:
-  - Taller de prompts: vence el 27 de noviembre
-  - Reflexión de la sesión 8: vence el 29 de noviembre
-  - Avance del proyecto: vence el 1 de diciembre
-
---- Guía del proyecto ---
-Fecha límite de entrega del proyecto: viernes 4 de diciembre de 2026, hasta las 11:59 p.m.
-Cómo entregar: cargar el enlace del repositorio en la plataforma de la cohorte.
-
---- Carpeta de materiales ---
-Contenido disponible: presentaciones de cada sesión, grabaciones de las clases, guías y plantillas para el proyecto.
-Acceso: carpeta compartida de la cohorte.`;
-
-/* Con Moodle conectado se usa un prompt distinto: ni los documentos de
-   demostración ni sus ejemplos (tenían una fecha inventada) entran en juego. */
+/* El prompt de Moodle es la única fuente: no hay documentos de demostración. */
 function buildMoodlePrompt() {
   const functionList = moodleFunctions.length
     ? moodleFunctions.join(", ")
@@ -1592,7 +1529,7 @@ next = FollowUpBlock([q1])
 q1 = FollowUpItem("Ver mis materiales de Moodle")`;
   const preamble = `Eres Ritchie AI, el asistente educativo de la cohorte Ritchie en Riwi.
 
-FUENTE ÚNICA: el Moodle real del usuario y los resultados de las herramientas de abajo. Los documentos de demostración NO existen para esta conversación. Nunca reutilices fechas, tareas ni ejemplos del material de demostración; nunca respondas de memoria.
+FUENTE ÚNICA: el Moodle real del usuario y los resultados de las herramientas de abajo. Nunca respondas de memoria ni inventes datos: si algo no está en esos datos, responde MOODLE_NOT_FOUND.
 
 DATOS REALES DE MOODLE (obtenidos con el token del usuario):
 ${moodleContext}
@@ -1614,7 +1551,7 @@ VERIFICACIÓN OBLIGATORIA DE NOMBRES:
 - Antes de escribir el programa final, comprueba CADA curso, material, actividad, evento y pregunta relacionada que vayas a nombrar con MOODLE_VERIFY({"names":["Nombre exacto 1","Nombre exacto 2"]}).
 - Usa solo los nombres que la herramienta devuelva en el campo "real" como válidos. Los que aparezcan en "NO ENCONTRADOS" no existen en esta cuenta: no los escribas, no los sugieras en FollowUpBlock ni en @ToAssistant, y no los completes por patrones (por ejemplo, inventar "T2.1" porque existe "T1.1").
 - Si preguntan por "trayecto 2", "semana 2" u otra etiqueta que no aparece literalmente en los datos, busca primero materiales reales con MOODLE_TOOL o MOODLE_OPEN y verifícalos. Si no hay coincidencia real, responde exactamente MOODLE_NOT_FOUND.
-- Nunca des por válido un nombre que solo aparezca en tu respuesta anterior o en el material de demostración.
+- Nunca des por válido un nombre que solo aparezca en tu respuesta anterior: debe aparecer en los datos leídos de Moodle.
 
 TRABAJOS Y TAREAS (detalles reales):
 - Si preguntan "qué tengo que hacer", "trabajos", "tareas", "pendientes", "entregas" o por una semana/actividad concreta, usa SOLO el bloque "Trabajos y tareas reales con detalles": copia el nombre exacto, el curso, la fecha límite, las instrucciones y el enlace de CADA trabajo que corresponda.
@@ -1659,124 +1596,9 @@ FORMATO OpenUI Lang: una sentencia "nombre = Componente(...)" por línea; desarr
 /* El bundle de OpenUI genera la especificación completa del lenguaje a partir de su librería.
    Si el CDN no cargó, usamos una versión mínima para que la app siga funcionando. */
 function buildSystemPrompt() {
-  if (moodleContext || getMoodle().token) return buildMoodlePrompt();
-  /* Si el usuario conectó Moodle, sus materiales reales pasan a ser la fuente
-     principal; los documentos de demostración quedan como respaldo. */
-  const moodleFunctionList = moodleFunctions.length
-    ? moodleFunctions.join(", ")
-    : "core_webservice_get_site_info, core_enrol_get_users_courses, core_course_get_contents";
-  const moodleSection = moodleContext
-    ? `
-
---- MATERIAL ACADÉMICO REAL DE MOODLE (conectado por el usuario) ---
-${moodleContext}
-
-Este bloque prevalece sobre los documentos de demostración cuando el usuario pregunte por sus cursos o materiales. Sus URLs están autorizadas: puedes usarlas tal cual en Link("Etiqueta", "URL") o [Etiqueta](URL). Nunca inventes otras URLs de Moodle ni cursos que no aparezcan aquí.
-
-NAVEGACIÓN POR MOODLE (sigue los enlaces, sin lista fija de comandos):
-- Los datos de Moodle contienen URLs reales. Para abrir una, responde SOLO con una o más líneas MOODLE_OPEN({"url":"https://..."}), sin texto adicional ni bloques de código.
-- También puedes abrir por nombre o id de lo ya descubierto: MOODLE_OPEN({"name":"Tarea 1"}) o MOODLE_OPEN({"cmid":101}).
-- Al abrir course/view.php?id=X se consulta el contenido de ese curso; al abrir mod/.../view.php?id=X se resuelve la actividad; al abrir pluginfile.php se obtiene el enlace directo al archivo. Así avanzas de curso → sección → actividad → archivo.
-- Para consultar cualquier otro dato usa MOODLE_TOOL({"fn":"...","params":{...}}). Funciones disponibles (solo lectura): ${moodleFunctionList}.
-- Puedes combinar varias líneas MOODLE_OPEN y MOODLE_TOOL en la misma respuesta. Tienes hasta ${MOODLE_MAX_STEPS} pasos.
-- Parámetros: "userid" siempre ${moodleUserId || "el de tu sesión"}; "courseid"/"courseids" solo tus cursos; "cmid"/"cmids" solo actividades que hayas descubierto; los arrays llevan hasta 20 ids.
-- Nunca uses core_course_get_courses (falla con cursos ajenos) ni funciones de escritura (create, update, delete, submit, enrol, set, save, send...).
-- Si un enlace o una consulta falla, prueba con otro enlace de los devueltos o cambia de función. Si algo no existe en la cuenta del usuario, dilo con claridad en vez de inventarlo.
-- Cuando ya tengas suficiente información, devuelve SOLO el programa OpenUI Lang final con las URLs reales en Link("Etiqueta","URL"). No mezcles herramientas con el programa final.
-`
-    : "";
-  const preamble = SYSTEM_PROMPT + moodleSection;
-  const lib = window.__OpenUI && window.__OpenUI.openuiChatLibrary;
-  if (lib && typeof lib.prompt === "function") {
-    return lib.prompt({
-      preamble,
-      examples: [
-        `root = Card([head, summary, note, sep, agenda, next])
-head = CardHeader("Próxima sesión de IA", "Jueves 26 de noviembre de 2026")
-summary = TextContent("Sesión virtual a las 6:00 p. m. (hora de Colombia). Tema: Introducción a los modelos de lenguaje.", "default")
-note = Callout("info", "Modalidad", "Virtual, con materiales en la carpeta de la cohorte.")
-sep = Separator("horizontal", true)
-agenda = Steps([s1, s2])
-s1 = StepsItem("Tema", "Introducción a los modelos de lenguaje")
-s2 = StepsItem("Modalidad", "Virtual")
-next = FollowUpBlock([q1, q2])
-q1 = FollowUpItem("¿Qué actividades tengo pendientes?")
-q2 = FollowUpItem("¿Dónde encuentro los materiales?")`,
-        `root = Card([head, tbl, keyFact, tags, actions])
-head = CardHeader("Actividades pendientes")
-tbl = Table([colAct, colDate])
-colAct = Col("Actividad", ["Taller de prompts", "Reflexión de la sesión 8", "Avance del proyecto"])
-colDate = Col("Vencimiento", ["27 de noviembre", "29 de noviembre", "1 de diciembre"])
-keyFact = EntityList([{left: "Más próxima", right: "Taller de prompts", rightVariant: "text"}])
-tags = TagBlock(["27 nov", "29 nov", "1 dic"], "sm")
-actions = Buttons([ask1])
-ask1 = Button("Ver materiales", @ToAssistant("¿Dónde encuentro los materiales de estudio?"), "secondary")`,
-        `root = Card([head, views])
-head = CardHeader("Entrega del proyecto")
-views = Tabs([tabDate, tabSteps])
-tabDate = TabItem("fecha", "Fecha límite", [deadline, deliveryNote])
-deadline = TextContent("Viernes 4 de diciembre de 2026, hasta las 11:59 p. m.", "large-heavy")
-deliveryNote = Callout("warning", "Forma de entrega", "Carga el enlace del repositorio en la plataforma de la cohorte.")
-tabSteps = TabItem("pasos", "Cómo entregar", [stepsHead, stepsList])
-stepsHead = InlineHeader("Pasos", "Sigue estos pasos")
-stepsList = ListBlock([li1, li2])
-li1 = ListItem("Prepara el repositorio", "Con tu proyecto final")
-li2 = ListItem("Carga el enlace", "En la plataforma de la cohorte")`,
-        `root = Card([head, intro, survey, follow])
-head = CardHeader("¿Cómo prefieres tu seguimiento?")
-intro = TextContent("Elige tus preferencias para adaptar las próximas respuestas.", "default")
-survey = Form("preferencias", buttons, [fTema, fRitmo, fDetalle, fFormato])
-buttons = Buttons([sendBtn, skipBtn])
-sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"), "primary")
-skipBtn = Button("Omitir", @ToAssistant("Continuar sin preferencias"), "secondary")
-fTema = FormControl("Tema de interés", Select("tema", [t1, t2], "Elige un tema"), "¿Qué quieres ver primero?")
-t1 = SelectItem("sesiones", "Sesiones y calendario")
-t2 = SelectItem("proyecto", "Entrega del proyecto")
-fRitmo = FormControl("Ritmo", Chips("ritmo", "single", [c1, c2]), "Elige una opción")
-c1 = ChipItem("breve", "Breve y directo")
-c2 = ChipItem("detallado", "Con detalle")
-fDetalle = FormControl("Mejoras sugeridas", TextArea("comentario", "Escribe tus ideas (opcional)", 3), "Opcional")
-fFormato = FormControl("Formato", OptionCards("formato", "single", [oc1, oc2]), "Elige cómo ver la información")
-oc1 = OptionCard("pasos", "Paso a paso", "Con instrucciones ordenadas")
-oc2 = OptionCard("tabla", "Tabla", "Comparativa rápida")
-follow = FollowUpBlock([q1])
-q1 = FollowUpItem("Ver el calendario de la cohorte")`,
-      ],
-      additionalRules: [
-        'Para fecha de hoy, hora o datos del dispositivo usa DEVICE_INFO({"keys":[...]}) y responde con los valores reales; los documentos solo tienen fechas de ejemplo.',
-        "Responde en español neutro con detalle y claridad: desarrolla cada dato con contexto útil, no des solo una frase. Objetivo: 120 a 250 palabras cuando el tema lo permita.",
-        "Escribe root = Card(...) como primera línea y define cada variable en su propia línea; toda variable definida debe aparecer dentro de otra componente (si no, no se renderiza). Usa argumentos posicionales, nunca 'clave: valor'.",
-        'Aprovecha todos los datos del documento y elige la vista que mejor los represente: Table o EntityList para datos sueltos, Steps o ListBlock para procesos, Tabs para alternativas, Callout para avisos y FollowUpBlock o Buttons con @ToAssistant("...") para invitar a seguir preguntando. Usa Separator o InlineHeader para organizar bloques largos.',
-        'Cuando el usuario pida una encuesta, formulario, preferencias o una selección, usa Form como hijo de Card. Define cada FormControl en su propia línea con Input, TextArea, Select, Chips, OptionCards, RadioGroup, CheckBoxGroup o DatePicker, añade una pista breve como tercer argumento y pasa Buttons([Button(...)]) como segundo argumento de Form con @ToAssistant("Enviar"). Nunca pidas datos personales.',
-        'StepsItem exige dos argumentos posicionales: título y detalles, por ejemplo StepsItem("Tema", "Introducción a los modelos de lenguaje"). Nunca lo escribas con un solo argumento. No inventes cifras para charts: los documentos solo tienen fechas y texto.',
-        "Los datos enviados en un formulario te llegan como 'Datos del formulario: {...}' en el siguiente mensaje: úsalos para adaptar la respuesta, sin repetir datos personales.",
-        "Nunca pidas datos personales ni los repitas en el programa.",
-        "No uses Sources, CardSourceProvider ni ninguna lista de fuentes. No escribas la palabra 'Fuente' ni nombres de archivos PDF. Usa los datos sin citarlos.",
-        "No incluyas bloques de código markdown: devuelve únicamente el programa OpenUI Lang.",
-        'Los enlaces son parte del contenido, no citas: usa Link("Etiqueta", "https://...") o [Etiqueta](https://...) dentro de TextContent solo con URLs que aparezcan literalmente en los documentos; nunca inventes una URL ni escribas "Fuente". Se abren en una pestaña nueva.',
-      ],
-    });
-  }
-  return (
-    preamble +
-    "\n\nFormato OpenUI Lang: una sentencia por línea; primera línea root = Card([...]); usa CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock y Form con FormControl/Buttons (@ToAssistant) según corresponda. Desarrolla la respuesta con detalle (120-250 palabras) y no incluyas fuentes. Para fecha, hora o datos del equipo usa DEVICE_INFO({\"keys\":[...]}) con los campos reales devueltos. Para enlaces usa Link(\"Etiqueta\", \"https://...\") o [Etiqueta](https://...) solo con URLs presentes en los documentos; se abren en pestaña nueva."
-  );
+  /* El chat exige sesión activa en Moodle: la fuente única es el Moodle real. */
+  return buildMoodlePrompt();
 }
-
-const SOURCE_MAP = {
-  "calendario de la cohorte": {
-    label: "Calendario de la cohorte",
-    file: "calendario-cohorte-demo.pdf",
-  },
-  "guia del proyecto": {
-    label: "Guía del proyecto",
-    file: "guia-proyecto-demo.pdf",
-  },
-  "carpeta de materiales": {
-    label: "Carpeta de materiales",
-    file: "materiales-cohorte-demo.pdf",
-  },
-};
 
 /* Si el navegador bloquea localStorage (algunos file://), la key al menos dura la sesión */
 let memorySettings = null;
@@ -1900,184 +1722,6 @@ function containsPII(text) {
   return PII_PATTERNS.some(({ regex }) =>
     new RegExp(regex.source, regex.flags).test(text),
   );
-}
-
-/* ---------- Base de conocimiento DEMO (datos ficticios) ---------- */
-const KNOWLEDGE = [
-  {
-    short: "Jueves 26 de noviembre, 6:00 p. m., virtual.",
-    source: {
-      label: "Calendario de la cohorte",
-      file: "calendario-cohorte-demo.pdf",
-    },
-    keywords: [
-      "sesion",
-      "clase de ia",
-      "proxima clase",
-      "proxima sesion",
-      "horario",
-      "cuando es la clase",
-    ],
-    html:
-      `<h3>Próxima sesión de IA</h3>` +
-      facts([
-        ["calendar_month", "Fecha", "Jueves 26 de noviembre de 2026"],
-        ["schedule", "Hora", "6:00 p. m. (hora de Colombia)"],
-        ["monitor", "Modalidad", "Virtual"],
-        ["lightbulb", "Tema", "Introducción a los modelos de lenguaje"],
-      ]),
-  },
-  {
-    short: "Hasta el viernes 4 de diciembre, 11:59 p. m.",
-    source: { label: "Guía del proyecto", file: "guia-proyecto-demo.pdf" },
-    keywords: [
-      "proyecto",
-      "entrega",
-      "fecha de entrega",
-      "fecha limite",
-      "entregar",
-      "deadline",
-    ],
-    html:
-      `<h3>Entrega del proyecto</h3>` +
-      facts([
-        ["flag", "Fecha límite", "Viernes 4 de diciembre de 2026"],
-        ["schedule", "Hora", "Hasta las 11:59 p. m."],
-        [
-          "upload",
-          "Cómo entregar",
-          "Carga el enlace de tu repositorio en la plataforma de la cohorte",
-        ],
-      ]),
-  },
-  {
-    short: "Tienes 3 pendientes; la más próxima vence el 27 de noviembre.",
-    source: {
-      label: "Calendario de la cohorte",
-      file: "calendario-cohorte-demo.pdf",
-    },
-    keywords: ["actividad", "pendiente", "tarea", "taller", "reto"],
-    html:
-      `<h3>Actividades pendientes</h3>` +
-      facts([
-        ["check_circle", "Taller de prompts", "Vence el 27 de noviembre"],
-        [
-          "check_circle",
-          "Reflexión de la sesión 8",
-          "Vence el 29 de noviembre",
-        ],
-        ["check_circle", "Avance del proyecto", "Vence el 1 de diciembre"],
-      ]),
-  },
-  {
-    short: "En la carpeta de la cohorte: presentaciones, grabaciones y guías.",
-    source: {
-      label: "Carpeta de materiales",
-      file: "materiales-cohorte-demo.pdf",
-    },
-    keywords: [
-      "material",
-      "recurso",
-      "estudio",
-      "documento",
-      "apuntes",
-      "diapositiva",
-      "grabacion",
-      "donde encuentro",
-    ],
-    html:
-      `<h3>Materiales de estudio</h3><p class="muted">Encuentras todo en la carpeta de la cohorte:</p>` +
-      facts([
-        ["layers", "Presentaciones", "De cada sesión"],
-        ["videocam", "Grabaciones", "De las clases"],
-        ["description", "Guías y plantillas", "Para el proyecto"],
-      ]),
-  },
-  {
-    keywords: ["tl", "team leader", "contacto", "hablar con una persona"],
-    html: `<h3>Hablar con una persona</h3><p>Un TL (Team Leader) puede ayudarte con lo que Ritchie AI no puede resolver. Usa el botón <b>Hablar con el TL (Team Leader)</b> de la barra lateral.</p>`,
-    noSource: true,
-  },
-  {
-    keywords: ["hola", "buenas", "buenos dias", "buenas tardes", "gracias"],
-    html: `<h3>¡Hola!</h3><p>Con gusto te ayudo. Puedes preguntarme por sesiones, actividades, fechas de entrega, proyectos o materiales de estudio.</p>`,
-    noSource: true,
-  },
-];
-
-/* Encuesta interactiva de demostración (programa validado con el bundle de OpenUI) */
-const DEMO_SURVEY = `root = Card([head, intro, survey, follow])
-head = CardHeader("¿Cómo prefieres tu seguimiento?", "Tus respuestas se usan solo en este chat")
-intro = TextContent("Elige tus preferencias para adaptar las próximas respuestas.", "default")
-survey = Form("preferencias", buttons, [fTema, fRitmo, fFormato, fDetalle])
-buttons = Buttons([sendBtn, skipBtn])
-sendBtn = Button("Enviar respuestas", @ToAssistant("Guardar mis preferencias"), "primary")
-skipBtn = Button("Omitir", @ToAssistant("Continuar sin preferencias"), "secondary")
-fTema = FormControl("Tema de interés", Select("tema", [t1, t2, t3], "Elige un tema"), "¿Qué quieres ver primero?")
-t1 = SelectItem("sesiones", "Sesiones y calendario")
-t2 = SelectItem("proyecto", "Entrega del proyecto")
-t3 = SelectItem("materiales", "Materiales de estudio")
-fRitmo = FormControl("Ritmo de las respuestas", Chips("ritmo", "single", [c1, c2, c3]), "Elige una sola opción")
-c1 = ChipItem("breve", "Breve y directo")
-c2 = ChipItem("detallado", "Con detalle")
-c3 = ChipItem("ejemplos", "Con ejemplos")
-fFormato = FormControl("Formato preferido", OptionCards("formato", "single", [oc1, oc2]), "Elige cómo ver la información")
-oc1 = OptionCard("pasos", "Paso a paso", "Instrucciones ordenadas")
-oc2 = OptionCard("tabla", "Tabla", "Comparativa rápida")
-fDetalle = FormControl("Mejoras sugeridas", TextArea("comentario", "Escribe tus ideas (opcional)", 3), "Opcional")
-follow = FollowUpBlock([q1])
-q1 = FollowUpItem("Ver el calendario de la cohorte")`;
-
-function formatFormValue(value) {
-  if (Array.isArray(value)) return value.map(formatFormValue).join(", ");
-  if (value && typeof value === "object") {
-    if (Object.prototype.hasOwnProperty.call(value, "value"))
-      return formatFormValue(value.value);
-    return Object.entries(value)
-      .filter(([k]) => k !== "componentType")
-      .map(([k, v]) => `${k}: ${formatFormValue(v)}`)
-      .join(" · ");
-  }
-  return String(value);
-}
-const FORM_LABELS = {
-  tema: "Tema",
-  ritmo: "Ritmo",
-  formato: "Formato",
-  comentario: "Comentario",
-};
-function formSubmissionAnswer(question) {
-  let data = {};
-  const match = question.match(/Datos del formulario:\s*(\{[\s\S]*\})/);
-  if (match) {
-    try {
-      data = JSON.parse(match[1]);
-    } catch (e) {
-      data = {};
-    }
-  }
-  const rows = Object.entries(data)
-    .map(([k, v]) => [
-      FORM_LABELS[k] ||
-        k.replace(/[_-]/g, " ").replace(/^./, (c) => c.toUpperCase()),
-      formatFormValue(v),
-    ])
-    .filter(([, value]) => Boolean(value) && value !== "undefined")
-    .map(
-      ([label, value]) =>
-        `<li><span class="fi">${icon("check_circle")}</span><span class="ft"><b>${escapeHTML(label)}</b><span>${escapeHTML(value)}</span></span></li>`,
-    )
-    .join("");
-  return {
-    type: "answer",
-    short: "¡Listo! Recibí tus respuestas",
-    html:
-      `<p>Con esto puedo adaptar las próximas respuestas a tus preferencias.</p>` +
-      (rows
-        ? `<ul class="facts">${rows}</ul>`
-        : `<p class="muted">No se recibieron datos.</p>`),
-    noSource: true,
-  };
 }
 
 /* Temas sensibles: se derivan a una persona */
@@ -2279,165 +1923,6 @@ function load() {
 
 const DEVICE_QUESTION =
   /hora|fecha (actual|de hoy)|qu[eé] (fecha|d[ií]a)|zona horaria|dispositivo|equipo|pantalla|bater[ií]a|conexi[oó]n|sistema operativo|idioma del navegador|memoria|procesador/i;
-async function resolveDeviceAnswer(question) {
-  const data = await deviceInfoSnapshot(DEVICE_INFO_FIELDS);
-  const rows = DEVICE_INFO_FIELDS.filter((k) => data[k] !== undefined).map(
-    (k) => [DEVICE_ICONS[k] || "info", DEVICE_LABELS[k] || k, String(data[k])],
-  );
-  return {
-    type: "answer",
-    short: `Hoy es ${data.date} · ${data.time}`,
-    html: `<h3>Fecha, hora y dispositivo</h3>${facts(rows)}`,
-    noSource: true,
-  };
-}
-
-/* Sin key de IA tampoco se inventa: solo se muestran datos leídos de Moodle. */
-function resolveMoodleAnswer(question) {
-  const q = normalize(question);
-  const error = (message) => ({ type: "error", question, message });
-  if (/calendario|sesion|clase|proxima|fecha|cuando|horario|agenda|evento/.test(q)) {
-    const now = Date.now() / 1000;
-    const ordered = moodleEvents
-      .filter((e) => Number(e.timestart || 0) > 0)
-      .sort((a, b) => Number(a.timestart) - Number(b.timestart));
-    const upcoming = ordered.filter((e) => Number(e.timestart) >= now - 86400);
-    let chosen = (upcoming.length ? upcoming : ordered).slice(0, 6);
-    const ia = chosen.filter((e) =>
-      /\bIA\b|inteligencia artificial/i.test(String(e.name || "")),
-    );
-    if (ia.length) chosen = [ia[0], ...chosen.filter((e) => e !== ia[0])].slice(0, 6);
-    if (!chosen.length)
-      return error(
-        "No hay eventos de calendario en tu Moodle con los permisos de tu cuenta. No puedo dar una fecha sin leerla de Moodle.",
-      );
-    const rows = chosen.map((e) => [
-      "calendar_month",
-      moodleCleanText(e.name || "Evento", 70),
-      moodleEventDate(e),
-    ]);
-    const links = chosen
-      .map((e) => moodleDirectURL(e.url || e.viewurl || ""))
-      .filter(Boolean)
-      .map(
-        (url) =>
-          `<p><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">Abrir evento en Moodle</a></p>`,
-      )
-      .join("");
-    return {
-      type: "answer",
-      short: `${chosen[0].name} · ${moodleEventDate(chosen[0])}`,
-      html: `<h3>Eventos reales de tu Moodle</h3>${facts(rows)}${links}`,
-      noSource: true,
-    };
-  }
-  if (/tarea|actividad|pendiente|entrega|vence|trabajo|que tengo que hacer/.test(q)) {
-    if (moodleTasks.length) {
-      const rows = moodleTasks.slice(0, 50).map((t) => [
-        "assignment",
-        moodleCleanText(t.name, 70),
-        [t.course, t.due ? `Fecha límite: ${t.due}` : "", t.intro]
-          .filter(Boolean)
-          .join(" · "),
-      ]);
-      const links = moodleTasks
-        .filter((t) => t.url)
-        .slice(0, 50)
-        .map(
-          (t) =>
-            `<p><a href="${escapeHTML(t.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(t.name)}</a></p>`,
-        )
-        .join("");
-      return {
-        type: "answer",
-        short: `Tienes ${moodleTasks.length} trabajos visibles en Moodle.`,
-        html: `<h3>Trabajos reales de tu Moodle</h3>${facts(rows)}${links}`,
-        noSource: true,
-      };
-    }
-    const mods = moodleAllModules()
-      .filter((m) => /assign|quiz|choice|workshop/.test(String(m.modname || "")))
-      .slice(0, 8);
-    if (!mods.length)
-      return error(
-        "No encontré tareas o actividades en los cursos que pude leer de Moodle.",
-      );
-    const rows = mods.map((m) => [
-      "assignment",
-      moodleCleanText(m.name || "Actividad", 70),
-      moodleCourseName(m.courseid) +
-        (m.deadline ? ` · vence ${moodleEventDate({ timestart: m.deadline })}` : ""),
-    ]);
-    return {
-      type: "answer",
-      short: `Tienes ${mods.length} actividades visibles en Moodle.`,
-      html: `<h3>Actividades reales de tu Moodle</h3>${facts(rows)}`,
-      noSource: true,
-    };
-  }
-  if (
-    /moodle|material|recurso|estudio|documento|apunte|diapositiva|grabacion|mis cursos/.test(
-      q,
-    )
-  ) {
-    if (!moodleMaterials.length)
-      return error("No hay materiales visibles en tu cuenta de Moodle.");
-    return {
-      type: "answer",
-      html: moodleDemoHTML(),
-      short: `Tienes ${moodleCourses.length} cursos y ${moodleMaterials.length} materiales en Moodle.`,
-      noSource: true,
-    };
-  }
-  return error(
-    "No encontré esa información en los datos reales de Moodle. Prueba con otro nombre o pregunta por cursos, materiales o fechas.",
-  );
-}
-
-/* ---------- Motor de respuesta simulado ---------- */
-async function resolveAnswer(question) {
-  const q = normalize(question);
-  if (/datos del formulario/i.test(question))
-    return formSubmissionAnswer(question);
-  if (SENSITIVE.some((k) => q.includes(k))) return { type: "safety" };
-  if (DEVICE_QUESTION.test(question)) return resolveDeviceAnswer(question);
-  if (moodleContext || getMoodle().token) return resolveMoodleAnswer(question);
-  if (/(moodle|mis materiales|material academico|mis cursos|acceso directo)/.test(q))
-    return {
-      type: "error",
-      question,
-      message:
-        'Ingresa con tu usuario y contraseña de Moodle desde el botón «Mi Moodle» de la barra lateral para ver tus materiales reales. Tu contraseña viaja directamente a Moodle y no se guarda.',
-    };
-  if (
-    /(encuesta|formulario|preferencias|prefieres|elegir opciones|valorar|calificar)/.test(
-      q,
-    )
-  ) {
-    return { type: "openui", response: DEMO_SURVEY };
-  }
-  // Gana el tema con la palabra clave más específica (más larga), no el primero de la lista.
-  let hit = null,
-    best = 0;
-  KNOWLEDGE.forEach((k) =>
-    k.keywords.forEach((kw) => {
-      if (q.includes(kw) && kw.length > best) {
-        best = kw.length;
-        hit = k;
-      }
-    }),
-  );
-  if (hit)
-    return {
-      type: "answer",
-      html: hit.html,
-      short: hit.short,
-      source: hit.source,
-      noSource: hit.noSource,
-    };
-  return { type: "error" };
-}
-
 /* ---------- IA gratuita: el navegador llama directamente al proveedor ---------- */
 async function callGemini(question, settings, system) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
@@ -2487,15 +1972,6 @@ async function callOpenRouter(question, settings, system) {
   return text;
 }
 
-/* Detecta el documento citado en la respuesta OpenUI Lang */
-function detectSource(text) {
-  const key = normalize(text);
-  for (const [pattern, val] of Object.entries(SOURCE_MAP)) {
-    if (key.includes(pattern)) return val;
-  }
-  return null;
-}
-
 function cleanResponse(raw) {
   // Algunos modelos envuelven el programa en bloques ```; los quitamos antes de renderizar.
   return redactPII(raw, true)
@@ -2506,37 +1982,14 @@ function cleanResponse(raw) {
 }
 
 function resultFromText(clean, question) {
-  const notFoundMoodle =
+  const notFound =
     "No encontré eso en tu Moodle con los permisos de tu cuenta. Prueba a pedirlo con otro nombre o pide que siga los enlaces disponibles.";
-  if (/^\s*NO_SE\s*$/i.test(clean)) {
-    return {
-      type: "error",
-      question,
-      message: moodleContext || getMoodle().token
-        ? notFoundMoodle
-        : "No tengo información suficiente en los documentos de la cohorte para responder eso. Prueba a reformular la pregunta.",
-    };
-  }
-  if (
-    /^\s*MOODLE_NOT_FOUND\s*$/i.test(clean) ||
-    ((moodleContext || getMoodle().token) && MOODLE_DEMO_LEAK.test(clean))
-  ) {
-    return {
-      type: "error",
-      question,
-      message: moodleContext || getMoodle().token
-        ? notFoundMoodle
-        : "No encontré esa información. Prueba a reformular la pregunta.",
-    };
-  }
+  if (/^\s*(NO_SE|MOODLE_NOT_FOUND)\s*$/i.test(clean))
+    return { type: "error", question, message: notFound };
   const isProgram = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
   if (isProgram) return { type: "openui", response: clean };
   /* Respuesta en texto: se muestra con el mismo estilo que el resto del chat */
-  const sourceMatch = clean.match(/FUENTE:\s*(.+)$/im);
-  const bodyText = sourceMatch
-    ? clean.slice(0, sourceMatch.index).trim()
-    : clean;
-  const lines = bodyText
+  const lines = clean
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
@@ -2823,11 +2276,6 @@ async function runAIWithTools(question, settings, onChunk, useStream = true) {
       }
       for (const order of writeCalls)
         toolNotes.push(await applyMoodleWrite(order));
-    } else {
-      if (verifyCalls.length || openCalls.length || calls.length || writeCalls.length)
-        toolNotes.push(
-          "Moodle no está conectado: esa información solo está disponible si el usuario ingresa desde «Mi Moodle».",
-        );
     }
     for (const order of chatListCalls) toolNotes.push(chatListResult(order));
     for (const order of chatReadCalls) toolNotes.push(chatReadResult(order));
@@ -2847,8 +2295,7 @@ async function runAIWithTools(question, settings, onChunk, useStream = true) {
     text = await askAI(question, settings, buildMoodleToolLog(entries, step) + toolLog);
   }
   const finalClean = cleanResponse(text);
-  /* Si el modelo se queda pidiendo herramientas, nunca mostramos el protocolo;
-     y si se le cuela el calendario de demostración, tampoco lo mostramos. */
+  /* Si el modelo se queda pidiendo herramientas, nunca mostramos el protocolo. */
   if (
     extractDeviceCalls(finalClean).length ||
     extractProtocolCalls(finalClean, "MOODLE_VERIFY").length ||
@@ -2857,8 +2304,7 @@ async function runAIWithTools(question, settings, onChunk, useStream = true) {
     extractProtocolCalls(finalClean, "MOODLE_WRITE").length ||
     extractProtocolCalls(finalClean, "CHAT_LIST").length ||
     extractProtocolCalls(finalClean, "CHAT_READ").length ||
-    extractProtocolCalls(finalClean, "CHAT_WRITE").length ||
-    ((moodleContext || getMoodle().token) && MOODLE_DEMO_LEAK.test(finalClean))
+    extractProtocolCalls(finalClean, "CHAT_WRITE").length
   )
     return "MOODLE_NOT_FOUND";
   /* Última red de seguridad: nada de lo marcado como NO ENCONTRADO puede
@@ -3550,10 +2996,6 @@ function renderStream(partial, card) {
     mount.innerHTML = `<p class="stream-placeholder">Recorriendo Moodle${STREAM_TAIL}</p>`;
     return;
   }
-  if ((moodleContext || getMoodle().token) && MOODLE_DEMO_LEAK.test(clean)) {
-    mount.innerHTML = `<p class="stream-placeholder">Verificando en Moodle${STREAM_TAIL}</p>`;
-    return;
-  }
   if (PARTIAL_PROGRAM.test(clean)) {
     if (renderPartialProgram(mount, clean)) return;
     mount.innerHTML = `<p class="stream-placeholder">Diseñando la respuesta${STREAM_TAIL}</p>`;
@@ -3595,7 +3037,10 @@ function renderHistory() {
 }
 
 function renderChat() {
+  /* Sin sesión de Moodle el inicio es la introducción al repo y el registro. */
+  syncChatAccess();
   messagesEl.innerHTML = "";
+  if (!moodleSessionActive()) return;
   const conv = current();
   const path = activePath(conv);
   const empty = path.length === 0;
@@ -3619,6 +3064,11 @@ function ask(question, options = {}) {
   const data = opts.data || null;
   question = String(question).trim();
   if (!question || busy) return;
+  if (!moodleSessionActive()) {
+    /* Sin ingreso a Moodle no se puede entrar al chat. */
+    renderChat();
+    return;
+  }
   if (!current()) {
     const title = hidden ? "Encuesta respondida" : question.slice(0, 40);
     const conv = { id: uid(), title, nodes: [], activeLeafId: null };
@@ -3746,9 +3196,15 @@ async function respond(
         }
       }
     } else {
-      // Sin key: el asistente responde con datos reales del dispositivo o de Moodle
-      await pause(650);
-      result = await resolveAnswer(question);
+      /* Sin proveedor conectado no hay respuestas: se necesita una IA real. */
+      result = {
+        type: "error",
+        kind: "key",
+        title: "Conecta tu asistente con una IA",
+        question,
+        message:
+          "Falta la API key. Pídele a Ritchie AI una key gratuita de Google Gemini o OpenRouter y guárdala en tu perfil para empezar a preguntar.",
+      };
     }
   } catch (err) {
     result = aiErrorResult(err, question, getSettings());
@@ -3770,9 +3226,7 @@ function nodeText(node) {
   const card = wrap && wrap.querySelector(".card");
   if (!card) return node.short || node.message || "";
   const clone = card.cloneNode(true);
-  clone
-    .querySelectorAll(".source, .actions, .actions *")
-    .forEach((el) => el.remove());
+  clone.querySelectorAll(".actions, .actions *").forEach((el) => el.remove());
   return clone.innerText.trim() || node.short || "";
 }
 
@@ -3909,18 +3363,16 @@ function updateSend() {
 /* ---------- Estado de conexión con la IA (según la key guardada) ---------- */
 function refreshAIStatus() {
   const settings = getSettings();
-  const notice = $("#aiOffNotice");
   const profileStatus = $("#profileStatus");
   const mobileAvatar = $("#mobileAvatar");
   const connected = Boolean(settings.apiKey);
-
-  /* El estado se comunica con el color de la interfaz, sin textos de estado */
-  document.body.classList.toggle("ai-off", !connected);
-  if (notice) notice.hidden = connected;
-  if (profileStatus) profileStatus.textContent = "Configurar IA (local)";
+  const label = connected
+    ? `IA activa · ${PROVIDERS[settings.provider]?.label || settings.provider}`
+    : "Configurar IA";
+  if (profileStatus) profileStatus.textContent = label;
   if (mobileAvatar) {
     mobileAvatar.dataset.online = String(connected);
-    mobileAvatar.title = "Configurar IA (local)";
+    mobileAvatar.title = label;
   }
 }
 
@@ -4042,13 +3494,6 @@ messagesEl.addEventListener("click", (e) => {
     handleMsgAction(act);
     return;
   }
-  const doc = e.target.closest("[data-doc]");
-  if (doc) {
-    e.preventDefault();
-    $("#docName").textContent = doc.dataset.doc;
-    openModal("docModal");
-    return;
-  }
   if (!act) return;
   if (act.dataset.action === "tl") openSettings("tl");
   if (act.dataset.action === "open-ai-settings") {
@@ -4110,15 +3555,35 @@ $("#helpBtn").addEventListener("click", () => {
 });
 
 /* ---------- Conexión con Moodle (solo usuario y contraseña) ---------- */
-function updateMoodleUI() {
+/* El estado solo aparece cuando hay algo que comunicar: ingreso en curso o error. */
+function setMoodleStatus(text, isError = false) {
   const status = $("#moodleStatus");
+  if (!status) return;
+  const message = String(text || "");
+  status.textContent = message;
+  status.hidden = !message;
+  status.classList.toggle("is-error", Boolean(message && isError));
+}
+
+function updateMoodleUI() {
   const panel = $("#moodleCourses");
   const cfg = getMoodle();
-  if (status) {
-    status.textContent = moodleContext
-      ? `Conectado como ${moodleUser} · ${moodleCourses.length} cursos · ${moodleMaterials.length} materiales.`
-      : "Sin conectar. Ingresa con tu usuario y contraseña de Moodle.";
-  }
+  /* El perfil muestra la cuenta real de Moodle, nunca un estudiante de ejemplo. */
+  const name = moodleUser || "Estudiante";
+  const initials =
+    name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase() || "ES";
+  const profileName = $("#profileName");
+  if (profileName) profileName.textContent = name;
+  [$("#userAvatar"), $("#mobileAvatar")].forEach((avatar) => {
+    if (avatar) avatar.textContent = initials;
+  });
   if (!panel) return;
   panel.hidden = !moodleContext;
   if (!moodleContext) {
@@ -4142,17 +3607,24 @@ function updateMoodleUI() {
 
 $("#moodleBtnSide")?.addEventListener("click", () => {
   closeMenu();
+  if (!moodleSessionActive()) {
+    renderChat();
+    return;
+  }
   $("#moodlePassword").value = "";
   updateMoodleUI();
   openSettings("moodle");
 });
 $("#moodleForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const status = $("#moodleStatus");
   const btn = e.target.querySelector('[type="submit"]');
   const base = getMoodle().base;
-  status.textContent = "Ingresando a Moodle…";
+  /* El botón muestra un indicador de carga en lugar de texto. */
+  const originalLabel = btn.innerHTML;
+  btn.innerHTML = '<span class="ui-btn-spinner" aria-hidden="true"></span>';
   btn.disabled = true;
+  btn.setAttribute("aria-busy", "true");
+  btn.setAttribute("aria-label", "Ingresando");
   try {
     const token = await moodleLogin(
       $("#moodleUsername").value.trim(),
@@ -4160,9 +3632,10 @@ $("#moodleForm")?.addEventListener("submit", async (e) => {
     );
     /* La contraseña se descarta en cuanto obtuvimos el token */
     $("#moodlePassword").value = "";
-    const info = await moodleConnect(token, base);
-    status.textContent = `Conectado como ${info.fullname || moodleUser}.`;
-    renderWelcome();
+    await moodleConnect(token, base);
+    setMoodleStatus("");
+    /* Sesión activa: salimos del registro y entramos al chat. */
+    renderChat();
   } catch (err) {
     const msg = String(err.message || err);
     const detail = /invalidlogin|acceso inválido|contraseña|usuario/i.test(msg)
@@ -4170,16 +3643,36 @@ $("#moodleForm")?.addEventListener("submit", async (e) => {
       : /contexto de curso|no accesible/i.test(msg)
         ? "Tu cuenta no tiene acceso a todos los cursos del sitio; ya solo consultamos tus cursos matriculados. Si persiste, pide al TL que active los servicios web."
         : "Revisa tus credenciales y que los servicios web estén activos.";
-    status.textContent = `No se pudo ingresar: ${msg} ${detail}`;
+    setMoodleStatus(`No se pudo ingresar: ${msg} ${detail}`, true);
   } finally {
+    btn.innerHTML = originalLabel;
     btn.disabled = false;
+    btn.removeAttribute("aria-busy");
+    btn.removeAttribute("aria-label");
   }
 });
 $("#moodleDisconnect")?.addEventListener("click", () => {
   clearMoodle();
   $("#moodlePassword").value = "";
+  setMoodleStatus("");
   updateMoodleUI();
-  renderWelcome();
+  /* Sin sesión volvemos al inicio: el chat queda cerrado. */
+  closeModals();
+  renderChat();
+});
+
+function moodleLogout() {
+  if (!moodleSessionActive()) return;
+  clearMoodle();
+  $("#moodlePassword").value = "";
+  setMoodleStatus("");
+  updateMoodleUI();
+  closeModals();
+  renderChat();
+}
+$("#logoutBtnSide")?.addEventListener("click", () => {
+  closeMenu();
+  moodleLogout();
 });
 
 /* ---------- Configuración de la IA gratuita ---------- */
@@ -4437,10 +3930,6 @@ $("#mobileMenuBtn").addEventListener("click", () =>
   setMenu(app.dataset.menu !== "open"),
 );
 $("#mobileProfileBtn").addEventListener("click", () => {
-  closeMenu();
-  openSettings();
-});
-$("#aiOffConfigBtn").addEventListener("click", () => {
   closeMenu();
   openSettings();
 });

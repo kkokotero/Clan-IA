@@ -6,6 +6,10 @@ gratuitos de [Google Gemini](https://aistudio.google.com/apikey) u
 
 **No hay servidor, ni Node, ni `package.json`, ni build.** Abre `index.html` y funciona.
 
+El inicio es una **introducción al proyecto y un formulario de registro/ingreso a Moodle**.
+Solo se puede entrar al chat con una cuenta de Moodle **ingresada**: sin esa sesión la
+conversación permanece cerrada y las respuestas no se simulan.
+
 Las respuestas de la IA se generan en **OpenUI Lang**, pero se dibujan con un **renderizador
 propio** (`static/app.js` + `static/styles.css`) que usa los mismos colores, formas y
 componentes que el resto de la app: tarjetas, pasos, tablas, pestañas, avisos y formularios en lugar
@@ -13,15 +17,18 @@ de texto plano. El
 bundle de [OpenUI](https://openui.com/) se carga desde CDN **solo para construir el prompt**; si
 no carga, se usa un prompt mínimo y las respuestas siguen viéndose con la estética de la app.
 
-> Los documentos de la cohorte son ficticios (de demostración). Sin una API key configurada,
-> la app responde con su motor local de respaldo y lo indica en la barra lateral.
+> No hay respuestas de demostración ni interfaz "apagada": el chat responde con la IA
+> conectada y los datos reales de Moodle.
 
 ## Cómo usarlo
 
-1. Abre **`index.html`** en tu navegador (doble clic; no necesitas servidor).
-2. Haz clic en tu **perfil** (abajo en la barra lateral; en móvil, tu avatar en la barra
+1. Abre **`index.html`** en tu navegador (doble clic; no necesitas servidor). La pantalla de
+   inicio presenta el proyecto y el formulario de acceso.
+2. Ingresa con tu **usuario y contraseña de Moodle**. Si aún no tienes cuenta, créala en el sitio
+   de Moodle. Con la sesión activa se abre el chat; sin ella no se puede entrar.
+3. Haz clic en tu **perfil** (abajo en la barra lateral; en móvil, tu avatar en la barra
    superior) → se abre **Configurar IA**.
-3. Elige proveedor, selecciona un modelo de la **lista desplegable** y pega tu API key
+4. Elige proveedor, selecciona un modelo de la **lista desplegable** y pega tu API key
    gratuita. Puedes pulsar **Probar conexión** antes de guardar:
    - **Google Gemini** → crea una key en https://aistudio.google.com/apikey.
      Modelos gratuitos vigentes: `gemini-4-hydrogen` (recomendado) y
@@ -31,21 +38,24 @@ no carga, se usa un prompt mínimo y las respuestas siguen viéndose con la est�
    - **OpenRouter** → crea una key en https://openrouter.ai/keys. Por defecto
      `openrouter/free`; también Nemotron 3 Ultra, ERNIE 5.5 Flash, Nemotron 3.5
      Super VL/Lightning, Gemma 4 26B y Ling 3.2 Flash (todos `:free`).
-4. Guarda. El indicador debe pasar a **"IA activa · Google Gemini"** (u OpenRouter).
-5. Cada respuesta de la IA tiene **Copiar** y **Rehacer**; cada mensaje tuyo tiene **Copiar**
+5. Guarda. El perfil muestra **"IA activa · Google Gemini"** (u OpenRouter). Sin key, la
+   asistente lo indica con una tarjeta que invita a configurarla.
+6. Cada respuesta de la IA tiene **Copiar** y **Rehacer**; cada mensaje tuyo tiene **Copiar**
    y **Editar**. Al editar se crea una rama nueva: usa el selector **Rama 1/2** para
    cambiar entre versiones dentro del mismo chat.
 
 La clave se guarda en `localStorage` de tu navegador (en tu máquina, sin servidor), bajo la
-clave `ritchie-ia-config-ia`. El perfil muestra el estado (`IA activa · …` o `Configurar IA
-(local)`). Puedes quitarla cuando quieras con **Quitar key**.
+clave `ritchie-ia-config-ia`. El perfil muestra el estado (`IA activa · …` o `Configurar IA`).
+Puedes quitarla cuando quieras con **Quitar key**.
 
-## Conectar con Moodle (material académico real)
+## Ingresar a Moodle (obligatorio para el chat)
 
-**Mi Moodle** (barra lateral) abre la pestaña **Moodle** dentro de **Configuración**. El único método
-de ingreso es **usuario y contraseña**; el sitio de la cohorte tiene web services REST activos y
-responde con `Access-Control-Allow-Origin: *`, así que **no hace falta backend**: el navegador llama
-directamente a `moodle.riwi.io`.
+El formulario de ingreso está en la **pantalla de inicio**. El único método es **usuario y
+contraseña**; el sitio de la cohorte tiene web services REST activos y responde con
+`Access-Control-Allow-Origin: *`, así que **no hace falta backend**: el navegador llama
+directamente a `moodle.riwi.io`. Si ya hay sesión, **Mi Moodle** (barra lateral) abre la pestaña
+correspondiente en Configuración para ver los materiales o desconectarse; si no la hay, vuelve a
+la pantalla de inicio.
 
 - Las credenciales se canjean por un token mediante `/login/token.php` (servicio fijo
   `moodle_mobile_app`). La contraseña **se envía directamente a Moodle y se borra del campo** en
@@ -84,8 +94,8 @@ directamente a `moodle.riwi.io`.
   debe copiarlo al responder «qué tengo que hacer», «trabajos», «pendientes» o una semana concreta;
   ya no se limita a decir «revisa la actividad registrada». Si una etiqueta aparece solo dentro de
   las instrucciones (por ejemplo «semana 2»), esa tarea también cuenta. Las actividades que no son
-  `assign` se completan con la fecha límite y la descripción de `core_course_get_contents`. Sin key de
-  IA, la respuesta local muestra los mismos detalles con enlace a Moodle.
+  `assign` se completan con la fecha límite y la descripción de `core_course_get_contents`. La IA usa
+  esos detalles y sus enlaces al responder.
 - **Perfil, compañeros y mensajes:** al conectar se guarda tu perfil real de
   `core_webservice_get_site_info`, se consultan los compañeros matriculados en tus cursos con
   `core_enrol_get_enrolled_users` (todos los campos que Moodle expone) y el modelo puede leer tus
@@ -109,9 +119,8 @@ directamente a `moodle.riwi.io`.
   `online`, `network`, `battery`, `memory`, `cpu` y `preferences` (sin `keys` consulta todos). Todo se
   lee del navegador al momento; no hay backend ni permisos especiales. Se puede combinar con
   `MOODLE_OPEN` y `MOODLE_TOOL` en la misma respuesta.
-- Sin API key, el motor local responde solo con datos reales del dispositivo o con los cursos,
-  materiales, tareas y eventos leídos de Moodle; nunca cae en los datos ficticios. Si no hay conexión,
-  una pregunta sobre Moodle explica cómo ingresar.
+- Sin API key no hay respuestas simuladas: una tarjeta invita a configurar una key gratuita en el
+  perfil. Toda respuesta sale del modelo conectado con la información leída de Moodle.
 
 > No se automatiza el formulario de `https://moodle.riwi.io/login/index.php`: sus cookies no son
 > legibles desde otro origen. Usamos el mismo usuario y contraseña, pero enviados al endpoint oficial
@@ -212,8 +221,8 @@ caben todas en la pantalla.
 
 ## Archivos
 
-- `index.html`: interfaz, modales (documento y **Configuración**, con secciones de IA,
-  chats, ayuda y TL (Team Leader)).
-- `static/styles.css`: estilos, incluido el indicador de conexión y el formulario de IA.
-- `static/app.js`: chat, historial, motor local de respaldo y llamada directa a Gemini/OpenRouter.
+- `index.html`: pantalla de inicio (introducción y acceso a Moodle), chat y modales
+  (**Configuración**, con secciones de IA, chats, ayuda, TL y Moodle).
+- `static/styles.css`: estilos del chat, la pantalla de inicio y los formularios.
+- `static/app.js`: puerta de acceso a Moodle, chat, historial y llamada directa a Gemini/OpenRouter.
 - `HALLAZGOS.md`: resultados de la prueba con otro equipo.
