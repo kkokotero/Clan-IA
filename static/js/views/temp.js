@@ -3,6 +3,14 @@ import { renderProgramInto } from '../chat/render.js';
 import { $, escapeHTML } from '../core/dom.js';
 
 const MUESTRAS = [
+  ['Vista semanal por horas', `root = Card([w])
+w = WeekCalendar("2026-11-23", [CalendarEvent("2026-11-23T09:00", "Sesión", "IA", "calendar_month"), CalendarEvent("2026-11-25T15:00", "Revisión", "Proyecto", "assignment")])`],
+  ['Vista de un día por horas', `root = Card([d])
+d = DayCalendar("2026-11-26", [CalendarEvent("2026-11-26T10:00", "Entrega", "Trabajo", "assignment"), CalendarEvent("2026-11-26T16:00", "Sesión", "Equipo", "groups")])`],
+  ['Confirmación de tarea', `root = Card([c])
+c = ConfirmTask("Eliminar conversación", "Esta acción no se puede deshacer.", "chat-42", "warning")`],
+  ['Formulario con contraseña', `root = Card([f])
+f = Form("acceso", [Button("Entrar", @ToAssistant("Enviar acceso"), "primary", "login")], [FormControl("Usuario", Input("usuario", "Tu usuario", "text", {}, "person"), "", "person"), FormControl("Contraseña", Input("clave", "Tu contraseña", "password", {}, "lock"), "Puedes mostrarla u ocultarla", "lock")])`],
   ['Calendario', `root = Card([cal])
 cal = Calendar("2026-11", [CalendarEvent("2026-11-26", "Sesión de IA", "19:00", "calendar_month"), CalendarEvent("2026-11-28", "Entrega", "Proyecto final", "assignment")])`],
   ['Kanban', `root = Card([k])

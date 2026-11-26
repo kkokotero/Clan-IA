@@ -24,8 +24,12 @@ register("FormControl", (a) => {
 });
 register("Input", (a, node) => {
   const rules = a[3] && typeof a[3] === "object" ? a[3] : {};
+  const tipo = valText(a[2]) || "text";
   const ico = safeIconHTML(node?.__uiIcon || a[4] || "edit");
-  return `<span class="ui-input-wrap">${ico}<input class="ui-input" type="${escapeHTML(valText(a[2]) || "text")}" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}"${rules.required ? " required" : ""}></span>`;
+  const toggle = tipo === "password"
+    ? `<button class="ui-input-action" type="button" data-toggle-pwd aria-label="Mostrar contraseña" aria-pressed="false"><span class="ic sm">visibility</span></button>`
+    : "";
+  return `<span class="ui-input-wrap">${ico}<input class="ui-input" type="${escapeHTML(tipo)}" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}"${rules.required ? " required" : ""}>${toggle}</span>`;
 });
 register("TextArea", (a, node) => {
   const rules = a[3] && typeof a[3] === "object" ? a[3] : {};

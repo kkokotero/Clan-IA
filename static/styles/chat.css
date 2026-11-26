@@ -1897,3 +1897,20 @@ a.ui-btn {
 .ui-chart { position: relative; width: 100%; min-height: 260px; padding: 12px; border: 1px solid var(--outline-variant); border-radius: var(--shape-sm); background: var(--surface-low); }
 .ui-chart:not(.listo) .ui-chart-fallback { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.85rem; color: var(--on-surface-variant); }
 .ui-chart.listo .ui-chart-fallback { display: none; }
+
+/* Navegación y vistas por horas del calendario. */
+.ui-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ui-cal-head button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: var(--shape-xs); color: var(--on-primary-container); }
+.ui-cal-head button:hover { background: rgba(255,255,255,0.2); }
+.ui-horas { display: grid; grid-template-columns: 56px repeat(var(--col), minmax(90px, 1fr)); border: 1px solid var(--outline-variant); border-radius: var(--shape-sm); overflow: hidden; background: var(--surface); }
+.ui-hora-col { border-left: 1px solid var(--outline-variant); }
+.ui-hora-col.ui-hora-label { border-left: 0; }
+.ui-hora-label span { display: flex; align-items: center; height: 48px; padding-left: 8px; font-size: 0.7rem; color: var(--on-surface-variant); border-bottom: 1px solid var(--outline-variant); }
+.ui-hora-dia { padding: 8px; font-size: 0.75rem; font-weight: 600; text-align: center; background: var(--primary-container); color: var(--on-primary-container); }
+.ui-hora-celda { min-height: 48px; padding: 4px; border-bottom: 1px solid var(--outline-variant); }
+.ui-hora-celda .ui-cal-evento { font-size: 0.68rem; }
+.ui-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--warning-container); border-radius: var(--shape-expressive); background: var(--warning-container); color: var(--warning); }
+.ui-confirm-ico { flex-shrink: 0; }
+.ui-confirm-text { flex: 1; min-width: 160px; }
+.ui-confirm-text b { display: block; color: var(--on-surface); }
+.ui-confirm-text p { color: var(--on-surface-variant); font-size: 0.85rem; }

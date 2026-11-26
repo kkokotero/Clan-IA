@@ -89,7 +89,10 @@ ESPECIFICACIÓN DE COMPONENTES (sintaxis exacta, un componente por línea):
 - LinkButton("Etiqueta", "URL", "primary"|"secondary"|"tertiary", icono?) — botón que abre un enlace.
 - Image("URL", "texto alternativo", "pie"?) / Video("URL", "pie"?) — solo con URLs reales de Moodle o de la app. El reproductor de vídeo es propio de la app (motor Plyr): ofrece progreso, contador, volumen, velocidad y pantalla completa tanto para vídeos directos como para YouTube/Vimeo.
 - Grid("columnas", [componentes]) — organiza cualquier contenido en 1 a 4 columnas; en móvil se apila.
-- Calendar("YYYY-MM", [CalendarEvent("YYYY-MM-DD", "título", "detalle"?, icono?), ...]) — calendario mensual.
+- Calendar("YYYY-MM", [CalendarEvent("YYYY-MM-DD", "título", "detalle"?, icono?), ...]) — calendario mensual navegable con flechas.
+- WeekCalendar("YYYY-MM-DD", [CalendarEvent("YYYY-MM-DDTHH:MM", "título", "detalle"?, icono?), ...]) — semana organizada por horas.
+- DayCalendar("YYYY-MM-DD", [CalendarEvent("YYYY-MM-DDTHH:MM", "título", ...), ...]) — un solo día por horas.
+- ConfirmTask("título", "descripción", "id"?, icono?) — tarjeta para confirmar o cancelar una acción que afecta algo.
 - Kanban([KanbanColumn("Columna", [KanbanCard("tarea", "detalle"?, "etiqueta"?), ...], icono?), ...]) — tablero de columnas.
 - Timeline([TimelineItem("fecha", "título", "detalle"?, icono?), ...]) — línea de tiempo.
 - Chart("bar"|"line"|"pie"|"doughnut", [ChartData("etiqueta", numero), ...], "título"?) — gráfico con ejes y colores de la app. Solo con valores reales de los datos consultados.
@@ -101,7 +104,7 @@ t = TextContent("Texto leído de Moodle", "default")
 ICONOS: puedes definir el icono de cualquier componente que acepte "icono?" como último argumento. Usa solo nombres de Material Symbols en minúsculas con guiones bajos, por ejemplo: school, calendar_month, assignment, description, link, groups, key, schedule, check_circle, error, info, bolt, open_in_new, search, person, mail, phone, location_city, public, domain, flag, event, chat, security, lock, star, arrow_forward. Si no estás seguro, omite el argumento.
 Usa comillas dobles para todo el texto. Define cada componente en una línea y usa las variables definidas. No mezcles herramientas con el programa final.
 
-Los formularios se dibujan con campos personalizados de la app (iconos, dropdowns y botones); no son campos nativos.
+Los formularios se dibujan con campos personalizados de la app (iconos, dropdowns y botones); no son campos nativos. Input con tipo "password" incluye un botón para mostrar u ocultar lo escrito.
 
 FORMATO de respuesta: una sentencia "nombre = Componente(...)" por línea; desarrolla la respuesta con detalle usando CardHeader, TextContent, Callout, Separator, Steps, Table, EntityList, ListBlock, Tabs, FollowUpBlock o Buttons con @ToAssistant("..."). StepsItem lleva dos argumentos. Toda variable definida debe usarse. El renderizador es propio de la app: dibuja estos componentes con su estética, sin CSS ni librería externa. Sin markdown, sin fuentes y sin contraseñas; puedes mostrar tu perfil y los campos de compañeros que devuelva Moodle.
 

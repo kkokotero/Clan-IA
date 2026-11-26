@@ -104,6 +104,21 @@ export function initChat() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       return;
     }
+    /* Mostrar/ocultar contraseña en los formularios generados. */
+    const verPwd = e.target.closest("[data-toggle-pwd]");
+    if (verPwd) {
+      const wrap = verPwd.closest(".ui-input-wrap");
+      const pwd = wrap?.querySelector('input[type="password"], input[type="text"]');
+      if (!pwd) return;
+      const visible = pwd.type === "password";
+      pwd.type = visible ? "text" : "password";
+      verPwd.setAttribute("aria-pressed", String(visible));
+      verPwd.setAttribute("aria-label", visible ? "Ocultar contraseña" : "Mostrar contraseña");
+      const icono = verPwd.querySelector(".ic");
+      if (icono) icono.textContent = visible ? "visibility_off" : "visibility";
+      pwd.focus();
+      return;
+    }
     /* Botones y sugerencias de las respuestas generadas */
     const uiAction = e.target.closest("[data-toassistant]");
     if (uiAction) {
