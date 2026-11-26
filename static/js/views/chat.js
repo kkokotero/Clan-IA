@@ -7,12 +7,21 @@ import { getMoodle } from '../core/state.js';
 import { S, busy, conversations, currentId, editingId, memorySettings, moodleAllFunctions, moodleCMIds, moodleContents, moodleContext, moodleCourses, moodleEvents, moodleFunctions, moodleMaterials, moodleMemory, moodlePeople, moodlePeopleIds, moodleProfileContext, moodleSessionPromise, moodleSessionReady, moodleTasks, moodleURLs, moodleUser, moodleUserId } from '../core/state.js';
 import { moodleLogout, moodleSessionActive, updateMoodleUI } from '../moodle/session.js';
 import { openSettings } from '../settings/settings.js';
-if (!getMoodle().token) window.location.replace('/');
+const paramsChat = new URLSearchParams(window.location.search);
+const chatSolicitado = paramsChat.get('chat');
+if (!getMoodle().token) {
+  if (chatSolicitado) localStorage.setItem('ritchie-ia-chat-pendiente', chatSolicitado);
+  window.location.replace('/');
+}
 setMenu(!menuQuery.matches);
 load();
-/* Enlace directo desde «Chats e historial»: abre la conversación elegida. */
-const chatId = new URLSearchParams(window.location.search).get('chat');
-if (chatId && S.conversations.some((c) => c.id === chatId)) S.currentId = chatId;
+/* Enlace directo (también tras iniciar sesión): abre la conversación elegida. */
+const chatId =
+  chatSolicitado || localStorage.getItem('ritchie-ia-chat-pendiente');
+if (chatId && S.conversations.some((c) => c.id === chatId)) {
+  S.currentId = chatId;
+  localStorage.removeItem('ritchie-ia-chat-pendiente');
+}
 renderHistory();
 renderChat();
 refreshAIStatus();
@@ -135,10 +144,6 @@ export function initChat() {
     closeMenu();
     window.location.assign('/settings/tl/');
   });
-  $("#helpBtn").addEventListener("click", () => {
-    closeMenu();
-    window.location.assign('/settings/help/');
-  });
   $("#moodleBtnSide")?.addEventListener("click", () => {
     closeMenu();
     if (!moodleSessionActive()) {
@@ -185,6 +190,9 @@ export function initChat() {
     if (item && !S.busy) {
       S.currentId = item.dataset.id;
       S.editingId = null;
+      try {
+        window.history.replaceState(null, '', `/chat/?chat=${encodeURIComponent(S.currentId)}`);
+      } catch (e) {}
       renderChat();
       renderHistory();
       closeMenu();

@@ -44,8 +44,7 @@
     padding: 8px 12px;
     background: var(--surface);
     border-bottom: 1px solid var(--outline-variant);
-    transition: transform 0.25s ease;
-  }
+    }
   .mobile-topbar .logo-tile.brand .logo {
     font-size: 24px;
   }
@@ -101,8 +100,7 @@
   .main {
     grid-column: 1;
     grid-row: 2;
-    transition: transform 0.25s ease;
-  }
+    }
   .app[data-menu="open"] .mobile-topbar,
   .app[data-menu="open"] .main {
     transform: translateX(var(--mobile-drawer-w));
@@ -127,16 +125,10 @@
     box-shadow: var(--e3);
     transform: translateX(-100%);
     visibility: hidden;
-    transition:
-      transform 0.25s ease,
-      visibility 0s linear 0.25s;
   }
   .app[data-menu="open"] .sidebar {
     transform: translateX(0);
     visibility: visible;
-    transition:
-      transform 0.25s ease,
-      visibility 0s;
   }
   .sidebar .brand-row {
     display: none;

@@ -27,7 +27,11 @@ export function initRegister() {
       saveMoodle({ token, base });
       setMoodleStatus("");
       /* Sesión activa: salimos del registro y entramos al chat. */
-      window.location.assign('/chat/');
+      const pendiente = localStorage.getItem('ritchie-ia-chat-pendiente');
+    localStorage.removeItem('ritchie-ia-chat-pendiente');
+    window.location.assign(
+      pendiente ? `/chat/?chat=${encodeURIComponent(pendiente)}` : '/chat/',
+    );
     } catch (err) {
       const msg = String(err.message || err);
       const detail = /invalidlogin|acceso inválido|contraseña|usuario/i.test(msg)

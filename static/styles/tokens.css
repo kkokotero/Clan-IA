@@ -184,7 +184,6 @@ a {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  transition: grid-template-columns 0.25s ease;
 }
 .app[data-menu="closed"] {
   grid-template-columns: 76px 1fr;

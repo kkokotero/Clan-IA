@@ -606,3 +606,26 @@ a:has(.ic) {
   vertical-align: middle;
   line-height: 1;
 }
+
+
+/* ---------- Aviso breve tras acciones del historial ---------- */
+.history-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 80;
+  transform: translateX(-50%);
+  padding: 12px 20px;
+  border-radius: var(--shape-pill);
+  background: var(--inverse-surface);
+  color: var(--inverse-on-surface);
+  box-shadow: var(--e3);
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: toastIn 0.28s var(--motion-expressive) both;
+}
+.history-toast[hidden] { display: none; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}

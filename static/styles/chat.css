@@ -146,7 +146,8 @@
 .sidebar-footer {
   padding-top: 12px;
   border-top: 1px solid var(--outline-variant);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 .nav-item {
@@ -225,6 +226,7 @@
   color: var(--on-surface-variant);
 }
 
+@media (min-width: 901px) {
 /* Menú plegado: queda el isotipo y los iconos */
 .app[data-menu="closed"] .sidebar {
   padding: 20px 10px 14px;
@@ -268,6 +270,7 @@
 .app[data-menu="closed"] .profile {
   justify-content: center;
   padding: 10px 0 2px;
+}
 }
 
 .scrim {
@@ -1539,4 +1542,80 @@ a.ui-btn {
   border-radius: var(--shape-pill);
   background: var(--primary-container);
   color: var(--on-primary-container);
+}
+
+
+/* ---------- Barra lateral: ritmo, paddings y movimiento ---------- */
+.sidebar { padding: 16px 12px 12px; }
+.brand-row { padding: 0 8px 16px; }
+.new-chat {
+  height: 48px;
+  padding: 0 16px;
+  border-radius: var(--shape-sm);
+  transition: background-color 0.2s var(--motion-standard);
+}
+.section-label { margin: 18px 8px 6px; }
+.history { gap: 4px; }
+.history-item {
+  min-height: 42px;
+  padding: 0 6px 0 12px;
+  border-radius: var(--shape-xs);
+  transition: background-color 0.2s var(--motion-standard), color 0.2s var(--motion-standard);
+}
+.sidebar-footer { padding-top: 10px; gap: 6px; }
+.nav-item {
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: var(--shape-xs);
+  transition: background-color 0.2s var(--motion-standard), color 0.2s var(--motion-standard);
+}
+.profile {
+  padding: 8px 6px 2px;
+  border-radius: var(--shape-xs);
+  transition: background-color 0.2s var(--motion-standard);
+}
+.nav-item:active,
+.new-chat:active { background: var(--surface-high); }
+
+
+/* ---------- Sidebar colapsado: mismos tamaños, sin desbordes ---------- */
+.sidebar { overflow-x: hidden; overflow-y: auto; }
+.sidebar-footer { flex-shrink: 0; }
+
+@media (min-width: 901px) {
+.app[data-menu="closed"] .sidebar {
+  padding: 16px 10px 12px;
+  gap: 4px;
+}
+.app[data-menu="closed"] .brand-row {
+  padding: 0 0 16px;
+  justify-content: center;
+}
+.app[data-menu="closed"] .new-chat,
+.app[data-menu="closed"] .nav-item,
+.app[data-menu="closed"] .history-item {
+  width: 52px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+}
+.app[data-menu="closed"] .sidebar-footer {
+  width: 100%;
+  justify-items: center;
+  gap: 8px;
+}
+.app[data-menu="closed"] .sidebar-footer .btn.block {
+  width: 52px;
+  min-height: 44px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+}
+.app[data-menu="closed"] .profile {
+  width: 52px;
+  padding: 8px 0 0;
+  justify-content: center;
+}
 }

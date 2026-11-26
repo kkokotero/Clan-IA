@@ -20,6 +20,17 @@ import {
 } from '../settings/settings.js';
 import { initModelSearch, initSelects, renderModelList, syncClearButton, syncSelectUI } from '../settings/ui.js';
 
+/* Avisos breves tras una acción sobre el historial. */
+let toastTimer = null;
+function showHistoryToast(text) {
+  const toast = $('#historyToast');
+  if (!toast) return;
+  toast.textContent = text;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
+}
+
 /* Centro de ayuda: estado real de la configuración. */
 function updateHelpStatus() {
   const ia = $('#helpIa');
@@ -95,7 +106,6 @@ export function initSettings() {
   on('#mobileNewChat', 'click', () => window.location.assign('/chat/'));
   on('#profileBtn', 'click', () => window.location.assign('/settings/ai/'));
   on('#mobileProfileBtn', 'click', () => window.location.assign('/settings/ai/'));
-  on('#helpBtn', 'click', () => window.location.assign('/settings/help/'));
   on('#tlBtnSide', 'click', () => window.location.assign('/settings/tl/'));
   on('#moodleBtnSide', 'click', () => {
     window.open(`${getMoodle().base}/my/`, '_blank', 'noopener');
@@ -201,6 +211,7 @@ export function initSettings() {
       if (S.currentId === conv.id) S.currentId = null;
       save();
       updateHistoryStats();
+      showHistoryToast('Conversación eliminada');
     }
   });
   on('#renameCancel', 'click', () => {
@@ -214,6 +225,7 @@ export function initSettings() {
       conv.title = value;
       save();
       updateHistoryStats();
+      showHistoryToast('Conversación renombrada');
     }
     if (renameModal) renameModal.hidden = true;
     renamingId = null;
@@ -238,6 +250,7 @@ export function initSettings() {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showHistoryToast('Historial exportado');
   });
   on('#deleteCurrent', 'click', async () => {
     if (!current() || !(await askConfirmation('¿Borrar la conversación actual?'))) return;
@@ -246,6 +259,7 @@ export function initSettings() {
     save();
     renderHistory();
     updateHistoryStats();
+    showHistoryToast('Conversación eliminada');
   });
   on('#clearHistory', 'click', async () => {
     if (
@@ -258,6 +272,7 @@ export function initSettings() {
     save();
     renderHistory();
     updateHistoryStats();
+    showHistoryToast('Historial borrado');
   });
 }
 

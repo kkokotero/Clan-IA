@@ -356,18 +356,9 @@ export function updateSend() {
 
 /* ---------- Estado de conexión con la IA (según la key guardada) ---------- */
 export function refreshAIStatus() {
-  const settings = getSettings();
-  const profileStatus = $("#profileStatus");
+  const connected = Boolean(getSettings().apiKey);
   const mobileAvatar = $("#mobileAvatar");
-  const connected = Boolean(settings.apiKey);
-  const label = connected
-    ? `IA activa · ${PROVIDERS[settings.provider]?.label || settings.provider}`
-    : "Configurar IA";
-  if (profileStatus) profileStatus.textContent = label;
-  if (mobileAvatar) {
-    mobileAvatar.dataset.online = String(connected);
-    mobileAvatar.title = label;
-  }
+  if (mobileAvatar) mobileAvatar.dataset.online = String(connected);
 }
 
 export function autoGrow() {
