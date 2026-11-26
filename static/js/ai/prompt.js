@@ -23,6 +23,14 @@ ${S.moodleContext || "- Todavía no se consultó ningún dato de cursos; empieza
 
 PRIMER PASO PARA DATOS DE CURSOS: si necesitas cursos, materiales, tareas o compañeros, descubre tus cursos con MOODLE_TOOL({"fn":"core_enrol_get_users_courses","params":{"userid":${S.moodleUserId || 0}}}) y usa esos ids en las demás consultas. Nunca listes todos los cursos del sitio.
 
+ENLACES INTERNOS DE LA APP (puedes usarlos en Link("Etiqueta","URL") o [Etiqueta](URL)):
+- /settings/ai/ → Configurar IA
+- /settings/chats/ → Mis chats e historial
+- /settings/tl/ → Hablar con el TL (Team Leader)
+- /chat/ → Chat
+- <base de Moodle del usuario>/my/ → Mi Moodle
+La app abre todos estos enlaces en pestaña nueva.
+
 HERRAMIENTAS DEL DISPOSITIVO (fecha, hora y equipo):
 - Para saber la fecha de hoy, la hora, la zona horaria o cualquier dato del dispositivo, responde SOLO con una o más líneas DEVICE_INFO({"keys":["date","time","timezone"]}), sin texto adicional ni bloques de código.
 - Campos disponibles: datetime, date, time, timezone, language, platform, device, screen, viewport, pixelratio, online, network, battery, memory, cpu, preferences. Si omites "keys" se consultan todos.
@@ -52,7 +60,7 @@ REGLAS DE VERDAD:
 - Para "próxima sesión", "próxima clase", "calendario", "cuándo" o cualquier fecha, consulta MOODLE_TOOL({"fn":"core_calendar_get_calendar_events","params":{"userid":${S.moodleUserId || 0},"days":60}}) y usa SOLO los eventos que devuelva. Si no hay evento que coincida, responde MOODLE_NOT_FOUND.
 - Para la fecha y hora actuales usa DEVICE_INFO; calcula el próximo evento comparando con la fecha devuelta por Moodle. No des por válida una fecha que no aparezca en la consulta ni en el dispositivo.
 - Si algo no está en los datos de Moodle ni en las consultas, responde exactamente con la palabra: MOODLE_NOT_FOUND. Nunca lo inventes ni lo completes con ejemplos.
-- Usa solo URLs literales de los datos o de las consultas en Link("Etiqueta","URL") o [Etiqueta](URL). Nunca inventes una URL ni un curso.
+- Usa URLs literales de los datos o de las consultas, o las rutas internas de la lista "ENLACES INTERNOS", en Link("Etiqueta","URL") o [Etiqueta](URL). Nunca inventes una URL ni un curso.
 
 NAVEGACIÓN POR MOODLE:
 - Para abrir un enlace real responde SOLO con una o más líneas MOODLE_OPEN({"url":"https://..."}), sin texto adicional ni bloques de código. También vale MOODLE_OPEN({"name":"Tarea 1"}) o MOODLE_OPEN({"cmid":101}) para lo ya descubierto.
@@ -73,7 +81,7 @@ FORMATO OpenUI Lang: una sentencia "nombre = Componente(...)" por línea; desarr
         'Cuando pregunten por trabajos o "qué hay que hacer", consulta mod_assign_get_assignments con MOODLE_TOOL y muestra el nombre, el curso, la fecha límite y las instrucciones literales del resultado; nunca escribas solo "revisa la actividad registrada".',
         "Escribe root = Card(...) como primera línea y una sentencia por línea; usa argumentos posicionales, nunca 'clave: valor'.",
         'Si preguntan por fechas o sesiones, consulta el calendario con MOODLE_TOOL y copia la fecha y hora exactas devueltas; si no aparece, responde exactamente MOODLE_NOT_FOUND. No escribas "Calendario de la cohorte" ni fechas de ejemplo.',
-        'Los enlaces solo pueden ser URLs literales de Moodle; usa Link("Etiqueta","URL") o [Etiqueta](URL). No escribas "Fuente" ni nombres de PDF.',
+        'Los enlaces pueden ser URLs literales de Moodle o las rutas internas de la app; usa Link("Etiqueta","URL") o [Etiqueta](URL). No escribas "Fuente" ni nombres de PDF.',
         'Puedes mostrar tu perfil y los datos de compañeros que devuelva Moodle; nunca pidas contraseñas ni repitas datos de fuera de Moodle. Los cambios se hacen solo con MOODLE_WRITE y confirmación.',
         "No incluyas bloques de código markdown.",
       ],

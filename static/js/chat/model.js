@@ -53,12 +53,12 @@ export const WELCOMES = [
   "Listo para ayudarte: tengo a mano el calendario, las actividades y las guías del proyecto.",
 ];
 export const MOODLE_QUICK_ACTIONS = [
-  { q: "¿Qué hora es y en qué zona horaria estoy?", icon: "schedule" },
-  { q: "¿Qué dispositivo estoy usando?", icon: "smartphone" },
-  { q: "¿Qué eventos tengo en el calendario de Moodle?", icon: "calendar_month" },
-  { q: "¿Cuál es mi próxima actividad en Moodle?", icon: "schedule" },
-  { q: "¿Qué tareas tengo pendientes en Moodle?", icon: "assignment" },
-  { q: "Ver mis materiales de Moodle", icon: "school" },
+  { q: "Abrir mi Moodle", icon: "school", href: "moodle" },
+  { q: "Configurar IA", icon: "key", href: "/settings/ai/" },
+  { q: "Mis chats e historial", icon: "chat", href: "/settings/chats/" },
+  { q: "Hablar con el TL", icon: "groups", href: "/settings/tl/" },
+  { q: "¿Qué eventos tengo en el calendario?", icon: "calendar_month" },
+  { q: "¿Qué tareas tengo pendientes?", icon: "assignment" },
 ];
 export const QUICK_ACTIONS = [
   { q: "¿Qué hora es y en qué zona horaria estoy?", icon: "schedule" },
@@ -110,10 +110,14 @@ export function renderWelcome() {
   if (suggestions) {
     const actions = getMoodle().token ? MOODLE_QUICK_ACTIONS : pick.actions;
     suggestions.innerHTML = actions
-      .map(
-        (a) =>
-          `<button class="chip" data-q="${escapeHTML(a.q)}"><span class="ico"><span class="ic lg">${a.icon}</span></span>${escapeHTML(a.q)}</button>`,
-      )
+      .map((a) => {
+        const href = a.href === "moodle" ? `${getMoodle().base}/my/` : a.href;
+        const inner =
+          `<span class="ico"><span class="ic lg">${a.icon}</span></span>${escapeHTML(a.q)}`;
+        return href
+          ? `<a class="chip" href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${inner}</a>`
+          : `<button class="chip" data-q="${escapeHTML(a.q)}">${inner}</button>`;
+      })
       .join("");
   }
 }

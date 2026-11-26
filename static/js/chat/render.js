@@ -154,9 +154,10 @@ export const valText = (v) =>
 export const asArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
 
 /* Enlaces en el texto de la IA: markdown [etiqueta](https://...) o URLs sueltas.
-   El texto ya está escapado, así que solo se aceptan esquemas http/https. */
-export const MD_LINK = /\[([^\]\n]+)\]\(((?:https?:\/\/|www\.)[^\s)]+)\)/gi;
-export const BARE_URL = /(^|[\s(])((?:https?:\/\/|www\.)[^\s<>()]+)/gi;
+   El texto ya está escapado; se aceptan http/https, www. y rutas internas /... */
+const URL_INICIO = "(?:https?:\\/\\/|www\\.|\\/(?!\\/))";
+export const MD_LINK = new RegExp(`\\[([^\\]\\n]+)\\]\\((${URL_INICIO}[^\\s)]+)\\)`, "gi");
+export const BARE_URL = new RegExp(`(^|[\\s(])(${URL_INICIO}[^\\s<>()]+)`, "gi");
 export const formatInline = (s) =>
   s
     .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
@@ -165,10 +166,11 @@ export const normalizeHref = (raw) => {
   const s = String(raw).trim();
   if (/^https?:\/\//i.test(s)) return s;
   if (/^www\./i.test(s)) return `https://${s}`;
+  if (/^\/(?!\/)/.test(s)) return s;
   return null;
 };
 export const anchorHTML = (label, href) =>
-  `<a class="ui-link" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  `<a class="ui-link" href="${escapeHTML(String(href))}" target="_blank" rel="noopener noreferrer">${label}</a>`;
 export function richText(v) {
   const links = [];
   let out = escapeHTML(valText(v)).replace(MD_LINK, (match, label, href) => {
@@ -361,7 +363,7 @@ export function renderNode(node) {
     case "TextLink": {
       const label = richText(a[0]);
       const href = normalizeHref(valText(a[1]));
-      return href ? anchorHTML(label, escapeHTML(href)) : label;
+      return href ? anchorHTML(label, href) : label;
     }
     case "FollowUpBlock":
       return `<div class="ui-follow"><span>${"Preguntas relacionadas"}</span>${asArray(

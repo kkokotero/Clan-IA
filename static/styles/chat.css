@@ -1625,3 +1625,6 @@ a.ui-btn {
 
 /* Avatar real de Moodle dentro del contenedor circular. */
 .avatar-img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+
+/* Accesos rápidos que son enlaces internos de la app. */
+.chip[href] { text-decoration: none; color: inherit; }
