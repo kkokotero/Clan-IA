@@ -245,7 +245,7 @@ formularios, tablas, pestañas y botones. Es una vista de desarrollo; no está e
 
 ## Agregar una herramienta de la IA
 
-1. Crea `static/js/ai/tools/<id>.js` con `run(order, ctx)`.
+1. Crea `static/js/ai/tools/<id>.js` con `run(order, ctx)`. Hay 11 herramientas, entre ellas `MOODLE_PROFILE`, `MOODLE_ASSIGNMENTS` y `MOODLE_MEDIA`.
 2. Añade una entrada en `static/js/ai/tools/registry.js` con `marker`, descripción, ejemplo y `load: () => import('./<id>.js')`.
 3. Listo: el bucle la detecta y la carga solo cuando el modelo la usa, y el prompt se genera desde el registro.
 
