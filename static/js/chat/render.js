@@ -1,13 +1,35 @@
 import { cleanResponse } from '../ai/providers.js';
 import { ask } from './flow.js';
+import { initDropdowns } from './components/dropdown.js';
 import { branchSiblings } from './model.js';
 import { $, LOGO_MINI, chat, escapeHTML, form, icon, input, messagesEl } from '../core/dom.js';
 import { S, busy, conversations, currentId, editingId, memorySettings, moodleAllFunctions, moodleCMIds, moodleContents, moodleContext, moodleCourses, moodleEvents, moodleFunctions, moodleMaterials, moodleMemory, moodlePeople, moodlePeopleIds, moodleProfileContext, moodleSessionPromise, moodleSessionReady, moodleTasks, moodleURLs, moodleUser, moodleUserId } from '../core/state.js';
-export let uiSeq = 0;
-export const uiId = (prefix) => `${prefix}-${++uiSeq}`;
+import {
+  actionText,
+  anchorHTML,
+  asArray,
+  normalizeHref,
+  renderButtons,
+  renderNode,
+  richText,
+  uiId,
+  valText,
+} from './components/index.js';
+export {
+  actionText,
+  anchorHTML,
+  asArray,
+  normalizeHref,
+  renderButtons,
+  renderNode,
+  richText,
+  uiId,
+  valText,
+};
+
 
 /* Acciones de los formularios: el estado se devuelve a la IA como contexto oculto */
-export function handleOpenUIAction(action) {
+export function handleUIAction(action) {
   if (!action || action.type !== "continue_conversation") return;
   const state = action.formState;
   const hasJSON = Boolean(
@@ -22,7 +44,14 @@ export function handleOpenUIAction(action) {
 /* Texto legible si el modelo entrega un programa que no se puede dibujar */
 export function programToText(program) {
   const strings = program.match(/"((?:\\.|[^"\\])*)"/g) || [];
-  return strings.map((s) => s.slice(1, -1).replace(/\\"/g, '"')).join(" · ");
+  if (strings.length)
+    return strings.map((s) => s.slice(1, -1).replace(/\\"/g, '"')).join(" · ");
+  return program
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*[A-Za-z_$][\w$]*\s*=\s*/, "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 600);
 }
 
 /* --- Intérprete mínimo del lenguaje de componentes --- */
@@ -149,262 +178,6 @@ export function resolveValue(v, env, seen = new Set()) {
   }
   return v;
 }
-export const valText = (v) =>
-  v == null ? "" : typeof v === "object" ? "" : String(v);
-export const asArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
-
-/* Enlaces en el texto de la IA: markdown [etiqueta](https://...) o URLs sueltas.
-   El texto ya está escapado; se aceptan http/https, www. y rutas internas /... */
-const URL_INICIO = "(?:https?:\\/\\/|www\\.|\\/(?!\\/))";
-export const MD_LINK = new RegExp(`\\[([^\\]\\n]+)\\]\\((${URL_INICIO}[^\\s)]+)\\)`, "gi");
-export const BARE_URL = new RegExp(`(^|[\\s(])(${URL_INICIO}[^\\s<>()]+)`, "gi");
-export const formatInline = (s) =>
-  s
-    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-    .replace(/\*([^*]+)\*/g, "<i>$1</i>");
-export const normalizeHref = (raw) => {
-  const s = String(raw).trim();
-  if (/^https?:\/\//i.test(s)) return s;
-  if (/^www\./i.test(s)) return `https://${s}`;
-  if (/^\/(?!\/)/.test(s)) return s;
-  return null;
-};
-export const anchorHTML = (label, href) =>
-  `<a class="ui-link" href="${escapeHTML(String(href))}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-export function richText(v) {
-  const links = [];
-  let out = escapeHTML(valText(v)).replace(MD_LINK, (match, label, href) => {
-    const safe = normalizeHref(href);
-    if (!safe) return match;
-    const token = `\u0000${links.length}\u0000`;
-    links.push(anchorHTML(formatInline(label), safe));
-    return token;
-  });
-  out = formatInline(out).replace(/\r?\n/g, "<br>");
-  out = out.replace(BARE_URL, (match, before, url) => {
-    const clean = url.replace(/[.,;:!?]+$/, "");
-    const safe = normalizeHref(clean);
-    if (!safe) return match;
-    return `${before}${anchorHTML(safe, safe)}${url.slice(clean.length)}`;
-  });
-  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => links[Number(i)] || "");
-}
-export function actionText(v) {
-  if (!v) return "";
-  if (Array.isArray(v)) return actionText(v[0]);
-  return v.step === "ToAssistant" ? valText(v.args?.[0]) : "";
-}
-
-/* --- Dibujo de los componentes soportados --- */
-export function renderButtons(node, inForm = false) {
-  const list =
-    node && node.type === "Buttons" ? asArray(node.args?.[0]) : asArray(node);
-  const vertical = node?.args?.[1] === "column";
-  const full = inForm && list.length === 1;
-  const body = list
-    .map((b, i) => {
-      if (!b || b.type !== "Button") return renderNode(b);
-      const label = valText(b.args?.[0]);
-      const action = actionText(b.args?.[1]);
-      const variant = ["primary", "secondary", "tertiary"].includes(b.args?.[2])
-        ? b.args?.[2]
-        : "secondary";
-      /* Un botón con URL en lugar de @ToAssistant se dibuja como enlace externo */
-      const href = action ? null : normalizeHref(valText(b.args?.[1]));
-      if (href)
-        return `<a class="ui-btn ui-btn-${variant}" href="${escapeHTML(
-          href,
-        )}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)}</a>`;
-      const submit = inForm && i === 0 && action;
-      return `<button type="${submit ? "submit" : "button"}" class="ui-btn ui-btn-${variant}"${action ? ` data-toassistant="${escapeHTML(action)}"` : ""}>${escapeHTML(label)}</button>`;
-    })
-    .join("");
-  return `<div class="ui-buttons${vertical ? " ui-buttons-column" : ""}${full ? " ui-buttons-full" : ""}">${body}</div>`;
-}
-export function renderNode(node) {
-  if (node == null || node === false) return "";
-  if (Array.isArray(node)) return node.map(renderNode).join("");
-  if (typeof node !== "object" || !node.type) return richText(node);
-  const a = node.args || [];
-  const kids = () => a.map(renderNode).join("");
-  switch (node.type) {
-    case "Card":
-      return `<div class="ui-card">${kids()}</div>`;
-    case "CardHeader":
-      return `<div class="ui-header"><b>${richText(a[0])}</b>${a[1] ? `<span>${richText(a[1])}</span>` : ""}</div>`;
-    case "InlineHeader":
-      return `<div class="ui-inline-header"><b>${richText(a[0])}</b>${a[1] ? `<span>${richText(a[1])}</span>` : ""}</div>`;
-    case "TextContent":
-    case "MarkDownRenderer":
-      return `<p class="ui-text ui-text-${["small", "large", "small-heavy", "large-heavy"].includes(a[1]) ? a[1] : "default"}">${richText(a[0])}</p>`;
-    case "Callout":
-    case "TextCallout": {
-      const variant = a[0] === "danger" ? "error" : a[0] || "neutral";
-      return `<div class="ui-callout ui-callout-${escapeHTML(variant)}"><b>${richText(a[1])}</b>${a[2] ? `<p>${richText(a[2])}</p>` : ""}</div>`;
-    }
-    case "Separator":
-      return `<hr class="ui-sep">`;
-    case "Steps":
-      return `<ol class="ui-steps">${asArray(a[0])
-        .map(
-          (s, i) =>
-            `<li><span class="ui-step-num">${i + 1}</span><div><b>${richText(s?.args?.[0])}</b><p>${richText(s?.args?.[1])}</p></div></li>`,
-        )
-        .join("")}</ol>`;
-    case "Table": {
-      const cols = asArray(a[0]).filter((c) => c?.type === "Col");
-      const rows = Math.max(0, ...cols.map((c) => asArray(c.args?.[1]).length));
-      return `<div class="ui-table-wrap"><table class="ui-table"><thead><tr>${cols.map((c) => `<th>${richText(c.args?.[0])}</th>`).join("")}</tr></thead><tbody>${Array.from(
-        { length: rows },
-        (_, r) =>
-          `<tr>${cols.map((c) => `<td>${richText(asArray(c.args?.[1])[r])}</td>`).join("")}</tr>`,
-      ).join("")}</tbody></table></div>`;
-    }
-    case "EntityList": {
-      const rows = asArray(a[0]).filter(
-        (row) => row && typeof row === "object",
-      );
-      return `<div class="ui-entity">${rows
-        .map(
-          (row) =>
-            `<div><span>${richText(row.left)}</span><b class="${row.rightVariant === "number" ? "ui-num" : ""}">${richText(row.right)}</b></div>`,
-        )
-        .join("")}</div>`;
-    }
-    case "ListBlock":
-      return `<div class="ui-list">${asArray(a[0])
-        .map((it, i) => {
-          const action = actionText(it?.args?.[4]);
-          const label = valText(it?.args?.[3]);
-          return `<div class="ui-list-item"><span class="ui-list-num">${a[1] === "image" ? icon("image", "sm") : i + 1}</span><div><b>${richText(it?.args?.[0])}</b>${it?.args?.[1] ? `<p>${richText(it.args[1])}</p>` : ""}</div>${
-            action
-              ? `<button type="button" class="ui-list-action" data-toassistant="${escapeHTML(action)}" aria-label="${escapeHTML(label || action)}">${icon("chevron_right", "sm")}</button>`
-              : ""
-          }</div>`;
-        })
-        .join("")}</div>`;
-    case "TagBlock":
-      return `<div class="ui-tags">${asArray(a[0])
-        .map((t) =>
-          t?.type === "Tag"
-            ? `<span class="ui-tag">${richText(t.args?.[0])}</span>`
-            : `<span class="ui-tag">${richText(t)}</span>`,
-        )
-        .join("")}</div>`;
-    case "Tag":
-      return `<span class="ui-tag">${richText(a[0])}</span>`;
-    case "Form":
-      return `<form class="ui-form" data-ui-form="${escapeHTML(valText(a[0]))}">${asArray(a[2]).map(renderNode).join("")}${renderButtons(a[1], true)}</form>`;
-    case "FormControl": {
-      const id = uiId("ui-field");
-      const input = renderNode(a[1])
-        .replace("<input ", `<input id="${id}" `)
-        .replace("<textarea ", `<textarea id="${id}" `)
-        .replace("<select ", `<select id="${id}" `);
-      return `<div class="ui-field"><label class="ui-label" for="${id}">${richText(a[0])}</label>${input}${a[2] ? `<span class="ui-hint">${richText(a[2])}</span>` : ""}</div>`;
-    }
-    case "Input": {
-      const rules = a[3] && typeof a[3] === "object" ? a[3] : {};
-      return `<input class="ui-input" type="${escapeHTML(valText(a[2]) || "text")}" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}"${rules.required ? " required" : ""}>`;
-    }
-    case "TextArea": {
-      const rules = a[3] && typeof a[3] === "object" ? a[3] : {};
-      return `<textarea class="ui-input ui-textarea" name="${escapeHTML(valText(a[0]))}" placeholder="${escapeHTML(valText(a[1]))}" rows="${Number(a[2]) || 3}"${rules.required ? " required" : ""}></textarea>`;
-    }
-    case "Select":
-      return `<select class="ui-select" name="${escapeHTML(valText(a[0]))}"><option value="" disabled selected>${escapeHTML(valText(a[2]) || "Elige una opción")}</option>${asArray(
-        a[1],
-      )
-        .map(
-          (it) =>
-            `<option value="${escapeHTML(valText(it?.args?.[0]))}">${escapeHTML(valText(it?.args?.[1]))}</option>`,
-        )
-        .join("")}</select>`;
-    case "Chips": {
-      const type = a[1] === "multiple" ? "checkbox" : "radio";
-      const name = escapeHTML(valText(a[0]));
-      return `<div class="ui-chips">${asArray(a[2])
-        .map(
-          (it) =>
-            `<label class="ui-chip"><input type="${type}" name="${name}" value="${escapeHTML(valText(it?.args?.[0]))}"><span>${escapeHTML(valText(it?.args?.[1]))}</span></label>`,
-        )
-        .join("")}</div>`;
-    }
-    case "OptionCards": {
-      const type = a[1] === "multiple" ? "checkbox" : "radio";
-      const name = escapeHTML(valText(a[0]));
-      return `<div class="ui-option-cards">${asArray(a[2])
-        .map(
-          (it) =>
-            `<label class="ui-option-card"><input type="${type}" name="${name}" value="${escapeHTML(valText(it?.args?.[0]))}"><span><b>${escapeHTML(valText(it?.args?.[1]))}</b>${it?.args?.[2] ? `<small>${escapeHTML(valText(it.args[2]))}</small>` : ""}</span></label>`,
-        )
-        .join("")}</div>`;
-    }
-    case "CheckBoxGroup":
-    case "SwitchGroup":
-      return `<div class="ui-checks">${asArray(a[1])
-        .map(
-          (it) =>
-            `<label class="ui-check"><input type="checkbox" name="${escapeHTML(valText(a[0]))}" value="${escapeHTML(valText(it?.args?.[2] || valText(it?.args?.[0])))}"><span><b>${escapeHTML(valText(it?.args?.[0]))}</b>${it?.args?.[1] ? `<small>${escapeHTML(valText(it.args[1]))}</small>` : ""}</span></label>`,
-        )
-        .join("")}</div>`;
-    case "RadioGroup":
-      return `<div class="ui-checks">${asArray(a[1])
-        .map(
-          (it) =>
-            `<label class="ui-check"><input type="radio" name="${escapeHTML(valText(a[0]))}" value="${escapeHTML(valText(it?.args?.[2]))}"><span><b>${escapeHTML(valText(it?.args?.[0]))}</b>${it?.args?.[1] ? `<small>${escapeHTML(valText(it.args[1]))}</small>` : ""}</span></label>`,
-        )
-        .join("")}</div>`;
-    case "Buttons":
-      return renderButtons(node);
-    case "Button":
-      return renderButtons(node);
-    case "Link":
-    case "TextLink": {
-      const label = richText(a[0]);
-      const href = normalizeHref(valText(a[1]));
-      return href ? anchorHTML(label, href) : label;
-    }
-    case "FollowUpBlock":
-      return `<div class="ui-follow"><span>${"Preguntas relacionadas"}</span>${asArray(
-        a[0],
-      )
-        .map(
-          (it) =>
-            `<button type="button" class="ui-follow-item" data-toassistant="${escapeHTML(valText(it?.args?.[0]))}">${escapeHTML(valText(it?.args?.[0]))}</button>`,
-        )
-        .join("")}</div>`;
-    case "Tabs": {
-      const gid = uiId("ui-tabs");
-      const items = asArray(a[0]);
-      return `<div class="ui-tabs"><div class="ui-tablist" role="tablist">${items
-        .map(
-          (it, i) =>
-            `<button type="button" role="tab" class="ui-tab${i === 0 ? " active" : ""}" data-ui-tab="${gid}-${i}">${escapeHTML(valText(it?.args?.[1]))}</button>`,
-        )
-        .join("")}</div>${items
-        .map(
-          (it, i) =>
-            `<div class="ui-tabpanel" role="tabpanel" data-panel="${gid}-${i}"${i ? " hidden" : ""}>${asArray(it?.args?.[2]).map(renderNode).join("")}</div>`,
-        )
-        .join("")}</div>`;
-    }
-    case "SectionBlock":
-    case "Accordion":
-      return `<div class="ui-accordion">${asArray(a[0])
-        .map(
-          (it) =>
-            `<details class="ui-accordion-item"><summary>${escapeHTML(valText(it?.args?.[1]))}</summary><div>${asArray(it?.args?.[2]).map(renderNode).join("")}</div></details>`,
-        )
-        .join("")}</div>`;
-    case "CodeBlock":
-      return `<pre class="ui-code"><code>${escapeHTML(valText(a[1]))}</code></pre>`;
-    default: {
-      const child = a.find((x) => Array.isArray(x));
-      return child ? child.map(renderNode).join("") : richText(a[0]);
-    }
-  }
-}
 export function renderProgramInto(mount, program) {
   if (!mount || typeof program !== "string") return false;
   try {
@@ -415,6 +188,7 @@ export function renderProgramInto(mount, program) {
        solo un Link): lo envolvemos en una Card en vez de perder la respuesta. */
     const card = root.type === "Card" ? root : { type: "Card", args: [root] };
     mount.innerHTML = renderNode(card);
+    initDropdowns(mount);
     return true;
   } catch (err) {
     mount.innerHTML = `<p class="ui-fallback">${escapeHTML(programToText(program) || "No se pudo mostrar la interfaz.")}</p>`;
@@ -479,6 +253,7 @@ export function renderPartialProgram(mount, program) {
     const html = renderNode(card);
     if (!html) return false;
     mount.innerHTML = html;
+    initDropdowns(mount);
     return true;
   } catch (err) {
     return false;
@@ -493,7 +268,7 @@ export function cardHTML(msg) {
   if (msg.pending) {
     return `${preamble}<div class="card card-pending"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Clan IA está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span></div></div>`;
   }
-  if (msg.type === "openui") {
+  if (msg.type === "ui") {
     return `${preamble}<div class="card card-ui"><div class="ui-render"></div></div>`;
   }
   if (msg.type === "answer") {
@@ -598,7 +373,7 @@ export function appendMessage(msg, animate = true) {
   }
   if (!animate) wrap.style.animation = "none";
   messagesEl.appendChild(wrap);
-  if (msg.type === "openui")
+  if (msg.type === "ui")
     renderProgramInto(wrap.querySelector(".ui-render"), msg.response);
   scrollDown();
   return wrap;
@@ -637,7 +412,7 @@ export const scrollDown = (instant = false) =>
 export const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const STREAM_TAIL = `<span class="stream-ring" aria-hidden="true"></span>`;
 
-/* Mientras llega el texto decidimos si es un programa OpenUI o prosa. En el
+/* Mientras llega el texto decidimos si es un programa de componentes o prosa. En el
    primer caso dibujamos componentes reales con lo que ya viene; en el segundo,
    mostramos el texto como siempre. Nunca se ve el código fuente del programa. */
 export const PARTIAL_PROGRAM = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*\S/;

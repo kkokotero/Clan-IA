@@ -295,7 +295,7 @@ export async function moodleOpenURL(raw) {
   }
   return (
     `Enlace seguido: ${safe}\n${detail}\n` +
-    `Enlaces disponibles: ${S.moodleURLs.length}. Sigue otro enlace o devuelve el programa OpenUI Lang final.`
+    `Enlaces disponibles: ${S.moodleURLs.length}. Sigue otro enlace o devuelve el programa final de componentes.`
   );
 }
 

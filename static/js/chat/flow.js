@@ -115,7 +115,7 @@ export function finishResponse(
   const finalWrap = messagesEl.querySelector(`.msg[data-id="${botNode.id}"]`);
   if (finalWrap) {
     finalWrap.classList.remove("is-streaming");
-    if (botNode.type === "openui") {
+    if (botNode.type === "ui") {
       const mount = finalWrap.querySelector(".ui-render");
       if (mount) renderProgramInto(mount, botNode.response);
     }

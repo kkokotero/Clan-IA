@@ -184,11 +184,11 @@ export function cleanResponse(raw) {
 export function resultFromText(clean, question) {
   const notFound = S.lastMoodleError
     ? `No encontré eso en tu Moodle. Último error recibido: ${S.lastMoodleError}. Revisa tus credenciales y que los servicios web estén activos.`
-    : "No encontré eso en tu Moodle con los permisos de tu cuenta. Prueba a pedirlo con otro nombre o pide que siga los enlaces disponibles.";
+    : "No encontré esa información en tu Moodle. Prueba a pedirla con otro nombre o consulta directamente tus cursos y materiales.";
   if (/^\s*(NO_SE|MOODLE_NOT_FOUND)\s*$/i.test(clean))
     return { type: "error", question, message: notFound };
   const isProgram = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
-  if (isProgram) return { type: "openui", response: clean };
+  if (isProgram) return { type: "ui", response: clean };
   /* Respuesta en texto: se muestra con el mismo estilo que el resto del chat */
   const lines = clean
     .split(/\r?\n/)

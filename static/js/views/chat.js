@@ -1,6 +1,6 @@
 import { MSG_ACTIONS, ask, autoGrow, handleMsgAction, refreshAIStatus, renderChat, renderHistory, saveEdit, updateSend } from '../chat/flow.js';
 import { load, save } from '../chat/model.js';
-import { handleOpenUIAction } from '../chat/render.js';
+import { handleUIAction } from '../chat/render.js';
 import { $, app, closeMenu, form, historyEl, input, menuQuery, menuToggle, messagesEl, setMenu } from '../core/dom.js';
 import { initModals } from '../core/modals.js';
 import { getMoodle } from '../core/state.js';
@@ -52,7 +52,7 @@ export function initChat() {
     if (chip) ask(chip.dataset.q);
   });
   
-  messagesEl.addEventListener("click", (e) => {
+  messagesEl.addEventListener("click", async (e) => {
     /* Pestañas de las respuestas generadas */
     const tab = e.target.closest("[data-ui-tab]");
     if (tab) {
@@ -65,6 +65,45 @@ export function initChat() {
       });
       return;
     }
+    /* Bloques de código: copiar y descargar. */
+    const copiar = e.target.closest("[data-code-copy]");
+    if (copiar) {
+      const bloque = copiar.closest(".ui-code-block");
+      const texto = bloque?.querySelector("code")?.textContent || "";
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(texto);
+        else {
+          const tmp = document.createElement("textarea");
+          tmp.value = texto;
+          document.body.appendChild(tmp);
+          tmp.select();
+          document.execCommand("copy");
+          tmp.remove();
+        }
+        copiar.innerHTML = '<span class="ic sm">check</span>';
+        copiar.setAttribute("aria-label", "Copiado");
+        setTimeout(() => {
+          copiar.innerHTML = '<span class="ic sm">content_copy</span>';
+          copiar.setAttribute("aria-label", "Copiar código");
+        }, 1400);
+      } catch (err) {}
+      return;
+    }
+    const descargar = e.target.closest("[data-code-download]");
+    if (descargar) {
+      const bloque = descargar.closest(".ui-code-block");
+      const texto = bloque?.querySelector("code")?.textContent || "";
+      const lang = bloque?.querySelector(".ui-code-lang")?.textContent || "txt";
+      const url = URL.createObjectURL(new Blob([texto], { type: "text/plain" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `codigo-${lang}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
     /* Botones y sugerencias de las respuestas generadas */
     const uiAction = e.target.closest("[data-toassistant]");
     if (uiAction) {
@@ -72,7 +111,7 @@ export function initChat() {
       if (form && uiAction.type === "submit")
         return; /* lo recoge el evento submit */
       e.preventDefault();
-      handleOpenUIAction({
+      handleUIAction({
         type: "continue_conversation",
         humanFriendlyMessage: uiAction.dataset.toassistant,
       });
@@ -133,7 +172,7 @@ export function initChat() {
       else if (Array.isArray(state[key])) state[key].push(value);
       else state[key] = [state[key], value];
     });
-    handleOpenUIAction({
+    handleUIAction({
       type: "continue_conversation",
       humanFriendlyMessage: message,
       formState: state,

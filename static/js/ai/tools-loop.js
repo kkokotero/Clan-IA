@@ -19,7 +19,7 @@ export function buildMoodleToolLog(entries, step) {
     log =
       "\n\n" +
       blocks.join("\n\n") +
-      `\n\nPuedes seguir consultando (paso ${step}/${MOODLE_MAX_STEPS}) o devolver SOLO el programa OpenUI Lang final. Si una consulta falló, prueba otra función o corrige los parámetros.`;
+      `\n\nPuedes seguir consultando (paso ${step}/${MOODLE_MAX_STEPS}) o devolver SOLO el programa final de componentes. Si una consulta falló, prueba otra función o corrige los parámetros.`;
     if (log.length <= MOODLE_MAX_CONTEXT) break;
     blocks.shift();
   }
@@ -38,6 +38,7 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
   const rejectedNames = [];
   let verifiedAny = false;
   let autoDescubierto = false;
+  let verificacionPedida = false;
   let text = useStream
     ? await streamAI(question, settings, emit, "")
     : await askAI(question, settings, "");
@@ -96,8 +97,10 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
         (S.moodleContext || getMoodle().token) &&
         !verifiedAny &&
         isProgram &&
+        !verificacionPedida &&
         !DEVICE_QUESTION.test(question)
       ) {
+        verificacionPedida = true;
         const demand =
           'Aún no verificaste los nombres. Antes de responder, llama a MOODLE_VERIFY({"names":[...]}) con TODOS los cursos, materiales, actividades y preguntas relacionadas que vayas a nombrar; usa solo los que devuelva como válidos. Si no puedes verificar lo que piden, responde exactamente MOODLE_NOT_FOUND.';
         toolNotes.push(demand);
@@ -164,7 +167,7 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
         MOODLE_MAX_STEPS +
         ") ---\n" +
         toolNotes.slice(-6).join("\n\n") +
-        "\nCon estos datos puedes seguir consultando o devolver SOLO el programa OpenUI Lang final."
+        "\nCon estos datos puedes seguir consultando o devolver SOLO el programa final de componentes."
       : "";
     text = await askAI(question, settings, buildMoodleToolLog(entries, step) + toolLog);
   }
@@ -185,12 +188,7 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
      aparecer en la respuesta, y los nombres sin verificar no se muestran. */
   if (S.moodleContext || getMoodle().token) {
     const flat = normalize(finalClean);
-    if (
-      rejectedNames.some((name) => flat.includes(normalize(name).trim())) ||
-      (!verifiedAny &&
-        !DEVICE_QUESTION.test(question) &&
-        /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(finalClean))
-    )
+    if (rejectedNames.some((name) => flat.includes(normalize(name).trim())))
       return "MOODLE_NOT_FOUND";
   }
   return text;
@@ -198,4 +196,4 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
 
 /* ---------- Render propio del lenguaje de la IA (estética de la app) ----------
    Interpretamos "nombre = Componente(...)" y dibujamos HTML con las clases de
-   la app: no dependemos del CSS ni del Renderer de OpenUI para mostrar messages. */
+   la app: el dibujo es 100% propio de la app. */

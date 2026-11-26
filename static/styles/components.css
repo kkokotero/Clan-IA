@@ -679,6 +679,7 @@ a:has(.ic) {
   background: transparent !important;
   min-height: 0 !important;
   padding: 0 !important;
+  border-radius: 0 !important;
 }
 
 /* Buscador dentro de los desplegables personalizados. */

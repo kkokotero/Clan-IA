@@ -15,12 +15,10 @@ conversación permanece cerrada y las respuestas no se simulan.
 La interfaz usa **Material 3 Expressive**: formas asimétricas y muy redondeadas, color tonal,
 tipografía jerárquica y movimiento con curva suave (tokens en `static/styles/tokens.css`).
 
-Las respuestas de la IA se generan en **OpenUI Lang**, pero se dibujan con un **renderizador
-propio** (`static/js/` + `static/styles/`) que usa los mismos colores, formas y
+Las respuestas de la IA se generan en un **lenguaje de componentes propio** y se dibujan con un
+**renderizador propio** (`static/js/chat/components/`) que usa los mismos colores, formas y
 componentes que el resto de la app: tarjetas, pasos, tablas, pestañas, avisos y formularios en lugar
-de texto plano. El
-bundle de [OpenUI](https://openui.com/) se carga desde CDN **solo para construir el prompt**; si
-no carga, se usa un prompt mínimo y las respuestas siguen viéndose con la estética de la app.
+de texto plano. No se carga ninguna librería ni CSS externo: el prompt y el dibujo son 100% de la app.
 
 > No hay respuestas de demostración ni interfaz "apagada": el chat responde con la IA
 > conectada y los datos reales de Moodle.
@@ -161,13 +159,10 @@ tendría que ser desde un servidor propio o desde una instancia local de OpenCod
 
 ## Respuestas con interfaz propia
 
-- Las tres páginas cargan solo el bundle de `@openuidev/browser-bundle@0.2` desde jsDelivr, que
-  expone `openuiChatLibrary` en `window.__OpenUI`. Ya **no se carga su CSS ni su Renderer**.
-- `static/js/ai/prompt.js` usa `openuiChatLibrary.prompt({...})` para generar el system prompt: así el
-  modelo conoce la sintaxis y los componentes permitidos. Las reglas de la cohorte y de privacidad
-  se pasan como `preamble`.
+- `static/js/ai/prompt.js` construye el system prompt con reglas propias: el modelo conoce la
+  sintaxis y los componentes permitidos sin depender de librerías externas.
 - La IA devuelve un programa (siempre empieza con `root = Card(...)`) y un intérprete propio en
-  `static/js/chat/render.js` lo convierte en HTML con las clases de la app. El prompt incluye ejemplos y
+  `static/js/chat/components/` lo convierte en HTML con las clases de la app (registry de componentes propios). El prompt incluye ejemplos y
   reglas
   para combinar **tarjetas, encabezados, callouts, separadores, pasos, tablas, listas, entidades,
   pestañas, etiquetas, botones y sugerencias de seguimiento**, eligiendo la vista según el
@@ -242,3 +237,8 @@ caben todas en la pantalla.
   `views`). `core/state.js` concentra el estado compartido; `views/*` son los bootstrap de
   cada página.
 - `HALLAZGOS.md`: resultados de la prueba con otro equipo.
+
+## Galería temporal de componentes
+
+`/temp/index.html` muestra todos los componentes que la IA puede devolver, con ejemplos de iconos,
+formularios, tablas, pestañas y botones. Es una vista de desarrollo; no está enlazada en el menú.
