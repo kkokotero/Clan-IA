@@ -55,10 +55,12 @@ async function ejecutarConHerramientas(question, settings, onChunk, useStream = 
   let text = await hablar("");
 
   for (let step = 1; step <= MOODLE_MAX_STEPS; step++) {
+    const termino = /FINISH\s*\(\s*\)/i.test(text);
     const clean = cleanResponse(text);
     const llamadas = detect(clean);
 
     if (!hasCalls(clean)) {
+      if (termino) break;
       const esPrograma = /(^|\n)\s*[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$]/.test(clean);
       const esMoodle = !DEVICE_QUESTION.test(question) && Boolean(getMoodle().token);
       const nota =

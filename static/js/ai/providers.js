@@ -178,6 +178,7 @@ export function cleanResponse(raw) {
     .trim()
     .replace(/^```[a-z]*\s*/i, "")
     .replace(/```\s*$/, "")
+    .replace(/FINISH\s*\(\s*\)/gi, "")
     .trim();
 }
 
