@@ -1918,3 +1918,8 @@ a.ui-btn {
 .ui-confirm-text { flex: 1; min-width: 160px; }
 .ui-confirm-text b { display: block; color: var(--on-surface); }
 .ui-confirm-text p { color: var(--on-surface-variant); font-size: 0.85rem; }
+
+/* Animación de mensajes y transición del streaming a la respuesta final. */
+.msg .card-ui .ui-render { animation: expRise 0.25s var(--motion-expressive) both; }
+.stream-placeholder { animation: expRise 0.2s var(--motion-expressive) both; opacity: 0.85; }
+.card.is-streaming .ui-render { transition: opacity 0.18s var(--motion-standard); }

@@ -33,7 +33,7 @@ export function buildMoodleToolLog(entries, step) {
   return log;
 }
 
-export async function runAIWithTools(question, settings, onChunk, useStream = true) {
+async function ejecutarConHerramientas(question, settings, onChunk, useStream = true) {
   const emit = typeof onChunk === "function" ? onChunk : () => {};
   const ctx = {
     question,
@@ -48,9 +48,11 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
   };
   S.lastMoodleError = "";
   const toolNotes = [];
-  let text = useStream
-    ? await streamAI(question, settings, emit, "")
-    : await askAI(question, settings, "");
+  const hablar = (contexto) =>
+    useStream
+      ? streamAI(question, settings, emit, contexto)
+      : askAI(question, settings, contexto);
+  let text = await hablar("");
 
   for (let step = 1; step <= MOODLE_MAX_STEPS; step++) {
     const clean = cleanResponse(text);
@@ -67,13 +69,15 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
             : null;
       if (nota) {
         toolNotes.push(nota);
-        text = await askAI(question, settings, "\n\n" + nota);
+        text = await hablar("\n\n" + nota);
         continue;
       }
       break;
     }
 
-    emit("");
+    /* Mostramos en la tarjeta qué herramienta está trabajando. */
+    const primerMarker = Object.keys(llamadas)[0];
+    emit(primerMarker === "DEVICE_INFO" ? "DEVICE_INFO()" : `${primerMarker}({})`);
     for (const [marker, orders] of Object.entries(llamadas)) {
       const tool = toolForMarker(marker);
       if (!tool) continue;
@@ -95,7 +99,7 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
         ") ---\n" +
         toolNotes.slice(-6).join("\n\n")
       : "";
-    text = await askAI(question, settings, registro + notas);
+    text = await hablar(registro + notas);
   }
 
   const final = cleanResponse(text);
@@ -108,4 +112,24 @@ export async function runAIWithTools(question, settings, onChunk, useStream = tr
       return "MOODLE_NOT_FOUND";
   }
   return text;
+}
+
+/* Guardia: si el proveedor o una herramienta no responde, devolvemos un error
+   en vez de dejar la tarjeta en "Escribiendo" indefinidamente. */
+export async function runAIWithTools(question, settings, onChunk, useStream = true) {
+  let temporizador;
+  const limite = new Promise((_, rechazar) => {
+    temporizador = setTimeout(
+      () => rechazar(new Error("La respuesta tardó demasiado. Inténtalo de nuevo.")),
+      90000,
+    );
+  });
+  try {
+    return await Promise.race([
+      ejecutarConHerramientas(question, settings, onChunk, useStream),
+      limite,
+    ]);
+  } finally {
+    clearTimeout(temporizador);
+  }
 }
