@@ -1064,6 +1064,9 @@ a.ui-btn {
   border-bottom: 1px solid var(--outline-variant);
 }
 .ui-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 10px 16px;
   border-radius: 10px 10px 0 0;
   font-size: 0.9375rem;

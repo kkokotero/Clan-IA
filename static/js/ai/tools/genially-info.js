@@ -70,29 +70,27 @@ const extraerJSONLD = (html) => {
   return '';
 };
 
+/* Un encabezado puede contener otra sede (p. ej. "Estos son los clanes ... en
+   Riwi Medellín" seguido de los clanes de Barranquilla). Por eso no descartamos
+   bloques por ciudad: tomamos una ventana de contexto alrededor de cada
+   encabezado que coincide con la sección pedida. */
 const filtrarSeccion = (texto, seccion) => {
   const q = String(seccion || "").trim().toLowerCase();
   if (!q) return texto;
-  const otras = ["medellín", "barranquilla"].filter(
-    (c) => !q.includes(c) && !c.includes(q),
-  );
   const bloques = texto.split(/\n## /);
-  const elegidos = [];
-  let activo = false;
+  const indices = new Set();
   bloques.forEach((bloque, indice) => {
     const cabecera = bloque.split("\n")[0].toLowerCase();
-    if (otras.some((c) => cabecera.includes(c))) {
-      activo = false;
-      return;
+    if (!cabecera.includes(q)) return;
+    for (let j = indice; j < Math.min(indice + 12, bloques.length); j++) {
+      indices.add(j);
     }
-    if (cabecera.includes(q)) {
-      activo = true;
-      elegidos.push(bloque);
-      return;
-    }
-    if (indice > 0 && activo) elegidos.push(bloque);
   });
-  return elegidos.length ? elegidos.join("\n## ") : texto;
+  if (!indices.size) return texto;
+  return [...indices]
+    .sort((a, b) => a - b)
+    .map((i) => bloques[i])
+    .join("\n## ");
 };
 
 export const meta = { id: 'genially-info' };

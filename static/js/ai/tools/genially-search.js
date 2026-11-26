@@ -6,9 +6,11 @@ export const meta = { id: 'genially-search' };
 export async function run(order, ctx) {
   const q = String(order.q || order.query || order.text || '').trim().toLowerCase();
   if (!q) return 'Indica qué quieres buscar en el Genially.';
-  const inicial = await info({ limit: 500 }, ctx);
-  if (!inicial.startsWith('Contenido del Genially')) return inicial;
-  const texto = cachedText() || '';
+  if (!cachedText()) {
+    const inicial = await info({ limit: 500 }, ctx);
+    if (!cachedText()) return inicial;
+  }
+  const texto = cachedText();
   const partes = [];
   let desde = 0;
   while (partes.length < 8) {

@@ -16,25 +16,17 @@ const CLANES_MEDELLIN = [
   ["Lovelace", "Primer algoritmo"],
   ["Gosling", "Creador de Java"],
 ];
-const CLANES_BARRANQUILLA = {
-  Tayrona: "TypeScript",
-  Macondo: "NodeJs",
-  Manglar: "Analítica",
-  Sierra: "C# .NET",
-  Caimán: "Java SB",
-};
-
-const extraerClanes = (texto, sede) => {
-  const inicio = texto.indexOf(`entrenamiento en Riwi ${sede}`);
-  if (inicio < 0) return [];
-  const resto = texto.slice(inicio + `entrenamiento en Riwi ${sede}`.length);
-  const fin = resto.search(/Estos son los clanes|conforman el entrenamiento en Riwi|Prueba -/i);
-  const bloque = fin > 0 ? resto.slice(0, fin) : resto.slice(0, 1500);
-  const pares = [...bloque.matchAll(/##\s*([^\n]+)\n\s*([^\n#]+)/g)];
-  return pares
-    .map((m) => ({ clan: m[1].trim(), enfoque: m[2].trim() }))
-    .filter((c) => c.clan.length < 40 && c.enfoque.length > 4);
-};
+/* Clanes de Barranquilla: los seis de la naturaleza (Cohorte 3). El boletín
+   también los rotula por error bajo "entrenamiento en Riwi Medellín"; ese
+   encabezado es un artefacto del orden del Genially, no cambia la sede. */
+const CLANES_BARRANQUILLA = [
+  { clan: "Tayrona", enfoque: "Estructura y Estrategia", tecnologia: "TypeScript" },
+  { clan: "Macondo", enfoque: "Creatividad e innovación", tecnologia: "NodeJs" },
+  { clan: "Manglar", enfoque: "Trabajo en equipo e interconectividad", tecnologia: "Analítica" },
+  { clan: "Ciénaga", enfoque: "Gestión de datos y optimización" },
+  { clan: "Sierra", enfoque: "Resiliencia y alto rendimiento", tecnologia: "C# .NET" },
+  { clan: "Caimán", enfoque: "Fuerza y precisión", tecnologia: "Java SB" },
+];
 
 /* Horarios de la Cohorte 8 en Medellín: confirmados por el usuario; el
    boletín no los expone en el texto consultable. */
@@ -43,32 +35,56 @@ const HORARIO_COH8 = {
   cohortes: [8],
   manana: ["Ritchie", "Van Rossum", "Turing", "Tesla"],
   tarde: ["Nakamoto", "Ubuntu", "Gosling"],
+  franjas: [],
   tiempos: [],
 };
 
 const extraerHorarios = (texto) => {
   const salida = [];
-  const re = /HORARIOS - (MED|BAQ) COh ([\d y]+) - 2026([\s\S]*?)(?=## HORARIOS - |HORARIOS - |$)/gi;
+  const vistos = new Set();
+  const re = /HORARIOS - (MED|BAQ) COh ([\d y]+) - 2026([\s\S]*?)(?=\n## HORARIOS - |$)/gi;
+  const esRango = (t) =>
+    /^\d{1,2}\s*(?:a\.?m?\.?|p\.?m\.?)?\s*-\s*\d{1,2}\s*(?:a\.?m?\.?|p\.?m\.?)?\.?$/i.test(t);
   for (const m of texto.matchAll(re)) {
     const sede = m[1] === "MED" ? "Medellín" : "Barranquilla";
     const cohortes = (m[2].match(/\d+/g) || []).map(Number);
+    const clave = `${sede}:${cohortes.join("-")}`;
+    if (vistos.has(clave)) continue; // el boletín repite el bloque de BAQ C5
+    vistos.add(clave);
     const cuerpo = m[3];
     const manana = [];
     const tarde = [];
+    const franjas = [];
     const iManana = cuerpo.search(/mAÑANA/i);
     const iTarde = cuerpo.search(/TARDE/i);
     const nombres = (bloque) =>
       [...bloque.matchAll(/##\s*([A-Za-zÁÉÍÓÚÑ][\wÁÉÍÓÚÑ ]{2,24})/g)]
         .map((n) => n[1].trim())
-        .filter((n) => !/^(HORARIOS|Lunes|Martes|Miércoles|Jueves|Viernes)$/i.test(n));
+        .filter((n) => !/^(HORARIOS|Lunes|Martes|Miércoles|Jueves|Viernes|SEP|Haz clic|Conoce)$/i.test(n));
     if (iManana >= 0) {
       const fin = iTarde > iManana ? iTarde : cuerpo.length;
       manana.push(...nombres(cuerpo.slice(iManana, fin)));
     }
     if (iTarde >= 0) tarde.push(...nombres(cuerpo.slice(iTarde)));
-    const tiempos = [...cuerpo.matchAll(/\d{1,2}\s*(?:a\.?m?\.?|p\.?m\.?)?\s*-\s*\d{1,2}\s*(?:a\.m\.|p\.m\.)?/gi)].map((t) => t[0].trim());
-    if (manana.length || tarde.length)
-      salida.push({ sede, cohortes, manana, tarde, tiempos });
+    /* Barranquilla no usa mAÑANA/TARDE sino rangos horarios: 6-11, 11-16,
+       16-21. Asociamos cada clan al rango que lo precede. */
+    let actual = null;
+    for (const linea of cuerpo.split("\n")) {
+      const t = linea.trim();
+      if (esRango(t)) {
+        actual = { rango: t, clanes: [] };
+        franjas.push(actual);
+        continue;
+      }
+      const nm = /^##\s+([A-Za-zÁÉÍÓÚÑ][\wÁÉÍÓÚÑ ]{2,24})\s*$/.exec(linea);
+      if (!nm || !actual) continue;
+      const nombre = nm[1].trim();
+      if (/^(HORARIOS|Lunes|Martes|Miércoles|Jueves|Viernes|mAÑANA|TARDE|SEP)$/i.test(nombre)) continue;
+      if (!actual.clanes.includes(nombre)) actual.clanes.push(nombre);
+    }
+    const tiempos = franjas.map((f) => f.rango);
+    if (manana.length || tarde.length || franjas.length)
+      salida.push({ sede, cohortes, manana, tarde, franjas, tiempos });
   }
   const indice = salida.findIndex((h) => h.sede === "Medellín" && h.cohortes.includes(8));
   if (indice >= 0) salida[indice] = HORARIO_COH8;
@@ -103,9 +119,11 @@ const extraerHorario = (texto, sede) => {
 };
 
 export async function run(order, ctx) {
-  const inicial = await info({ limit: 500 }, ctx);
-  if (!inicial.startsWith('Contenido del boletín')) return inicial;
-  const texto = cachedText() || '';
+  if (!cachedText()) {
+    const inicial = await info({ limit: 500 }, ctx);
+    if (!cachedText()) return inicial;
+  }
+  const texto = cachedText();
   const sede = String(order.sede || order.ciudad || '').trim();
   const temas = [];
   if (!sede || /medell/i.test(sede)) temas.push('Medellín');
@@ -122,14 +140,15 @@ export async function run(order, ctx) {
       };
     return {
       sede: s,
-      clanes: Object.entries(CLANES_BARRANQUILLA).map(([clan, tecnologia]) => ({
+      clanes: CLANES_BARRANQUILLA.map(({ clan, enfoque, tecnologia }) => ({
         clan,
-        tecnologia,
+        enfoque,
+        ...(tecnologia ? { tecnologia } : {}),
       })),
       horario: extraerHorarios(texto).filter((h) => h.sede === "Barranquilla"),
     };
   });
   const nota =
-    'Los 12 clanes de Medellín llevan nombres de figuras de la computación y todos son actuales. En el bloque horarios, la jornada (mañana/tarde) depende de la cohorte; para la Cohorte 8 de Medellín: mañana Ritchie, Van Rossum, Turing y Tesla; tarde Nakamoto, Ubuntu y Gosling. Tayrona, Manglar, Ciénaga, Sierra y Caimán son de Barranquilla. No mezcles las sedes.';
+    'Los 12 clanes de Medellín llevan nombres de figuras de la computación y todos son actuales (no hay clanes actuales y futuros). Los clanes de Barranquilla son los seis de la naturaleza: Tayrona, Macondo, Manglar, Ciénaga, Sierra y Caimán. En el texto plano del Genially aparece un encabezado "Estos son los clanes que conforman el entrenamiento en Riwi Medellín" seguido de esos clanes de naturaleza: es un artefacto del orden del boletín, no los atribuyas a Medellín. La jornada (mañana/tarde) depende de la cohorte, no del clan: usa el bloque "horario" por sede y cohorte; cuando "franjas" tenga valores (Barranquilla Cohorte 5), indica también el rango horario de cada clan. Medellín Cohorte 8: mañana Ritchie, Van Rossum, Turing y Tesla; tarde Nakamoto, Ubuntu y Gosling. No mezcles las sedes.';
   return `Hechos del boletín:\n${JSON.stringify(datos)}\n${nota}`;
 }
