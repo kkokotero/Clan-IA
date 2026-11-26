@@ -1,6 +1,6 @@
 /* Controles personalizados de configuración: los <select> nativos siguen siendo
-   la fuente de verdad (para que el JS existente no cambie), pero la interfaz es
-   propia: menú en escritorio y hoja modal en móvil. */
+   la fuente de verdad, pero la interfaz es propia. Con data-search="true" el
+   desplegable incluye un buscador y permite usar un valor escrito. */
 import { PROVIDERS } from '../ai/providers.js';
 import { $, escapeHTML } from '../core/dom.js';
 import { getSettings } from '../core/settings-store.js';
@@ -19,6 +19,7 @@ function getSheet() {
     <div class="ui-select-sheet-card" role="dialog" aria-modal="true">
       <div class="ui-select-sheet-grab" aria-hidden="true"></div>
       <h2 class="ui-select-sheet-title"></h2>
+      <div class="ui-select-search"><span class="ic sm">search</span><input class="ui-select-search-input" type="search" aria-label="Buscar opción" placeholder="Buscar…" /></div>
       <div class="ui-select-sheet-options" role="listbox"></div>
       <button type="button" class="ui-btn ui-btn-tertiary ui-select-sheet-close">Cerrar</button>
     </div>`;
@@ -38,6 +39,49 @@ function currentLabel(select) {
 function optionsOf(select) {
   return [...(select?.options || [])].map((o) => ({ value: o.value, label: o.textContent }));
 }
+const optionsHTML = (select) =>
+  optionsOf(select)
+    .map(
+      (o) =>
+        `<button type="button" class="ui-select-option${o.value === select.value ? ' selected' : ''}" role="option" aria-selected="${o.value === select.value}" data-value="${escapeHTML(o.value)}">${escapeHTML(o.label)}</button>`,
+    )
+    .join('');
+
+/* El buscador filtra y, si no hay coincidencia, permite usar el texto escrito. */
+function bindSearch(container, select) {
+  if (!container) return;
+  const input = container.querySelector('.ui-select-search-input');
+  if (!input) return;
+  input.value = '';
+  input.oninput = () => {
+    const q = input.value.trim().toLowerCase();
+    const buttons = [...container.querySelectorAll('.ui-select-option')];
+    let visible = 0;
+    buttons.forEach((b) => {
+      const texto = b.textContent.toLowerCase();
+      b.hidden = q ? !texto.includes(q) : false;
+      if (!b.hidden) visible++;
+    });
+    const libre = container.querySelector('.ui-select-option-libre');
+    if (libre) libre.remove();
+    if (q && !visible) {
+      const extra = document.createElement('button');
+      extra.type = 'button';
+      extra.className = 'ui-select-option ui-select-option-libre';
+      extra.dataset.value = input.value.trim();
+      extra.textContent = `Usar «${input.value.trim()}»`;
+      extra.addEventListener('click', () => {
+        choose(select, extra.dataset.value);
+        if (container.classList.contains('ui-select-menu')) {
+          container.hidden = true;
+          const trigger = container.closest('.ui-select-custom')?.querySelector('.ui-select-trigger');
+          trigger?.setAttribute('aria-expanded', 'false');
+        } else closeSheet();
+      });
+      container.appendChild(extra);
+    }
+  };
+}
 
 function paint(select) {
   const wrap = select?.closest('.ui-field')?.querySelector('.ui-select-custom');
@@ -48,13 +92,12 @@ function paint(select) {
   if (label) label.textContent = currentLabel(select);
   if (trigger) trigger.setAttribute('aria-expanded', 'false');
   if (!menu) return;
-  menu.innerHTML = optionsOf(select)
-    .map(
-      (o) =>
-        `<button type="button" class="ui-select-option${o.value === select.value ? ' selected' : ''}" role="option" aria-selected="${o.value === select.value}" data-value="${escapeHTML(o.value)}">${escapeHTML(o.label)}</button>`,
-    )
-    .join('');
+  const search = wrap.dataset.search === 'true'
+    ? '<div class="ui-select-search"><span class="ic sm">search</span><input class="ui-select-search-input" type="search" aria-label="Buscar opción" placeholder="Buscar…" /></div>'
+    : '';
+  menu.innerHTML = search + optionsHTML(select);
   menu.hidden = true;
+  if (wrap.dataset.search === 'true') bindSearch(menu, select);
 }
 
 function choose(select, value) {
@@ -73,18 +116,17 @@ function openMenu(select) {
     const s = getSheet();
     s.querySelector('.ui-select-sheet-title').textContent =
       wrap.closest('.ui-field')?.querySelector('.ui-label')?.textContent || 'Selecciona';
-    s.querySelector('.ui-select-sheet-options').innerHTML = optionsOf(select)
-      .map(
-        (o) =>
-          `<button type="button" class="ui-select-option${o.value === select.value ? ' selected' : ''}" data-value="${escapeHTML(o.value)}">${escapeHTML(o.label)}</button>`,
-      )
-      .join('');
-    s.querySelector('.ui-select-sheet-options').onclick = (e) => {
-      const btn = e.target.closest('.ui-select-option');
-      if (!btn) return;
-      choose(select, btn.dataset.value);
-      closeSheet();
-    };
+    const options = s.querySelector('.ui-select-sheet-options');
+    options.innerHTML = optionsHTML(select);
+    if (options) {
+      options.onclick = (e) => {
+        const btn = e.target.closest('.ui-select-option');
+        if (!btn) return;
+        choose(select, btn.dataset.value);
+        closeSheet();
+      };
+      bindSearch(s, select);
+    }
     s.hidden = false;
     return;
   }

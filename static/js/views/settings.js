@@ -1,11 +1,12 @@
 import { PROVIDERS, askAI } from '../ai/providers.js';
 import { refreshAIStatus, renderHistory } from '../chat/flow.js';
 import { current, load, save } from '../chat/model.js';
-import { $, app, closeMenu, menuQuery, menuToggle, setMenu } from '../core/dom.js';
+import { $, app, closeMenu, escapeHTML, menuQuery, menuToggle, setMenu } from '../core/dom.js';
 import { askConfirmation, initModals } from '../core/modals.js';
 import { clearSettings, getSettings, saveSettings } from '../core/settings-store.js';
-import { S, getMoodle } from '../core/state.js';
-import { moodleLogout, updateMoodleUI } from '../moodle/session.js';
+import { moodleIdsParam, moodleRequest, moodleToolAllowed } from '../moodle/client.js';
+import { S, getMoodle, saveMoodle } from '../core/state.js';
+import { ensureMoodleSession, moodleLogout, updateMoodleUI } from '../moodle/session.js';
 import {
   activateSettingsTab,
   customField,
@@ -29,6 +30,162 @@ function showHistoryToast(text) {
   toast.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
+}
+
+/* Las opciones se completan con valores reales de Moodle cuando el sitio los
+   expone; si no, se conservan las opciones locales y el buscador permite escribir. */
+async function loadProfileOptions() {
+  const found = new Set();
+  const add = (sel, value, label = value) => {
+    const el = $(sel);
+    if (!el || !value) return;
+    if ([...(el.options || [])].some((o) => o.value === value)) return;
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label || value;
+    el.add(opt);
+    found.add(sel);
+  };
+  if (moodleToolAllowed('core_country_get_countries')) {
+    try {
+      const countries = await moodleRequest('core_country_get_countries');
+      (Array.isArray(countries) ? countries : []).forEach((c) =>
+        add('#profileCountry', c.code || c.shortname || c.id, c.fullname || c.code || c.shortname),
+      );
+    } catch (e) {}
+  }
+  /* Descubre cualquier función del sitio que devuelva catálogos útiles. */
+  const destino = (fn) =>
+    /country/i.test(fn) ? '#profileCountry'
+    : /timezone/i.test(fn) ? '#profileTimezone'
+    : /city/i.test(fn) ? '#profileCity'
+    : /institution/i.test(fn) ? '#profileInstitution'
+    : '#profileDepartment';
+  const candidatas = S.moodleFunctions.filter((f) =>
+    /country|timezone|city|institution|department/i.test(f),
+  );
+  for (const fn of candidatas.slice(0, 10)) {
+    try {
+      const data = await moodleRequest(fn);
+      const rows = Array.isArray(data)
+        ? data
+        : data?.countries || data?.timezones || data?.items || data?.fields || [];
+      rows.forEach((row) => {
+        if (!row || typeof row !== 'object') return;
+        const value =
+          row.code ?? row.shortname ?? row.value ?? row.name ?? row.fullname ??
+          row.timezone ?? row.city ?? row.institution ?? row.department ?? row.id;
+        if (value == null) return;
+        add(destino(fn), String(value), String(row.fullname || row.label || row.name || value));
+      });
+    } catch (e) {}
+  }
+  try {
+    const courses = await moodleRequest('core_enrol_get_users_courses', {
+      userid: S.moodleUserId,
+    });
+    for (const course of (Array.isArray(courses) ? courses : []).slice(0, 20)) {
+      if (!moodleToolAllowed('core_enrol_get_enrolled_users')) break;
+      const users = await moodleRequest('core_enrol_get_enrolled_users', {
+        courseid: course.id,
+      });
+      (Array.isArray(users) ? users : []).forEach((u) => {
+        add('#profileCity', u.city);
+        add('#profileCountry', u.country);
+        add('#profileTimezone', u.timezone);
+        add('#profileInstitution', u.institution);
+        add('#profileDepartment', u.department);
+      });
+    }
+  } catch (e) {}
+  if (S.moodleUserId && moodleToolAllowed('core_user_get_users_by_field')) {
+    try {
+      const [me] = await moodleRequest('core_user_get_users_by_field', {
+        field: 'id',
+        ...moodleIdsParam([S.moodleUserId], 'values'),
+      });
+      if (me) {
+        add('#profileCity', me.city);
+        add('#profileCountry', me.country);
+        add('#profileTimezone', me.timezone || S.moodleProfileContext?.match(/timezone[^:]*: ?([^,}]+)/)?.[1]);
+        add('#profileInstitution', me.institution);
+        add('#profileDepartment', me.department);
+      }
+    } catch (e) {}
+  }
+  if (found.size) syncSelectUI();
+  const info = $('#profileOptionsInfo');
+  if (info)
+    info.textContent = found.size
+      ? 'Opciones sugeridas obtenidas de tu Moodle. Puedes buscar o escribir la que necesites.'
+      : 'Usa el buscador para encontrar una opción o escribir la que necesites.';
+}
+
+/* Perfil: se lee y se escribe directamente en Moodle. */
+function showProfileMsg(text, kind = '') {
+  const msg = $('#profileMsg');
+  if (!msg) return;
+  msg.textContent = text;
+  msg.className = `ui-hint${kind ? ' is-' + kind : ''}`;
+}
+async function loadProfile() {
+  if (!getMoodle().token) {
+    showProfileMsg('Ingresa a Moodle desde el inicio para editar tu perfil.', 'error');
+    return;
+  }
+  await ensureMoodleSession().catch(() => {});
+  let user = {};
+  try {
+    const rows = await moodleRequest('core_user_get_users_by_field', {
+      field: 'id',
+      ...moodleIdsParam([S.moodleUserId], 'values'),
+    });
+    if (Array.isArray(rows) && rows[0]) user = rows[0];
+  } catch (e) {
+    S.lastMoodleError = String(e.message || e);
+  }
+  const set = (sel, value) => {
+    const el = $(sel);
+    if (el) el.value = value || '';
+  };
+  set('#profileFirstname', user.firstname);
+  set('#profileLastname', user.lastname);
+  set('#profileAlternative', user.alternatename);
+  set('#profileIdNumber', user.idnumber);
+  set('#profileEmail', user.email);
+  const setChoice = (sel, value) => {
+    const el = $(sel);
+    if (!el) return;
+    if (value && ![...(el.options || [])].some((o) => o.value === value)) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = value;
+      el.add(opt);
+    }
+    el.value = value || '';
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  setChoice('#profileCity', user.city);
+  setChoice('#profileCountry', user.country);
+  setChoice('#profileTimezone', user.timezone);
+  setChoice('#profileInstitution', user.institution);
+  setChoice('#profileDepartment', user.department);
+  syncSelectUI();
+  set('#profilePhone', user.phone1);
+  set('#profilePhone2', user.phone2);
+  set('#profileUrl', user.url);
+  set('#profileDescription', user.description);
+  const name = user.fullname || [user.firstname, user.lastname].filter(Boolean).join(' ') || S.moodleUser || 'Estudiante';
+  const full = $('#profileFullName');
+  if (full) full.textContent = name;
+  const username = $('#profileUsername');
+  if (username) username.textContent = user.username ? `@${user.username}` : 'Tu cuenta de Moodle';
+  const avatar = $('#profileAvatar');
+  if (avatar) {
+    const url = S.moodleAvatarUrl || getMoodle().avatarUrl;
+    if (url) avatar.innerHTML = `<img class="avatar-img" src="${escapeHTML(url)}" alt="" />`;
+    else avatar.textContent = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || 'ES';
+  }
 }
 
 /* Centro de ayuda: estado real de la configuración. */
@@ -193,6 +350,55 @@ export function initSettings() {
     );
   });
 
+  /* ---------- Página de perfil ---------- */
+  on('#profileForm', 'submit', async (e) => {
+    e.preventDefault();
+    if (!getMoodle().token) {
+      showProfileMsg('Ingresa a Moodle desde el inicio para editar tu perfil.', 'error');
+      return;
+    }
+    const fields = {
+      firstname: $('#profileFirstname')?.value.trim(),
+      lastname: $('#profileLastname')?.value.trim(),
+      alternatename: $('#profileAlternative')?.value.trim(),
+      idnumber: $('#profileIdNumber')?.value.trim(),
+      email: $('#profileEmail')?.value.trim(),
+      city: $('#profileCity')?.value.trim(),
+      country: $('#profileCountry')?.value.trim(),
+      timezone: $('#profileTimezone')?.value.trim(),
+      institution: $('#profileInstitution')?.value.trim(),
+      department: $('#profileDepartment')?.value.trim(),
+      phone1: $('#profilePhone')?.value.trim(),
+      phone2: $('#profilePhone2')?.value.trim(),
+      url: $('#profileUrl')?.value.trim(),
+      description: $('#profileDescription')?.value.trim(),
+    };
+    const changes = Object.entries(fields).filter(([, v]) => v);
+    if (!changes.length) {
+      showProfileMsg('No hay cambios para guardar.');
+      return;
+    }
+    const params = { 'users[0][id]': S.moodleUserId };
+    changes.forEach(([k, v]) => { params[`users[0][${k}]`] = v; });
+    const ok = await askConfirmation(`¿Guardar en Moodle los cambios de: ${changes.map(([k]) => k).join(', ')}?`);
+    if (!ok) {
+      showProfileMsg('Cambios cancelados.');
+      return;
+    }
+    try {
+      await moodleRequest('core_user_update_users', params);
+      const fullname = [fields.firstname, fields.lastname].filter(Boolean).join(' ');
+      if (fullname) {
+        S.moodleUser = fullname;
+        saveMoodle({ ...getMoodle(), name: fullname });
+      }
+      updateMoodleUI();
+      showProfileMsg('Cambios guardados en Moodle.', 'ok');
+    } catch (err) {
+      showProfileMsg(`No se pudo guardar: ${err.message || err}`, 'error');
+    }
+  });
+
   /* ---------- Lista de conversaciones ---------- */
   on('#historySearch', 'input', () => renderHistoryList());
   let renamingId = null;
@@ -296,6 +502,10 @@ if (keyInput) keyInput.value = cfgIA.apiKey;
 if (providerSel) populateModels(cfgIA.provider, cfgIA.model);
 syncSelectUI();
 if (keyInput?.value.trim()) scheduleValidate(400);
+if ($('#profileForm')) {
+  loadProfile();
+  loadProfileOptions();
+}
 syncClearButton();
 updateHelpStatus();
 renderHistory();

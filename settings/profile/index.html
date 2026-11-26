@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es" data-openui-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clan IA — IA</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicons/favicon.svg" />
+  <link rel="icon" type="image/x-icon" href="/static/favicons/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/favicons/apple-touch-icon.png" />
+  <link rel="manifest" href="/static/site.webmanifest" />
+  <meta name="theme-color" content="#6750A4" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400..600,0,0" />
+  <script src="https://cdn.jsdelivr.net/npm/@openuidev/browser-bundle@0.2/dist/openui-bundle.min.js" defer></script>
+  <link rel="stylesheet" href="/static/styles/tokens.css" />
+  <link rel="stylesheet" href="/static/styles/components.css" />
+  <link rel="stylesheet" href="/static/styles/chat.css" />
+  <link rel="stylesheet" href="/static/styles/settings.css" />
+  <link rel="stylesheet" href="/static/styles/responsive.css" />
+</head>
+<body>
+<div class="app" id="app">
+    <header class="mobile-topbar" id="mobileTopbar">
+      <button class="logo-tile brand" id="mobileMenuBtn" type="button" aria-label="Abrir menú" aria-expanded="false"
+        aria-controls="sidebar">
+        <span class="logo" aria-hidden="true">cruelty_free</span>
+      </button>
+      <div class="brand-text">
+        <span class="brand-name">Clan IA</span>
+        <span class="brand-sub">Asistente educativo</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="mobile-top-icon" id="mobileNewChat" type="button" aria-label="Nueva conversación"><span
+            class="ic">add</span></button>
+        <button class="mobile-top-icon" id="mobileProfileBtn" type="button" aria-label="Abrir configuración de IA">
+          <span class="mobile-avatar" id="mobileAvatar">ES</span>
+        </button>
+      </div>
+    </header>
+    <aside class="sidebar" id="sidebar" aria-label="Barra lateral">
+      <div class="brand-row">
+        <button class="logo-tile brand tip-r" id="menuToggle" type="button" aria-label="Desplegar menú lateral"
+          aria-expanded="false" aria-controls="sidebar" data-tip="Menú lateral">
+          <span class="logo" aria-hidden="true">cruelty_free</span>
+        </button>
+        <div class="brand-text">
+          <span class="brand-name">Clan IA</span>
+          <span class="brand-sub">Asistente educativo</span>
+        </div>
+      </div>
+
+      <button class="new-chat" id="newChat"><span class="ic">add</span><span class="label">Nueva
+          conversación</span></button>
+
+      <div class="section-label">Historial</div>
+      <nav class="history" id="history" aria-label="Historial de conversaciones"></nav>
+
+      <div class="sidebar-footer">
+        <a class="btn btn-tonal block" id="tlBtnSide" href="/settings/tl/"><span class="ic">groups</span><span class="label">Hablar con
+            el TL (Team Leader)</span></a>
+        <a class="nav-item" id="moodleBtnSide" href="https://moodle.riwi.io/my/" target="_blank" rel="noopener"><span class="ic">school</span><span class="label">Mi
+            Moodle</span></a>
+        <a class="nav-item" id="logoutBtnSide" href="/" hidden><span class="ic">logout</span><span
+            class="label">Cerrar sesión de Moodle</span></a>
+        <a class="profile" id="profileBtn" href="/settings/ai/"
+          title="Abrir configuración de IA (se guarda en este navegador)"
+          aria-label="Abrir configuración de IA del perfil">
+          <div class="avatar-user" id="userAvatar" aria-hidden="true">ES</div>
+          <div class="profile-text">
+            <span class="profile-name" id="profileName">Estudiante</span>
+          </div>
+          <span class="ic sm profile-cog" aria-hidden="true">settings</span>
+        </a>
+      </div>
+    </aside>
+    <div class="scrim" id="scrim"></div>
+
+<main class="main settings-main">
+  <div class="settings-layout">
+    <nav class="settings-nav" aria-label="Menú de configuración">
+        <a class="settings-nav-item active" href="/settings/profile/" aria-current="page"><span class="ic sm">person</span><span>Perfil</span></a>
+        <a class="settings-nav-item" href="/settings/ai/" aria-current="false"><span class="ic sm">key</span><span>IA</span></a>
+        <a class="settings-nav-item" href="/settings/chats/" aria-current="false"><span class="ic sm">chat</span><span>Chats e historial</span></a>
+        <a class="settings-nav-item" href="/settings/help/" aria-current="false"><span class="ic sm">help</span><span>Ayuda</span></a>
+        <a class="settings-nav-item" href="/settings/tl/" aria-current="false"><span class="ic sm">groups</span><span>TL (Team Leader)</span></a>
+      <hr class="settings-nav-sep" />
+      <button class="settings-nav-item danger" id="settingsLogout" type="button"><span class="ic sm">logout</span><span>Cerrar sesión</span></button>
+    </nav>
+    <div class="settings-panels">
+<div class="settings-panel" role="tabpanel">
+            <div class="exp-panel-head exp-animate">
+              <span class="exp-tile"><span class="ic">person</span></span>
+              <div>
+                <h2>Mi perfil</h2>
+                <p>Edita tus datos de Moodle. Los cambios se guardan directamente en tu cuenta.</p>
+              </div>
+            </div>
+            <div class="profile-preview">
+              <div class="avatar-user" id="profileAvatar" aria-hidden="true">ES</div>
+              <div>
+                <b id="profileFullName">Estudiante</b>
+                <small id="profileUsername">Tu cuenta de Moodle</small>
+              </div>
+            </div>
+            <p class="ui-hint" id="profileOptionsInfo"></p>
+            <form class="ui-form ui-form-settings form-expressive" id="profileForm">
+              <section class="profile-group">
+                <h3 class="exp-section-title">Datos personales</h3>
+                <div class="profile-grid">
+                  <label class="ui-field">
+                    <span class="ui-label">Nombre</span>
+                    <span class="ui-input-wrap"><span class="ic sm">badge</span><input class="ui-input" id="profileFirstname" type="text" autocomplete="given-name" placeholder="Nombre" /></span>
+                  </label>
+                  <label class="ui-field">
+                    <span class="ui-label">Apellido</span>
+                    <span class="ui-input-wrap"><span class="ic sm">person_outline</span><input class="ui-input" id="profileLastname" type="text" autocomplete="family-name" placeholder="Apellido" /></span>
+                  </label>
+                  <label class="ui-field">
+                    <span class="ui-label">Nombre alternativo</span>
+                    <span class="ui-input-wrap"><span class="ic sm">edit</span><input class="ui-input" id="profileAlternative" type="text" placeholder="Nombre alternativo" /></span>
+                  </label>
+                  <label class="ui-field">
+                    <span class="ui-label">Identificación</span>
+                    <span class="ui-input-wrap"><span class="ic sm">fingerprint</span><input class="ui-input" id="profileIdNumber" type="text" placeholder="Número de identificación" /></span>
+                  </label>
+                </div>
+                <label class="ui-field profile-full">
+                  <span class="ui-label">Descripción</span>
+                  <span class="ui-input-wrap ui-input-wrap-top"><span class="ic sm">description</span><textarea class="ui-input" id="profileDescription" rows="3" placeholder="Cuéntanos sobre ti"></textarea></span>
+                </label>
+              </section>
+              <section class="profile-group">
+                <h3 class="exp-section-title">Contacto</h3>
+                <div class="profile-grid">
+                  <label class="ui-field">
+                    <span class="ui-label">Correo</span>
+                    <span class="ui-input-wrap"><span class="ic sm">mail</span><input class="ui-input" id="profileEmail" type="email" autocomplete="email" placeholder="correo@ejemplo.com" /></span>
+                  </label>
+                  <label class="ui-field">
+                    <span class="ui-label">Teléfono</span>
+                    <span class="ui-input-wrap"><span class="ic sm">phone</span><input class="ui-input" id="profilePhone" type="tel" autocomplete="tel" placeholder="Teléfono" /></span>
+                  </label>
+                  <label class="ui-field">
+                    <span class="ui-label">Teléfono móvil</span>
+                    <span class="ui-input-wrap"><span class="ic sm">smartphone</span><input class="ui-input" id="profilePhone2" type="tel" placeholder="Teléfono móvil" /></span>
+                  </label>
+                  <label class="ui-field">
+                    <span class="ui-label">Sitio web</span>
+                    <span class="ui-input-wrap"><span class="ic sm">link</span><input class="ui-input" id="profileUrl" type="url" placeholder="https://..." /></span>
+                  </label>
+                  <div class="ui-field">
+                    <span class="ui-label">Ciudad</span>
+                    <div class="ui-select-custom" data-search="true">
+                      <button type="button" class="ui-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="ic sm">location_city</span>
+                        <span class="ui-select-value">Ciudad</span>
+                        <span class="ic">expand_more</span>
+                      </button>
+                      <div class="ui-select-menu" role="listbox" hidden></div>
+                    </div>
+                    <select class="ui-select-native" id="profileCity" hidden>
+                    <option value="">Selecciona</option>
+                    <option value="Medellín">Medellín</option>
+                    <option value="Bogotá">Bogotá</option>
+                    <option value="Cali">Cali</option>
+                    <option value="Barranquilla">Barranquilla</option>
+                    <option value="Cartagena">Cartagena</option>
+                    <option value="Bucaramanga">Bucaramanga</option>
+                    <option value="Pereira">Pereira</option>
+                    <option value="Manizales">Manizales</option>
+                    <option value="Armenia">Armenia</option>
+                    <option value="Santa Marta">Santa Marta</option>
+                    <option value="Villavicencio">Villavicencio</option>
+                    <option value="Neiva">Neiva</option>
+                    <option value="Popayán">Popayán</option>
+                    <option value="Ibagué">Ibagué</option>
+                    <option value="Tunja">Tunja</option>
+                    <option value="Rionegro">Rionegro</option>
+                    <option value="Envigado">Envigado</option>
+                    <option value="Apartadó">Apartadó</option>
+                    <option value="Sincelejo">Sincelejo</option>
+                    <option value="Montería">Montería</option>
+                    <option value="Cúcuta">Cúcuta</option>
+                    <option value="Pasto">Pasto</option>
+                    <option value="Florencia">Florencia</option>
+                    <option value="Valledupar">Valledupar</option>
+                    <option value="Ribacoa">Ribacoa</option>
+                    <option value="Yopal">Yopal</option>
+                    <option value="Puerto López">Puerto López</option>
+                    <option value="Buenos Aires">Buenos Aires</option>
+                    <option value="Lima">Lima</option>
+                    <option value="Santiago">Santiago</option>
+                    <option value="Ciudad de México">Ciudad de México</option>
+                    <option value="Guadalajara">Guadalajara</option>
+                    <option value="Monterrey">Monterrey</option>
+                    <option value="Madrid">Madrid</option>
+                    <option value="Barcelona">Barcelona</option>
+                    <option value="Valencia">Valencia</option>
+                    <option value="Sevilla">Sevilla</option>
+                    <option value="Nueva York">Nueva York</option>
+                    <option value="Miami">Miami</option>
+                    <option value="Chicago">Chicago</option>
+                    <option value="Los Ángeles">Los Ángeles</option>
+                    <option value="Toronto">Toronto</option>
+                    <option value="Vancouver">Vancouver</option>
+                    <option value="São Paulo">São Paulo</option>
+                    <option value="Río de Janeiro">Río de Janeiro</option>
+                    <option value="Santiago de Chile">Santiago de Chile</option>
+                    <option value="Quito">Quito</option>
+                    <option value="Guayaquil">Guayaquil</option>
+                    </select>
+                  </div>
+                  <div class="ui-field">
+                    <span class="ui-label">País</span>
+                    <div class="ui-select-custom" data-search="true">
+                      <button type="button" class="ui-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="ic sm">public</span>
+                        <span class="ui-select-value">Selecciona</span>
+                        <span class="ic">expand_more</span>
+                      </button>
+                      <div class="ui-select-menu" role="listbox" hidden></div>
+                    </div>
+                    <select class="ui-select-native" id="profileCountry" hidden>
+                    <option value="">Selecciona</option>
+                    <option value="AR">Argentina</option>
+                    <option value="AU">Australia</option>
+                    <option value="AT">Austria</option>
+                    <option value="BE">Bélgica</option>
+                    <option value="BO">Bolivia</option>
+                    <option value="BR">Brasil</option>
+                    <option value="BG">Bulgaria</option>
+                    <option value="CA">Canadá</option>
+                    <option value="CL">Chile</option>
+                    <option value="CN">China</option>
+                    <option value="CO">Colombia</option>
+                    <option value="CR">Costa Rica</option>
+                    <option value="HR">Croacia</option>
+                    <option value="CU">Cuba</option>
+                    <option value="CY">Chipre</option>
+                    <option value="CZ">Chequia</option>
+                    <option value="DK">Dinamarca</option>
+                    <option value="DO">República Dominicana</option>
+                    <option value="EC">Ecuador</option>
+                    <option value="EG">Egipto</option>
+                    <option value="ES">España</option>
+                    <option value="EE">Estonia</option>
+                    <option value="FI">Finlandia</option>
+                    <option value="FR">Francia</option>
+                    <option value="DE">Alemania</option>
+                    <option value="GR">Grecia</option>
+                    <option value="GT">Guatemala</option>
+                    <option value="HN">Honduras</option>
+                    <option value="HU">Hungría</option>
+                    <option value="IS">Islandia</option>
+                    <option value="IN">India</option>
+                    <option value="ID">Indonesia</option>
+                    <option value="IE">Irlanda</option>
+                    <option value="IL">Israel</option>
+                    <option value="IT">Italia</option>
+                    <option value="JP">Japón</option>
+                    <option value="KR">Corea del Sur</option>
+                    <option value="LV">Letonia</option>
+                    <option value="LT">Lituania</option>
+                    <option value="LU">Luxemburgo</option>
+                    <option value="MX">México</option>
+                    <option value="MY">Malasia</option>
+                    <option value="MT">Malta</option>
+                    <option value="MA">Marruecos</option>
+                    <option value="NL">Países Bajos</option>
+                    <option value="NZ">Nueva Zelanda</option>
+                    <option value="NI">Nicaragua</option>
+                    <option value="NO">Noruega</option>
+                    <option value="PA">Panamá</option>
+                    <option value="PY">Paraguay</option>
+                    <option value="PE">Perú</option>
+                    <option value="PH">Filipinas</option>
+                    <option value="PL">Polonia</option>
+                    <option value="PT">Portugal</option>
+                    <option value="RO">Rumania</option>
+                    <option value="SA">Arabia Saudita</option>
+                    <option value="SG">Singapur</option>
+                    <option value="SK">Eslovaquia</option>
+                    <option value="SI">Eslovenia</option>
+                    <option value="ZA">Sudáfrica</option>
+                    <option value="SE">Suecia</option>
+                    <option value="CH">Suiza</option>
+                    <option value="TH">Tailandia</option>
+                    <option value="TR">Turquía</option>
+                    <option value="UA">Ucrania</option>
+                    <option value="AE">Emiratos Árabes</option>
+                    <option value="GB">Reino Unido</option>
+                    <option value="US">Estados Unidos</option>
+                    <option value="UY">Uruguay</option>
+                    <option value="VE">Venezuela</option>
+                    <option value="VN">Vietnam</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+              <section class="profile-group">
+                <h3 class="exp-section-title">Información adicional</h3>
+                <div class="profile-grid">
+                  <div class="ui-field">
+                    <span class="ui-label">Institución</span>
+                    <div class="ui-select-custom" data-search="true">
+                      <button type="button" class="ui-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="ic sm">school</span>
+                        <span class="ui-select-value">Institución</span>
+                        <span class="ic">expand_more</span>
+                      </button>
+                      <div class="ui-select-menu" role="listbox" hidden></div>
+                    </div>
+                    <select class="ui-select-native" id="profileInstitution" hidden>
+                    <option value="">Selecciona</option>
+                    <option value="Riwi">Riwi</option>
+                    <option value="Universidad de Antioquia">Universidad de Antioquia</option>
+                    <option value="Universidad Nacional de Colombia">Universidad Nacional de Colombia</option>
+                    <option value="Universidad EAFIT">Universidad EAFIT</option>
+                    <option value="Universidad Pontificia Bolivariana">Universidad Pontificia Bolivariana</option>
+                    <option value="Universidad de Medellín">Universidad de Medellín</option>
+                    <option value="Instituto Tecnológico de Antioquia">Instituto Tecnológico de Antioquia</option>
+                    <option value="Universidad del Valle">Universidad del Valle</option>
+                    <option value="Universidad de los Andes">Universidad de los Andes</option>
+                    <option value="Universidad Javeriana">Universidad Javeriana</option>
+                    <option value="Universidad de Caldas">Universidad de Caldas</option>
+                    <option value="Universidad Tecnológica de Pereira">Universidad Tecnológica de Pereira</option>
+                    <option value="Universidad Industrial de Santander">Universidad Industrial de Santander</option>
+                    <option value="Universidad de Cartagena">Universidad de Cartagena</option>
+                    <option value="Universidad de Barranquilla">Universidad de Barranquilla</option>
+                    <option value="Universidad Autónoma Latinoamericana">Universidad Autónoma Latinoamericana</option>
+                    <option value="Escuela de Ingeniería de Antioquia">Escuela de Ingeniería de Antioquia</option>
+                    <option value="Universidad CES">Universidad CES</option>
+                    <option value="Otra institución">Otra institución</option>
+                    </select>
+                  </div>
+                  <div class="ui-field">
+                    <span class="ui-label">Departamento</span>
+                    <div class="ui-select-custom" data-search="true">
+                      <button type="button" class="ui-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="ic sm">domain</span>
+                        <span class="ui-select-value">Departamento</span>
+                        <span class="ic">expand_more</span>
+                      </button>
+                      <div class="ui-select-menu" role="listbox" hidden></div>
+                    </div>
+                    <select class="ui-select-native" id="profileDepartment" hidden>
+                    <option value="">Selecciona</option>
+                    <option value="Inteligencia Artificial">Inteligencia Artificial</option>
+                    <option value="Desarrollo de Software">Desarrollo de Software</option>
+                    <option value="Diseño UX/UI">Diseño UX/UI</option>
+                    <option value="Ciencia de Datos">Ciencia de Datos</option>
+                    <option value="Marketing Digital">Marketing Digital</option>
+                    <option value="Producto">Producto</option>
+                    <option value="Operaciones">Operaciones</option>
+                    <option value="Educación">Educación</option>
+                    <option value="Soporte">Soporte</option>
+                    <option value="Ingeniería">Ingeniería</option>
+                    <option value="Diseño">Diseño</option>
+                    <option value="Negocios">Negocios</option>
+                    <option value="Finanzas">Finanzas</option>
+                    <option value="Recursos Humanos">Recursos Humanos</option>
+                    <option value="Comunicaciones">Comunicaciones</option>
+                    <option value="Investigación">Investigación</option>
+                    <option value="Calidad">Calidad</option>
+                    <option value="Seguridad">Seguridad</option>
+                    <option value="Otro departamento">Otro departamento</option>
+                    </select>
+                  </div>
+                  <div class="ui-field">
+                    <span class="ui-label">Zona horaria</span>
+                    <div class="ui-select-custom" data-search="true">
+                      <button type="button" class="ui-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="ic sm">schedule</span>
+                        <span class="ui-select-value">America/Bogota</span>
+                        <span class="ic">expand_more</span>
+                      </button>
+                      <div class="ui-select-menu" role="listbox" hidden></div>
+                    </div>
+                    <select class="ui-select-native" id="profileTimezone" hidden>
+                    <option value="">Selecciona</option>
+                    <option value="America/Bogota">Bogotá (UTC-5)</option>
+                    <option value="America/Mexico_City">Ciudad de México (UTC-6)</option>
+                    <option value="America/Tijuana">Tijuana (UTC-8)</option>
+                    <option value="America/Argentina/Buenos_Aires">Buenos Aires (UTC-3)</option>
+                    <option value="America/Santiago">Santiago (UTC-4)</option>
+                    <option value="America/Lima">Lima (UTC-5)</option>
+                    <option value="America/Caracas">Caracas (UTC-4)</option>
+                    <option value="America/La_Paz">La Paz (UTC-4)</option>
+                    <option value="America/Asuncion">Asunción (UTC-4)</option>
+                    <option value="America/Montevideo">Montevideo (UTC-3)</option>
+                    <option value="America/Guayaquil">Guayaquil (UTC-5)</option>
+                    <option value="America/Costa_Rica">Costa Rica (UTC-6)</option>
+                    <option value="America/Panama">Panamá (UTC-5)</option>
+                    <option value="America/Guatemala">Guatemala (UTC-6)</option>
+                    <option value="America/New_York">Nueva York (UTC-5)</option>
+                    <option value="America/Chicago">Chicago (UTC-6)</option>
+                    <option value="America/Denver">Denver (UTC-7)</option>
+                    <option value="America/Los_Angeles">Los Ángeles (UTC-8)</option>
+                    <option value="America/Anchorage">Anchorage (UTC-9)</option>
+                    <option value="Pacific/Honolulu">Honolulú (UTC-10)</option>
+                    <option value="Europe/Madrid">Madrid (UTC+2)</option>
+                    <option value="Europe/London">Londres (UTC+1)</option>
+                    <option value="Europe/Paris">París (UTC+2)</option>
+                    <option value="Europe/Berlin">Berlín (UTC+2)</option>
+                    <option value="Europe/Rome">Roma (UTC+2)</option>
+                    <option value="Europe/Amsterdam">Ámsterdam (UTC+2)</option>
+                    <option value="Asia/Tokyo">Tokio (UTC+9)</option>
+                    <option value="Asia/Shanghai">Shanghái (UTC+8)</option>
+                    <option value="Asia/Dubai">Dubái (UTC+4)</option>
+                    <option value="Asia/Kolkata">Nueva Delhi (UTC+5:30)</option>
+                    <option value="Australia/Sydney">Sídney (UTC+11)</option>
+                    <option value="UTC">UTC</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+              <p class="ui-hint" id="profileMsg" role="status" aria-live="polite"></p>
+              <div class="modal-actions column">
+                <button type="submit" class="ui-btn ui-btn-primary">Guardar cambios</button>
+              </div>
+            </form>
+            <div class="note"><span class="ic sm">info</span><span>Los cambios se guardan directamente en tu cuenta de Moodle.</span></div>
+          </div>
+    </div>
+  </div>
+</main>
+</div>
+  <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" hidden>
+    <div class="modal-card">
+      <button class="icon-btn modal-close" data-close aria-label="Cancelar cambio"><span class="ic">close</span></button>
+      <div class="modal-head">
+        <div class="modal-ico"><span class="ic lg">verified_user</span></div>
+        <h2 id="confirmTitle">Confirmar eliminación</h2>
+      </div>
+      <p id="confirmText"></p>
+      <div class="note"><span class="ic sm">info</span><span>Esta acción no se puede deshacer.</span></div>
+      <div class="modal-actions"><button class="btn btn-tonal" data-confirm="no">Cancelar</button><button class="btn btn-filled" data-confirm="yes">Eliminar</button></div>
+    </div>
+  </div>
+  <script type="module" src="/static/js/views/settings.js"></script>
+</body>
+</html>

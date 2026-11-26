@@ -232,8 +232,10 @@ caben todas en la pantalla.
 - `index.html`: registro/ingreso a Moodle (redirige a `/chat/` con sesión activa).
 - `chat/index.html`: chat, barra lateral, historial, composer y modal de confirmación.
 - `settings/index.html`: redirige a `/settings/ai/`. Cada opción tiene su propia página:
-  `settings/ai/`, `settings/chats/`, `settings/help/` y `settings/tl/` (sin Moodle:
-  «Cerrar sesión» está en el menú). Todas conservan el menú lateral de la app.
+  `settings/profile/`, `settings/ai/`, `settings/chats/`, `settings/help/` y `settings/tl/`.
+  En **Perfil** se editan los datos reales de Moodle (nombre, apellido, nombre alternativo, identificación, correo, ciudad, país, zona horaria, institución, departamento, teléfonos, sitio web y descripción)
+  y se guardan con `core_user_update_users` tras confirmación. No hay sección de Moodle:
+  «Cerrar sesión» está en el menú. Todas conservan el menú lateral de la app.
 - `static/styles/`: CSS por capas (`tokens`, `components`, `landing`, `chat`, `settings`,
   `responsive`).
 - `static/js/`: módulos ES por responsabilidad (`core`, `moodle`, `ai`, `chat`, `settings`,

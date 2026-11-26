@@ -186,6 +186,9 @@ export function moodleWriteParams(fn, order) {
       "phone2",
       "url",
       "alternatename",
+      "idnumber",
+      "institution",
+      "department",
     ];
     const out = { "users[0][id]": S.moodleUserId };
     fields.forEach((k) => {
