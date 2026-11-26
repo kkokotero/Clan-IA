@@ -242,3 +242,11 @@ caben todas en la pantalla.
 
 `/temp/index.html` muestra todos los componentes que la IA puede devolver, con ejemplos de iconos,
 formularios, tablas, pestañas y botones. Es una vista de desarrollo; no está enlazada en el menú.
+
+## Agregar una herramienta de la IA
+
+1. Crea `static/js/ai/tools/<id>.js` con `run(order, ctx)`.
+2. Añade una entrada en `static/js/ai/tools/registry.js` con `marker`, descripción, ejemplo y `load: () => import('./<id>.js')`.
+3. Listo: el bucle la detecta y la carga solo cuando el modelo la usa, y el prompt se genera desde el registro.
+
+Las implementaciones antiguas siguen en `moodle/client.js`, `moodle/tools.js` y `ai/device.js`; los módulos del registro son envoltorios delgados que se importan de forma dinámica.

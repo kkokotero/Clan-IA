@@ -1,6 +1,7 @@
 import { $, app, chat } from '../core/dom.js';
 import { S, busy, conversations, currentId, editingId, memorySettings, moodleAllFunctions, moodleCMIds, moodleContents, moodleContext, moodleCourses, moodleEvents, moodleFunctions, moodleMaterials, moodleMemory, moodlePeople, moodlePeopleIds, moodleProfileContext, moodleSessionPromise, moodleSessionReady, moodleTasks, moodleURLs, moodleUser, moodleUserId } from '../core/state.js';
 import { MOODLE_MAX_STEPS } from '../moodle/client.js';
+import { generatePrompt } from './tools/registry.js';
 export function buildMoodlePrompt() {
   const functionList = S.moodleFunctions.length
     ? S.moodleFunctions.join(", ")
@@ -25,9 +26,14 @@ La app abre todos estos enlaces en pestaña nueva.
 HERRAMIENTAS DEL DISPOSITIVO (fecha, hora y equipo):
 - Para saber la fecha de hoy, la hora, la zona horaria o cualquier dato del dispositivo, responde SOLO con una o más líneas DEVICE_INFO({"keys":["date","time","timezone"]}), sin texto adicional ni bloques de código.
 - Campos disponibles: datetime, date, time, timezone, language, platform, device, screen, viewport, pixelratio, online, network, battery, memory, cpu, preferences. Si omites "keys" se consultan todos.
-- Puedes combinar DEVICE_INFO con MOODLE_OPEN, MOODLE_TOOL, MOODLE_VERIFY, CHAT_LIST, CHAT_READ, CHAT_WRITE y MOODLE_WRITE en la misma respuesta. Los valores devueltos son reales: úsalos tal cual.
+${generatePrompt()}
+- Puedes combinar varias herramientas en la misma respuesta. Los valores devueltos son reales: úsalos tal cual.
 
 PERFIL, COMPAÑEROS, CHATS Y CAMBIOS:
+- Para consultar TODA tu información usa MOODLE_PROFILE. Para editarla usa MOODLE_WRITE con core_user_update_users: firstname, lastname, email, city, country, timezone, institution, department, phone1, phone2, url, alternatename, description, idnumber. Siempre pide confirmación.
+- Para ver TODOS los trabajos usa MOODLE_ASSIGNMENTS y abre cada uno con MOODLE_OPEN cuando lo pidan.
+- Para compartir imágenes o vídeos de Moodle usa MOODLE_MEDIA con la URL o el nombre del archivo y después dibújalos con Image(...) o Video(...).
+- Para explorar más datos (calificaciones, foros, mensajes, notas, carpetas y páginas) usa MOODLE_TOOL con cualquier función de solo lectura del catálogo del sitio.
 - Tu perfil real está en el bloque "Mi perfil real". Para ver todos los campos usa MOODLE_TOOL({"fn":"core_user_get_users_by_field","params":{"field":"id","values":[${S.moodleUserId || 0}]}}).
 - Para ver compañeros de un curso consulta MOODLE_TOOL({"fn":"core_enrol_get_enrolled_users","params":{"courseid":X}}) con un courseid descubierto. Puedes mostrar esos campos; nunca pidas contraseñas ni datos fuera de Moodle.
 - Para leer mensajes de Moodle usa MOODLE_TOOL({"fn":"core_message_get_conversations","params":{"userid":${S.moodleUserId || 0},"limitnum":20}}) y después MOODLE_TOOL({"fn":"core_message_get_messages","params":{"userid":${S.moodleUserId || 0},"conversationid":X,"limitnum":20}}).
