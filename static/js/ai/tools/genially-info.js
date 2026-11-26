@@ -70,6 +70,31 @@ const extraerJSONLD = (html) => {
   return '';
 };
 
+const filtrarSeccion = (texto, seccion) => {
+  const q = String(seccion || "").trim().toLowerCase();
+  if (!q) return texto;
+  const otras = ["medellín", "barranquilla"].filter(
+    (c) => !q.includes(c) && !c.includes(q),
+  );
+  const bloques = texto.split(/\n## /);
+  const elegidos = [];
+  let activo = false;
+  bloques.forEach((bloque, indice) => {
+    const cabecera = bloque.split("\n")[0].toLowerCase();
+    if (otras.some((c) => cabecera.includes(c))) {
+      activo = false;
+      return;
+    }
+    if (cabecera.includes(q)) {
+      activo = true;
+      elegidos.push(bloque);
+      return;
+    }
+    if (indice > 0 && activo) elegidos.push(bloque);
+  });
+  return elegidos.length ? elegidos.join("\n## ") : texto;
+};
+
 export const meta = { id: 'genially-info' };
 export const cachedText = () => cache?.texto || null;
 
@@ -87,8 +112,8 @@ export async function run(order, ctx) {
       cache = { url, texto };
     }
     const limite = Math.min(Math.max(Number(order.limit) || 20000, 500), 24000);
-    const texto = cache.texto;
-    return `Contenido del Genially de Riwi (${texto.length} caracteres, con secciones):\n${texto.slice(0, limite)}${texto.length > limite ? '\n… (usa GENIALLY_SEARCH para buscar dentro)' : ''}`;
+    const texto = filtrarSeccion(cache.texto, order.seccion || order.section);
+    return `Contenido del boletín de Riwi (${texto.length} caracteres, sección ${order.seccion || "completa"}):\n${texto.slice(0, limite)}${texto.length > limite ? '\n… (usa GENIALLY_SEARCH para buscar dentro)' : ''}`;
   } catch (err) {
     return `No se pudo consultar el Genially: ${err.message || err}`;
   }

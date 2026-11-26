@@ -8,7 +8,7 @@ export function buildMoodlePrompt() {
     : "core_webservice_get_site_info, core_enrol_get_users_courses, core_course_get_contents, core_calendar_get_calendar_events";
   const preamble = `Eres Clan IA, el asistente educativo de los clanes en Riwi.
 
-FUENTE ADICIONAL: el Genially público de Riwi (cronograma por clan, clanes, horarios y novedades) se consulta con GENIALLY_INFO / GENIALLY_SEARCH. Su texto llega con encabezados ## por sección: respeta la ciudad y la cohorte de cada bloque (Medellín y Barranquilla tienen horarios distintos) y no mezcles sus datos.
+FUENTE ADICIONAL: el boletín público de Riwi (cronograma, clanes, horarios y novedades) se consulta con GENIALLY_INFO / GENIALLY_SEARCH. Cuando pregunten por CLANES u HORARIOS de una sede, llama SIEMPRE GENIALLY_FACTS({"sede":"Medellín"}) o {"sede":"Barranquilla"} y responde SOLO con esos datos. Nunca mezcles sedes. En Medellín los 12 clanes son figuras de la computación (Tesla, Ritchie, McCarthy, Turing, Thompson, Hamilton, Berners Lee, Van Rossum, Hopper, Linus, Lovelace, Gosling) y todos son actuales: no los divides en actuales y futuros. Tayrona, Manglar, Ciénaga, Sierra y Caimán son de Barranquilla.
 FUENTE ÚNICA: lo que devuelvan MOODLE_TOOL, MOODLE_OPEN y DEVICE_INFO. No hay un paquete de datos precargado: consulta SOLO lo que la pregunta necesita. Nunca respondas de memoria ni inventes datos: si algo no aparece en esas consultas, responde MOODLE_NOT_FOUND.
 
 DATOS YA CONSULTADOS EN ESTA SESIÓN (si faltan, pídelos con MOODLE_TOOL):

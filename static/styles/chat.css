@@ -1923,3 +1923,10 @@ a.ui-btn {
 .msg .card-ui .ui-render { animation: expRise 0.25s var(--motion-expressive) both; }
 .stream-placeholder { animation: expRise 0.2s var(--motion-expressive) both; opacity: 0.85; }
 .card.is-streaming .ui-render { transition: opacity 0.18s var(--motion-standard); }
+
+/* Animaciones del anillo de carga (antes vivían solo en settings.css). */
+@keyframes orbit { to { transform: rotate(360deg); } }
+@keyframes ring-pulse {
+  0% { transform: scale(0.7); opacity: 0.9; }
+  70%, 100% { transform: scale(1.8); opacity: 0; }
+}

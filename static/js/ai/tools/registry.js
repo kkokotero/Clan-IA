@@ -119,9 +119,19 @@ export const TOOLS = [
     load: () => import('./moodle-search.js'),
   },
   {
+    id: 'genially-facts',
+    marker: 'GENIALLY_FACTS',
+    nombre: 'Datos del boletín',
+    descripcion:
+      'Devuelve clanes y horarios ya estructurados por sede. Úsalo para preguntas de clanes u horarios en lugar de leer texto plano.',
+    ejemplo: 'GENIALLY_FACTS({"sede":"Medellín"})',
+    necesita: null,
+    load: () => import('./genially-facts.js'),
+  },
+  {
     id: 'genially-info',
     marker: 'GENIALLY_INFO',
-    nombre: 'Genially de Riwi',
+    nombre: 'Boletín de Riwi',
     descripcion:
       'Lee el contenido público del Genially de Riwi: cronograma por clan, clanes, horarios semanales, salas, TL y novedades.',
     ejemplo: 'GENIALLY_INFO({})',
@@ -131,7 +141,7 @@ export const TOOLS = [
   {
     id: 'genially-search',
     marker: 'GENIALLY_SEARCH',
-    nombre: 'Buscar en el Genially',
+    nombre: 'Buscar en el boletín',
     descripcion:
       'Busca un término dentro del contenido del Genially ya consultado, con contexto.',
     ejemplo: 'GENIALLY_SEARCH({"q":"Cronograma"})',
