@@ -119,6 +119,26 @@ export const TOOLS = [
     load: () => import('./moodle-search.js'),
   },
   {
+    id: 'genially-info',
+    marker: 'GENIALLY_INFO',
+    nombre: 'Genially de Riwi',
+    descripcion:
+      'Lee el contenido público del Genially de Riwi: cronograma por clan, clanes, horarios semanales, salas, TL y novedades.',
+    ejemplo: 'GENIALLY_INFO({})',
+    necesita: null,
+    load: () => import('./genially-info.js'),
+  },
+  {
+    id: 'genially-search',
+    marker: 'GENIALLY_SEARCH',
+    nombre: 'Buscar en el Genially',
+    descripcion:
+      'Busca un término dentro del contenido del Genially ya consultado, con contexto.',
+    ejemplo: 'GENIALLY_SEARCH({"q":"Cronograma"})',
+    necesita: null,
+    load: () => import('./genially-search.js'),
+  },
+  {
     id: 'device-info',
     marker: 'DEVICE_INFO',
     nombre: 'Fecha, hora y dispositivo',

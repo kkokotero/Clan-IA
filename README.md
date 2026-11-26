@@ -245,8 +245,10 @@ formularios, tablas, pestañas y botones. Es una vista de desarrollo; no está e
 
 ## Agregar una herramienta de la IA
 
-1. Crea `static/js/ai/tools/<id>.js` con `run(order, ctx)`. Hay 16 herramientas, entre ellas `MOODLE_PROFILE`, `MOODLE_ASSIGNMENTS` y `MOODLE_MEDIA`.
+1. Crea `static/js/ai/tools/<id>.js` con `run(order, ctx)`. Hay 18 herramientas, entre ellas `MOODLE_PROFILE`, `MOODLE_ASSIGNMENTS` y `MOODLE_MEDIA`.
 2. Añade una entrada en `static/js/ai/tools/registry.js` con `marker`, descripción, ejemplo y `load: () => import('./<id>.js')`.
 3. Listo: el bucle la detecta y la carga solo cuando el modelo la usa, y el prompt se genera desde el registro.
 
 Las implementaciones antiguas siguen en `moodle/client.js`, `moodle/tools.js` y `ai/device.js`; los módulos del registro son envoltorios delgados que se importan de forma dinámica.
+
+Fuente adicional: `GENIALLY_INFO` y `GENIALLY_SEARCH` consultan el Genially público de Riwi (cronograma por clan, horarios, clanes y novedades) usando el JSON-LD que publica la página.
