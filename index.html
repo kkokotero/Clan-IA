@@ -31,8 +31,8 @@
             </div>
             <h1 class="landing-title" id="landingTitle">Clan IA</h1>
             <p class="landing-subtitle">Tu asistente educativo, conectado a tus cursos.</p>
-            <p class="landing-lede">Entra con tu cuenta y pregúntale lo que necesites: sesiones, tareas, materiales y
-              fechas de entrega.</p>
+            <p class="landing-lede">Entra con tu cuenta de Moodle y pregúntale lo que necesites: sesiones, tareas,
+              materiales y fechas de entrega.</p>
             <ul class="landing-points">
               <li>
                 <span class="ic" aria-hidden="true">school</span>
@@ -50,22 +50,37 @@
           </div>
 
           <div class="landing-card">
-            <h2 class="landing-card-title">Ingresa</h2>
-            <p class="landing-card-sub">Usa tu usuario y contraseña.</p>
-            <form class="ui-form ui-form-settings" id="moodleForm" autocomplete="off">
+            <div class="landing-card-head">
+              <span class="exp-tile secondary"><span class="ic">school</span></span>
+              <div>
+                <h2 class="landing-card-title">Ingresa con Moodle</h2>
+                <p class="landing-card-sub">Con tu usuario y contraseña de Moodle.</p>
+              </div>
+            </div>
+            <form class="ui-form ui-form-settings form-expressive" id="moodleForm" autocomplete="off">
               <label class="ui-field">
                 <span class="ui-label">Usuario</span>
-                <input class="ui-input" id="moodleUsername" type="text" autocomplete="username" spellcheck="false"
-                  placeholder="nombre de usuario" required />
+                <span class="ui-input-wrap">
+                  <span class="ic sm">person</span>
+                  <input class="ui-input" id="moodleUsername" type="text" autocomplete="username" spellcheck="false"
+                    placeholder="nombre de usuario" required />
+                </span>
               </label>
               <label class="ui-field">
                 <span class="ui-label">Contraseña</span>
-                <input class="ui-input" id="moodlePassword" type="password" autocomplete="current-password"
-                  placeholder="••••••••" required />
+                <span class="ui-input-wrap">
+                  <span class="ic sm">lock</span>
+                  <input class="ui-input" id="moodlePassword" type="password" autocomplete="current-password"
+                    placeholder="••••••••" required />
+                  <button class="ui-input-action" id="togglePassword" type="button"
+                    aria-label="Mostrar contraseña" aria-pressed="false">
+                    <span class="ic sm">visibility</span>
+                  </button>
+                </span>
               </label>
               <p class="landing-status" id="moodleStatus" role="status" aria-live="polite" hidden></p>
               <div class="landing-form-actions">
-                <button type="submit" class="ui-btn ui-btn-primary">Ingresar</button>
+                <button type="submit" class="ui-btn ui-btn-primary"><span class="ic sm">login</span> Ingresar</button>
               </div>
             </form>
           </div>
@@ -73,7 +88,6 @@
       </section>
 </main>
 </div>
-<p class="page-foot">¿Necesitas configurar la IA? <a href="/settings/?tab=ia">Abrir configuración</a></p>
   <script type="module" src="/static/js/views/register.js"></script>
 </body>
 </html>

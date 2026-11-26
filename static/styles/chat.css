@@ -737,7 +737,6 @@
 /* Formularios personalizados: los mismos componentes en el chat y en la configuración */
 .ui-form {
   display: grid;
-  gap: 20px;
   min-width: 0;
 }
 .ui-field {

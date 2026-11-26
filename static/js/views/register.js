@@ -3,7 +3,23 @@ import { S, busy, conversations, currentId, editingId, getMoodle, memorySettings
 import { moodleLogin } from '../moodle/client.js';
 import { setMoodleStatus } from '../moodle/session.js';
 if (getMoodle().token) window.location.replace('/chat/');
+if (new URLSearchParams(window.location.search).get('moodle') === 'renovar')
+  setMoodleStatus('Tu sesión de Moodle venció. Vuelve a ingresar para renovarla.');
 export function initRegister() {
+  /* Mostrar / ocultar la contraseña escrita. */
+  const toggle = $("#togglePassword");
+  toggle?.addEventListener("click", () => {
+    const pwd = $("#moodlePassword");
+    if (!pwd) return;
+    const visible = pwd.type === "password";
+    pwd.type = visible ? "text" : "password";
+    toggle.setAttribute("aria-pressed", String(visible));
+    toggle.setAttribute("aria-label", visible ? "Ocultar contraseña" : "Mostrar contraseña");
+    const icon = toggle.querySelector(".ic");
+    if (icon) icon.textContent = visible ? "visibility_off" : "visibility";
+    pwd.focus();
+  });
+
   $("#moodleForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('[type="submit"]');
@@ -33,13 +49,23 @@ export function initRegister() {
       pendiente ? `/chat/?chat=${encodeURIComponent(pendiente)}` : '/chat/',
     );
     } catch (err) {
-      const msg = String(err.message || err);
-      const detail = /invalidlogin|acceso inválido|contraseña|usuario/i.test(msg)
-        ? "Revisa tu usuario y contraseña."
-        : /contexto de curso|no accesible/i.test(msg)
-          ? "Tu cuenta no tiene acceso a todos los cursos del sitio; ya solo consultamos tus cursos matriculados. Si persiste, pide al TL que active los servicios web."
-          : "Revisa tus credenciales y que los servicios web estén activos.";
-      setMoodleStatus(`No se pudo ingresar: ${msg} ${detail}`, true);
+      const raw = String(err.message || err).trim();
+      let titulo = "No se pudo iniciar sesión";
+      let detalle = "Revisa tus credenciales e inténtalo de nuevo. Si persiste, contacta al TL.";
+      if (/invalidlogin|invalid login|acceso inválido|contraseña|usuario|wrong password|invalid credentials/i.test(raw)) {
+        titulo = "Usuario o contraseña incorrectos";
+        detalle = "Verifica tus datos de Moodle e inténtalo otra vez.";
+      } else if (/contexto de curso|no accesible|course id/i.test(raw)) {
+        titulo = "Tu cuenta no tiene acceso a todos los cursos";
+        detalle = "Solo consultamos tus cursos matriculados. Si persiste, pide al TL que revise los permisos.";
+      } else if (/servicio|webservice|not enabled|disabled|403|404/i.test(raw)) {
+        titulo = "Moodle no permite el ingreso por servicios web";
+        detalle = "Pide al Team Leader que active los servicios web para tu cuenta.";
+      } else if (/red|network|fetch|failed|timeout|offline|cors/i.test(raw)) {
+        titulo = "No pudimos conectar con Moodle";
+        detalle = "Revisa tu conexión e inténtalo de nuevo.";
+      }
+      setMoodleStatus(`${titulo}. ${detalle}`, true);
     } finally {
       btn.innerHTML = originalLabel;
       btn.disabled = false;

@@ -16,10 +16,20 @@ export async function moodleRequest(fn, params = {}) {
     body: body.toString(),
     credentials: "omit",
   });
+  const sesionVencida = () => {
+    clearMoodle();
+    try { window.location.assign('/?moodle=renovar'); } catch (e) {}
+    return new Error('Tu sesión de Moodle venció. Vuelve a ingresar para renovarla.');
+  };
+  if (res.status === 401) throw sesionVencida();
   if (!res.ok) throw new Error(`Moodle respondió HTTP ${res.status}`);
   const data = await res.json().catch(() => ({}));
-  if (data && data.exception)
+  if (data && data.exception) {
+    const code = String(data.errorcode || data.exception || '');
+    if (/invalidtoken|expired|accessexception|token.*invalid|invalid.*token/i.test(code))
+      throw sesionVencida();
     throw new Error(data.message || String(data.exception));
+  }
   return data;
 }
 

@@ -21,15 +21,20 @@
     grid-row: 1;
     transform: none;
   }
-  /* En pantallas estrechas las dos columnas se apilan */
+  /* En móvil solo se muestra el formulario de ingreso */
+  .landing-hero,
+  .page-foot {
+    display: none;
+  }
   .landing-inner {
-    max-width: 640px;
+    max-width: 460px;
     grid-template-columns: 1fr;
-    gap: 28px;
-    padding: 32px 20px 48px;
+    padding: 20px 16px;
+    align-items: center;
+    justify-content: center;
   }
   .landing-card {
-    max-width: 380px;
+    max-width: 100%;
     margin: 0 auto;
   }
 
