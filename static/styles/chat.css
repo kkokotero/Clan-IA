@@ -1866,3 +1866,34 @@ a.ui-btn {
 }
 .ui-figure .plyr__video-embed { width: 100%; aspect-ratio: 16 / 9; position: relative; }
 .ui-figure .plyr--video { --plyr-color-main: var(--primary); font-family: inherit; }
+
+/* Calendario, kanban, línea de tiempo y gráficos. */
+.ui-calendar { border: 1px solid var(--outline-variant); border-radius: var(--shape-sm); overflow: hidden; background: var(--surface-low); }
+.ui-cal-head { padding: 12px 14px; border-bottom: 1px solid var(--outline-variant); background: var(--primary-container); color: var(--on-primary-container); text-transform: capitalize; }
+.ui-cal-head b { font-size: 1rem; }
+.ui-cal-semana { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--on-surface-variant); padding: 8px 0; }
+.ui-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--outline-variant); }
+.ui-cal-dia { min-height: 76px; padding: 6px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; }
+.ui-cal-dia.vacio { background: var(--surface-low); }
+.ui-cal-num { font-size: 0.75rem; color: var(--on-surface-variant); }
+.ui-cal-evento { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px; border-radius: var(--shape-xs); background: var(--primary-container); color: var(--on-primary-container); font-size: 0.7rem; line-height: 1.25; }
+.ui-cal-evento b { font-weight: 600; }
+.ui-cal-evento small { width: 100%; opacity: 0.8; }
+.ui-kanban { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: start; }
+.ui-kan-col { padding: 12px; border: 1px solid var(--outline-variant); border-radius: var(--shape-sm); background: var(--surface-low); }
+.ui-kan-col h4 { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; font-size: 0.875rem; font-weight: 600; color: var(--primary); }
+.ui-kan-card { margin-bottom: 8px; padding: 10px 12px; border: 1px solid var(--outline-variant); border-radius: var(--shape-xs); background: var(--surface); box-shadow: var(--e1); }
+.ui-kan-card b { font-size: 0.875rem; }
+.ui-kan-card p { margin-top: 4px; font-size: 0.8rem; color: var(--on-surface-variant); }
+.ui-kan-tag { display: inline-block; margin-top: 8px; padding: 2px 8px; border-radius: var(--shape-pill); background: var(--secondary-container); color: var(--on-secondary-container); font-size: 0.7rem; }
+.ui-timeline { display: grid; gap: 0; }
+.ui-tl-item { position: relative; display: flex; gap: 14px; padding-bottom: 18px; }
+.ui-tl-item:not(:last-child)::before { content: ""; position: absolute; left: 15px; top: 32px; bottom: 0; width: 2px; background: var(--outline-variant); }
+.ui-tl-punto { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; background: var(--primary-container); color: var(--primary); z-index: 1; }
+.ui-tl-body { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }
+.ui-tl-fecha { font-size: 0.75rem; font-weight: 600; color: var(--primary); }
+.ui-tl-body b { font-size: 0.9375rem; }
+.ui-tl-body p { color: var(--on-surface-variant); font-size: 0.85rem; }
+.ui-chart { position: relative; width: 100%; min-height: 260px; padding: 12px; border: 1px solid var(--outline-variant); border-radius: var(--shape-sm); background: var(--surface-low); }
+.ui-chart:not(.listo) .ui-chart-fallback { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.85rem; color: var(--on-surface-variant); }
+.ui-chart.listo .ui-chart-fallback { display: none; }

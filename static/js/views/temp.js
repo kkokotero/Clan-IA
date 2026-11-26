@@ -3,6 +3,14 @@ import { renderProgramInto } from '../chat/render.js';
 import { $, escapeHTML } from '../core/dom.js';
 
 const MUESTRAS = [
+  ['Calendario', `root = Card([cal])
+cal = Calendar("2026-11", [CalendarEvent("2026-11-26", "Sesión de IA", "19:00", "calendar_month"), CalendarEvent("2026-11-28", "Entrega", "Proyecto final", "assignment")])`],
+  ['Kanban', `root = Card([k])
+k = Kanban([KanbanColumn("Por hacer", [KanbanCard("Diseñar UI", "Material 3", "diseño"), KanbanCard("Revisar datos", "Moodle", "datos")], "list"), KanbanColumn("En curso", [KanbanCard("Implementar charts", "Chart.js", "código")], "bolt")])`],
+  ['Línea de tiempo', `root = Card([tl])
+tl = Timeline([TimelineItem("Lunes", "Inicio", "Preparación", "event"), TimelineItem("Miércoles", "Avance", "Primer borrador", "check_circle"), TimelineItem("Viernes", "Entrega", "Cierre", "flag")])`],
+  ['Gráfico', `root = Card([ch])
+ch = Chart("bar", [ChartData("Lunes", 3), ChartData("Martes", 5), ChartData("Miércoles", 2)], "Actividades por día")`],
   ['Reproductor de vídeo personalizado', `root = Card([v])
 v = Video("https://www.youtube.com/watch?v=aqz-KE-bpKQ", "Reproductor listo para usar de YouTube (sin configuración)")`],
   ['Grid de contenido', `root = Card([g])

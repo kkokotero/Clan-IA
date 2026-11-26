@@ -2,6 +2,7 @@ import { cleanResponse } from '../ai/providers.js';
 import { ask } from './flow.js';
 import { initDropdowns } from './components/dropdown.js';
 import { initPlayers } from './components/player.js';
+import { initCharts } from './components/charts.js';
 import { branchSiblings } from './model.js';
 import { $, LOGO_MINI, chat, escapeHTML, form, icon, input, messagesEl } from '../core/dom.js';
 import { S, busy, conversations, currentId, editingId, memorySettings, moodleAllFunctions, moodleCMIds, moodleContents, moodleContext, moodleCourses, moodleEvents, moodleFunctions, moodleMaterials, moodleMemory, moodlePeople, moodlePeopleIds, moodleProfileContext, moodleSessionPromise, moodleSessionReady, moodleTasks, moodleURLs, moodleUser, moodleUserId } from '../core/state.js';
@@ -191,6 +192,7 @@ export function renderProgramInto(mount, program) {
     mount.innerHTML = renderNode(card);
     initDropdowns(mount);
     initPlayers(mount);
+    initCharts(mount);
     return true;
   } catch (err) {
     mount.innerHTML = `<p class="ui-fallback">${escapeHTML(programToText(program) || "No se pudo mostrar la interfaz.")}</p>`;
@@ -257,6 +259,7 @@ export function renderPartialProgram(mount, program) {
     mount.innerHTML = html;
     initDropdowns(mount);
     initPlayers(mount);
+    initCharts(mount);
     return true;
   } catch (err) {
     return false;

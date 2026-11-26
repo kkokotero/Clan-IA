@@ -4,6 +4,8 @@ import './layout.js';
 import './data.js';
 import './forms.js';
 import './media.js';
+import './visual.js';
+import './charts.js';
 
 export { renderNode, renderButtons, renderChildren } from './registry.js';
 export {

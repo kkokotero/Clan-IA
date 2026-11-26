@@ -89,6 +89,10 @@ ESPECIFICACIÓN DE COMPONENTES (sintaxis exacta, un componente por línea):
 - LinkButton("Etiqueta", "URL", "primary"|"secondary"|"tertiary", icono?) — botón que abre un enlace.
 - Image("URL", "texto alternativo", "pie"?) / Video("URL", "pie"?) — solo con URLs reales de Moodle o de la app. El reproductor de vídeo es propio de la app (motor Plyr): ofrece progreso, contador, volumen, velocidad y pantalla completa tanto para vídeos directos como para YouTube/Vimeo.
 - Grid("columnas", [componentes]) — organiza cualquier contenido en 1 a 4 columnas; en móvil se apila.
+- Calendar("YYYY-MM", [CalendarEvent("YYYY-MM-DD", "título", "detalle"?, icono?), ...]) — calendario mensual.
+- Kanban([KanbanColumn("Columna", [KanbanCard("tarea", "detalle"?, "etiqueta"?), ...], icono?), ...]) — tablero de columnas.
+- Timeline([TimelineItem("fecha", "título", "detalle"?, icono?), ...]) — línea de tiempo.
+- Chart("bar"|"line"|"pie"|"doughnut", [ChartData("etiqueta", numero), ...], "título"?) — gráfico con ejes y colores de la app. Solo con valores reales de los datos consultados.
 - FollowUpBlock([FollowUpItem("pregunta", icono?), ...])
 Ejemplo de forma (sin datos inventados):
 root = Card([h, t])
