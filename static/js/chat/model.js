@@ -46,7 +46,7 @@ export function addNode(node, parentId = undefined) {
 
 /* ---------- Estado vacío: saludo y acciones rápidas variables ---------- */
 export const WELCOMES = [
-  "¡Hola! Soy Ritchie AI, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
+  "¡Hola! Soy Clan IA, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
   "¡Qué gusto verte! Pregúntame lo que necesites saber de la cohorte.",
   "Estoy aquí para ayudarte con sesiones, entregas, actividades y proyectos. ¿Por dónde empezamos?",
   "¡Hola! Cuéntame qué necesitas y lo busco en los materiales de la cohorte.",

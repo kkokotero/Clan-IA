@@ -255,7 +255,7 @@ export function initSettings() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'ritchie-ia-historial.json';
+    link.download = 'clan-ia-historial.json';
     document.body.appendChild(link);
     link.click();
     link.remove();

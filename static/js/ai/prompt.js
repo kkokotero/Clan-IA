@@ -14,7 +14,7 @@ head = CardHeader("Mis datos de Moodle", "Información real de tu cuenta")
 summary = TextContent(${JSON.stringify(sample)}, "default")
 next = FollowUpBlock([q1])
 q1 = FollowUpItem("Ver mis materiales de Moodle")`;
-  const preamble = `Eres Ritchie AI, el asistente educativo de la cohorte Ritchie en Riwi.
+  const preamble = `Eres Clan IA, el asistente educativo de los clanes en Riwi.
 
 FUENTE ÚNICA: lo que devuelvan MOODLE_TOOL, MOODLE_OPEN y DEVICE_INFO. No hay un paquete de datos precargado: consulta SOLO lo que la pregunta necesita. Nunca respondas de memoria ni inventes datos: si algo no aparece en esas consultas, responde MOODLE_NOT_FOUND.
 

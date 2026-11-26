@@ -1,4 +1,4 @@
-# Ritchie AI — asistente con IA **gratuita** (solo frontend)
+# Clan IA — asistente con IA **gratuita** (solo frontend)
 
 Asistente educativo de la cohorte que llama **directamente desde el navegador** a modelos
 gratuitos de [Google Gemini](https://aistudio.google.com/apikey) u
@@ -50,7 +50,7 @@ no carga, se usa un prompt mínimo y las respuestas siguen viéndose con la est�
    cambiar entre versiones dentro del mismo chat.
 
 La clave se guarda en `localStorage` de tu navegador (en tu máquina, sin servidor), bajo la
-clave `ritchie-ia-config-ia`. El perfil muestra el estado (`IA activa · …` o `Configurar IA`).
+clave `ritchie-ia-config-ia`. El perfil abre la configuración de IA.
 Puedes quitarla cuando quieras con **Quitar key**.
 
 ## Ingresar a Moodle (obligatorio para el chat)

@@ -489,7 +489,7 @@ export function cardHTML(msg) {
     ? `<div class="preamble">${msg.preamble}</div>`
     : "";
   if (msg.pending) {
-    return `${preamble}<div class="card card-pending"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Ritchie AI está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span></div></div>`;
+    return `${preamble}<div class="card card-pending"><div class="thinking"><span class="dots"><i></i><i></i><i></i></span><span class="thinking-label">Clan IA está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span></div></div>`;
   }
   if (msg.type === "openui") {
     return `${preamble}<div class="card card-ui"><div class="ui-render"></div></div>`;
@@ -542,7 +542,7 @@ export function cardHTML(msg) {
 }
 
 export function piiWarningHTML() {
-  return `<div class="pii-warning">${icon("security", "lg")} <div><b>Protección de datos personales</b><p>Hemos detectado datos personales en tu mensaje. Por tu seguridad, fueron ocultados automáticamente. Ritchie AI nunca solicita ni almacena datos personales.</p></div></div>`;
+  return `<div class="pii-warning">${icon("security", "lg")} <div><b>Protección de datos personales</b><p>Hemos detectado datos personales en tu mensaje. Por tu seguridad, fueron ocultados automáticamente. Clan IA nunca solicita ni almacena datos personales.</p></div></div>`;
 }
 
 export function msgActionsHTML(node) {
@@ -610,7 +610,7 @@ export function showThinking() {
     LOGO_MINI +
     `<div class="thinking">
     <span class="dots"><i></i><i></i><i></i></span>
-    <span class="thinking-label">Ritchie AI está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span>
+    <span class="thinking-label">Clan IA está escribiendo<span class="thinking-ring" aria-hidden="true"></span></span>
   </div>`;
   messagesEl.appendChild(wrap);
   scrollDown();

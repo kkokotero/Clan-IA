@@ -153,7 +153,7 @@ export async function callOpenRouter(question, settings, system) {
       "HTTP-Referer":
         (typeof location !== "undefined" && location.origin) ||
         "https://localhost",
-      "X-Title": "Ritchie AI",
+      "X-Title": "Clan IA",
     },
     body: JSON.stringify({
       model: settings.model,
@@ -310,7 +310,7 @@ export async function streamOpenRouter(question, settings, system, onChunk) {
       "HTTP-Referer":
         (typeof location !== "undefined" && location.origin) ||
         "https://localhost",
-      "X-Title": "Ritchie AI",
+      "X-Title": "Clan IA",
     },
     body: JSON.stringify({
       model: settings.model,

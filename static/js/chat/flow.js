@@ -201,7 +201,7 @@ export async function respond(
         title: "Conecta tu asistente con una IA",
         question,
         message:
-          "Falta la API key. Pídele a Ritchie AI una key gratuita de Google Gemini o OpenRouter y guárdala en tu perfil para empezar a preguntar.",
+          "Falta la API key. Pídele a Clan IA una key gratuita de Google Gemini o OpenRouter y guárdala en tu perfil para empezar a preguntar.",
       };
     }
   } catch (err) {
